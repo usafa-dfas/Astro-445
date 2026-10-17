@@ -1,0 +1,1838 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Polhode Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console. Control rail | omega-space viewport over omega(t) strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --sunken: #e1e5ea;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --energy: #cc2b26;
+  --momentum: #2257c2;
+  --omega: #c97a00;
+  --on-omega: #1a1305;
+  --family: #9ba4ae;
+  --sep: #5d6774;
+  --hvec: #47515d;
+  --c1: #1b8655;
+  --c2: #7340c2;
+  --c3: #08808f;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --sunken: #1b2129; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --energy: #ff5d51; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
+    --family: #545e6a; --sep: #9ba5b1; --hvec: #b8c0ca;
+    --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --sunken: #1b2129; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --energy: #ff5d51; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
+  --family: #545e6a; --sep: #9ba5b1; --hvec: #b8c0ca;
+  --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 292px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+h1 .sym { font-size: 30px; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 76ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail {
+  min-height: 0; overflow: auto;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  scrollbar-width: thin;
+}
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.warn { margin: 0; font-size: 13.5px; color: var(--energy); font-weight: 500; }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+.up { font-family: var(--f-math); font-style: normal; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 34px minmax(0, 1fr) 70px; gap: 8px; align-items: center; }
+.slider.roleful { grid-template-columns: 34px minmax(0, 1fr) 66px 70px; }
+.slider label { white-space: nowrap; }
+.slider .tag { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); line-height: 1.1; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--c, var(--ink)); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.ax1 { --c: var(--c1); } .ax2 { --c: var(--c2); } .ax3 { --c: var(--c3); }
+.ax1 label, .ax2 label, .ax3 label { color: var(--c); font-weight: 600; }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+a.btn { text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--omega); border-color: var(--omega); color: var(--on-omega); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+:focus-visible { outline: 2px solid var(--omega); outline-offset: 2px; }
+
+.moi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.moi-grid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.moi-grid .btn small { font-family: var(--f-math); font-style: italic; font-size: 13px; opacity: .8; font-weight: 400; }
+
+.spin-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 6px; align-items: center; }
+.spin-grid .colh { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); text-align: center; }
+.spin-grid .rowh { font-weight: 600; font-size: 14px; padding-right: 6px; white-space: nowrap; }
+.spin-grid .rowh .ax { font-weight: 500; color: var(--muted); margin-left: 3px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
+.check .sw { width: 14px; height: 4px; border-radius: 2px; background: var(--sw); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 216px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.viewport { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 18px; }
+.vlabel .role { margin-left: 5px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.vlabel.tip { --c: var(--omega); }
+.vlabel.hl { --c: var(--hvec); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.legend { left: 10px; top: 10px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 13.5px; font-weight: 500; padding: 4px 10px 4px 7px; border-radius: 999px;
+  border: 1px solid var(--rule); background: var(--panel); color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 13px; height: 13px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 62%; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.seg .btn[aria-pressed="true"] { background: var(--ink); }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.regime-pill {
+  display: block;
+  left: 10px; bottom: 10px; max-width: min(64%, 520px);
+  padding: 6px 11px; border-radius: 6px; border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  font-size: 14px; font-weight: 600; line-height: 1.25;
+}
+.hint { right: 10px; bottom: 10px; font-size: 12.5px; color: var(--muted); text-align: right; max-width: 34%; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 200px; flex: 0 1 280px; }
+.transport .speed label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.tclock { margin-left: auto; font-size: 15px; }
+.tclock .sym { font-size: 17px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.hist-head .spacer { flex: 1; }
+.hist-head .hint2 { font-size: 12px; color: var(--muted); }
+.hchip { padding: 2px 9px 2px 6px; font-size: 13px; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.regime-card { display: grid; gap: 5px; }
+.regime-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.regime-card .rs { font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.kv .c1 { color: var(--c1); } .kv .c2 { color: var(--c2); } .kv .c3 { color: var(--c3); }
+
+.dscale { position: relative; height: 54px; margin: 4px 6px 0; }
+.dscale .zone { position: absolute; top: 20px; height: 8px; }
+.dscale .zmin { left: 0; background: color-mix(in srgb, var(--muted) 22%, transparent); border-radius: 4px 0 0 4px; }
+.dscale .zmaj { right: 0; background: color-mix(in srgb, var(--muted) 42%, transparent); border-radius: 0 4px 4px 0; }
+.dscale .tick { position: absolute; top: 16px; width: 0; height: 16px; border-left: 1.5px solid var(--ink); }
+.dscale .tick > span { position: absolute; top: 18px; left: 0; transform: translateX(-50%); white-space: nowrap; font-size: 12px; color: var(--muted); }
+.dscale .tick > span .sym { color: var(--ink); }
+.dscale .dmark { position: absolute; top: 0; width: 0; height: 30px; border-left: 2px solid var(--omega); }
+.dscale .dmark > span { position: absolute; top: -2px; left: 4px; font-family: var(--f-math); font-style: italic; font-weight: 600; font-size: 15px; color: var(--omega); }
+.dscale-cap { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+table.axes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.axes th { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0 0 6px; line-height: 1.15; }
+table.axes th:first-child, table.axes td:first-child { text-align: left; }
+table.axes th.e { color: var(--energy); } table.axes th.m { color: var(--momentum); }
+table.axes td { font-family: var(--f-num); font-size: 13px; text-align: right; padding: 4px 0; border-top: 1px solid var(--rule); }
+table.axes td:first-child { font-family: var(--f-ui); font-weight: 600; font-size: 14px; }
+table.axes tr.r1 td:first-child { color: var(--c1); } table.axes tr.r2 td:first-child { color: var(--c2); } table.axes tr.r3 td:first-child { color: var(--c3); }
+
+.eqs { display: grid; gap: 8px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs .lab.e { color: var(--energy); } .eqs .lab.m { color: var(--momentum); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 260px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app {
+    height: auto;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "top top" "ctl stage" "ctl ana";
+    align-items: start;
+  }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(66vh, 660px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .analysis .group { border-bottom: 1px solid var(--rule); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: min(64vh, 520px) auto 210px; }
+  .hint, .hist-head .hint2 { display: none; }
+  .viewbar { max-width: 58%; }
+  .legend .chip { font-size: 12.5px; padding: 3px 8px 3px 6px; }
+  .regime-pill { max-width: calc(100% - 20px); font-size: 13px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">Spacecraft attitude dynamics · torque-free rigid body</div>
+      <h1>Polhode Explorer</h1>
+    </div>
+    <p class="lede">Angular velocity space in the principal-axis frame. With no external torque, <span class="sym">T</span> and <span class="sym">H</span> are constant, so the tip of <span class="sym">ω</span> must lie on both the energy ellipsoid and the momentum ellipsoid. It travels along their intersection: the polhode.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Reset to ω(0)</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd></dt><dd>Isometric view</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Look down a principal axis</dd>
+            <dt><kbd>O</kbd></dt><dd>Perspective / orthographic</dd>
+            <dt>Mouse</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Principal moments of inertia <span class="unit">kg·m²</span></h2>
+      <div class="moi-grid" id="moiGrid">
+        <button class="btn" type="button" data-moi="tri">Tri-inertial<small>I₁ ≠ I₂ ≠ I₃</small></button>
+        <button class="btn" type="button" data-moi="oblate">Axisymmetric, oblate<small>I₁ = I₂ &lt; I₃</small></button>
+        <button class="btn" type="button" data-moi="prolate">Axisymmetric, prolate<small>I₁ &lt; I₂ = I₃</small></button>
+        <button class="btn" type="button" data-moi="iso">Isoinertial<small>I₁ = I₂ = I₃</small></button>
+      </div>
+      <div class="slider roleful ax1">
+        <label for="I1r"><span class="sym">I</span><sub class="n">1</sub></label>
+        <input type="range" id="I1r" min="0.1" max="10" step="0.01" aria-label="I1 slider">
+        <input type="number" id="I1n" min="0.01" step="any" aria-label="I1 value">
+        <span class="tag" id="role0"></span>
+      </div>
+      <div class="slider roleful ax2">
+        <label for="I2r"><span class="sym">I</span><sub class="n">2</sub></label>
+        <input type="range" id="I2r" min="0.1" max="10" step="0.01" aria-label="I2 slider">
+        <input type="number" id="I2n" min="0.01" step="any" aria-label="I2 value">
+        <span class="tag" id="role1"></span>
+      </div>
+      <div class="slider roleful ax3">
+        <label for="I3r"><span class="sym">I</span><sub class="n">3</sub></label>
+        <input type="range" id="I3r" min="0.1" max="10" step="0.01" aria-label="I3 slider">
+        <input type="number" id="I3n" min="0.01" step="any" aria-label="I3 value">
+        <span class="tag" id="role2"></span>
+      </div>
+      <p class="warn" id="triWarn" hidden></p>
+    </section>
+
+    <section class="group">
+      <h2>Spin presets</h2>
+      <div class="spin-grid" id="spinGrid">
+        <span></span><span class="colh">Pure</span><span class="colh">Perturbed</span>
+        <span class="rowh">Major<span class="ax" id="axMax"></span></span>
+        <button class="btn" type="button" data-spin="max" data-pert="0">Pure</button>
+        <button class="btn" type="button" data-spin="max" data-pert="1">Perturbed</button>
+        <span class="rowh">Intermediate<span class="ax" id="axInt"></span></span>
+        <button class="btn" type="button" data-spin="int" data-pert="0">Pure</button>
+        <button class="btn" type="button" data-spin="int" data-pert="1">Perturbed</button>
+        <span class="rowh">Minor<span class="ax" id="axMin"></span></span>
+        <button class="btn" type="button" data-spin="min" data-pert="0">Pure</button>
+        <button class="btn" type="button" data-spin="min" data-pert="1">Perturbed</button>
+      </div>
+      <div class="slider">
+        <label for="spinR" title="Spin rate about the chosen axis"><span class="sym">Ω</span></label>
+        <input type="range" id="spinR" min="0.1" max="3" step="0.01" aria-label="Spin rate slider">
+        <input type="number" id="spinN" min="0.001" step="any" aria-label="Spin rate, rad/s">
+      </div>
+      <div class="slider">
+        <label for="epsR" title="Transverse perturbation as a fraction of the spin rate"><span class="sym">ε</span></label>
+        <input type="range" id="epsR" min="0" max="0.5" step="0.005" aria-label="Perturbation slider">
+        <input type="number" id="epsN" min="0" step="any" aria-label="Perturbation fraction">
+      </div>
+      <p class="note">Pure: <span class="sym">ω</span> = <span class="sym">Ω</span> along the axis. Perturbed: both transverse components set to <span class="sym">εΩ</span>. <span class="sym">Ω</span> in rad/s.</p>
+      <p class="note" id="spinNote" hidden></p>
+    </section>
+
+    <section class="group">
+      <h2><span>Initial angular velocity <span class="sym" style="text-transform:none;font-size:15px;color:var(--ink)">ω</span>(0)</span> <span class="unit">rad/s</span></h2>
+      <div class="slider ax1">
+        <label for="w1r"><span class="sym">ω</span><sub class="n">1</sub></label>
+        <input type="range" id="w1r" min="-3" max="3" step="0.01" aria-label="omega 1 slider">
+        <input type="number" id="w1n" step="any" aria-label="omega 1 value">
+      </div>
+      <div class="slider ax2">
+        <label for="w2r"><span class="sym">ω</span><sub class="n">2</sub></label>
+        <input type="range" id="w2r" min="-3" max="3" step="0.01" aria-label="omega 2 slider">
+        <input type="number" id="w2n" step="any" aria-label="omega 2 value">
+      </div>
+      <div class="slider ax3">
+        <label for="w3r"><span class="sym">ω</span><sub class="n">3</sub></label>
+        <input type="range" id="w3r" min="-3" max="3" step="0.01" aria-label="omega 3 slider">
+        <input type="number" id="w3n" step="any" aria-label="omega 3 value">
+      </div>
+      <p class="note">Changing any input restarts the run from <span class="sym">t</span> = 0.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkGrat"> Ellipsoid graticules</label>
+        <label class="check"><input type="checkbox" id="chkFamily"> Polhode family on energy ellipsoid</label>
+        <label class="check"><input type="checkbox" id="chkH"> <span><span class="sym">Ĥ</span> direction and invariable plane</span></label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Axis labels</label>
+      </div>
+      <div class="slider">
+        <label for="opR" class="tag">Opac.</label>
+        <input type="range" id="opR" min="0.04" max="0.7" step="0.01" aria-label="Ellipsoid opacity">
+        <output id="opOut" class="tag"></output>
+      </div>
+      <div class="slider">
+        <label for="trailR" class="tag">Trail</label>
+        <input type="range" id="trailR" min="0" max="2000" step="10" aria-label="Trail length">
+        <output id="trailOut" class="tag"></output>
+      </div>
+      <p class="note" id="famNote">The family shows polhodes for the current <span class="sym">T</span> at several values of <span class="sym">H</span>; the darker curve is the separatrix.</p>
+    </section>
+
+    <section class="group">
+      <h2>Energy dissipation</h2>
+      <div class="slider">
+        <label for="nuR"><span class="sym">ν</span></label>
+        <input type="range" id="nuR" min="0" max="0.3" step="0.005" aria-label="Dissipation rate slider">
+        <input type="number" id="nuN" min="0" step="any" aria-label="Dissipation rate, 1/s">
+      </div>
+      <p class="note">Leave at 0 for a rigid body. A positive <span class="sym">ν</span> (s⁻¹) adds an internal energy sink: <span class="sym">T</span> falls while <span class="sym">H</span> stays fixed, so the polhode spirals toward the major axis (the major-axis rule, as in Explorer 1).</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="viewport" id="viewport">
+      <canvas id="gl" aria-label="3D view of angular velocity space"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="overlay legend" role="group" aria-label="Show or hide">
+        <button class="chip" type="button" data-show="energy" style="--sw:var(--energy)" aria-pressed="true"><span class="sw"></span>Energy ellipsoid</button>
+        <button class="chip" type="button" data-show="momentum" style="--sw:var(--momentum)" aria-pressed="true"><span class="sw"></span>Momentum ellipsoid</button>
+        <button class="chip" type="button" data-show="polhode" style="--sw:var(--ink)" aria-pressed="true"><span class="sw"></span>Polhode</button>
+        <button class="chip" type="button" data-show="omega" style="--sw:var(--omega)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ω</span> and trail</span></button>
+      </div>
+      <div class="overlay viewbar">
+        <div class="seg" role="group" aria-label="View direction">
+          <button class="btn" type="button" data-view="iso" title="Isometric view (0)">Iso</button>
+          <button class="btn" type="button" data-view="0" title="Look down ω1 (1)"><span class="sym">ω</span><sub class="n">1</sub></button>
+          <button class="btn" type="button" data-view="1" title="Look down ω2 (2)"><span class="sym">ω</span><sub class="n">2</sub></button>
+          <button class="btn" type="button" data-view="2" title="Look down ω3 (3)"><span class="sym">ω</span><sub class="n">3</sub></button>
+        </div>
+        <button class="btn" type="button" id="fitBtn" title="Fit (F)">Fit</button>
+        <div class="seg" role="group" aria-label="Projection">
+          <button class="btn" type="button" id="perspBtn" aria-pressed="true">Persp</button>
+          <button class="btn" type="button" id="orthoBtn" aria-pressed="false">Ortho</button>
+        </div>
+      </div>
+      <div class="overlay regime-pill" id="regPill">—</div>
+      <div class="overlay hint" id="hint">Drag to rotate · Right-drag or Shift-drag to pan · Scroll to zoom · Double-click to fit</div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn" title="Reset to ω(0) (R)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Reset</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="-1" max="1" step="0.01" aria-label="Simulation speed">
+        <output id="speedOut"></output>
+      </div>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0.00</span> s</div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">Angular velocity history</span>
+        <button class="chip hchip" type="button" data-comp="0" style="--sw:var(--c1)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ω</span><sub class="n">1</sub></span></button>
+        <button class="chip hchip" type="button" data-comp="1" style="--sw:var(--c2)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ω</span><sub class="n">2</sub></span></button>
+        <button class="chip hchip" type="button" data-comp="2" style="--sw:var(--c3)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ω</span><sub class="n">3</sub></span></button>
+        <span class="spacer"></span>
+        <span class="hint2">Drag to pan · Scroll to zoom time · Shift-scroll to zoom ω · Double-click to reset</span>
+        <button class="btn" type="button" id="liveBtn" aria-pressed="true">Live</button>
+        <button class="btn" type="button" id="allBtn">Show all</button>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="Angular velocity components versus time"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group regime-card">
+      <h2>Motion</h2>
+      <div class="rt" id="regTitle">—</div>
+      <div class="rs" id="regSub"></div>
+    </section>
+
+    <section class="group">
+      <h2>Live state</h2>
+      <dl class="kv">
+        <dt><span class="sym">ω</span><sub class="n">1</sub></dt><dd class="c1"><span id="o_w0"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">2</sub></dt><dd class="c2"><span id="o_w1"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">3</sub></dt><dd class="c3"><span id="o_w2"></span><span class="u">rad/s</span></dd>
+        <dt>|<span class="sym">ω</span>|</dt><dd><span id="o_wn"></span><span class="u">rad/s</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Invariants</h2>
+      <dl class="kv">
+        <dt><span class="sym">T</span> = ½<span class="sym">ω</span><sup class="up">T</sup><span class="sym">Iω</span></dt><dd><span id="o_T"></span><span class="u">J</span></dd>
+        <dt><span class="sym">H</span> = |<span class="sym">Iω</span>|</dt><dd><span id="o_H"></span><span class="u">N·m·s</span></dd>
+        <dt><span class="sym">D</span> = <span class="sym">H</span>²/2<span class="sym">T</span></dt><dd><span id="o_D"></span><span class="u">kg·m²</span></dd>
+        <dt id="o_dTl">Δ<span class="sym">T</span>/<span class="sym">T</span>₀</dt><dd id="o_dT"></dd>
+        <dt>Δ<span class="sym">H</span>/<span class="sym">H</span>₀</dt><dd id="o_dH"></dd>
+      </dl>
+      <div id="dwrap">
+        <div class="dscale" id="dscale">
+          <div class="zone zmin" id="zMin"></div>
+          <div class="zone zmaj" id="zMaj"></div>
+          <div class="tick" id="tk0"><span></span></div>
+          <div class="tick" id="tk1"><span></span></div>
+          <div class="tick" id="tk2"><span></span></div>
+          <div class="dmark" id="dMark"><span>D</span></div>
+        </div>
+        <div class="dscale-cap"><span>encircles minor axis</span><span>encircles major axis</span></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Ellipsoid semi-axes <span class="unit">rad/s</span></h2>
+      <table class="axes">
+        <thead><tr><th>Axis</th><th><span class="sym" style="text-transform:none">I</span></th><th class="e">Energy<br>√(2T/I)</th><th class="m">Momentum<br>H/I</th></tr></thead>
+        <tbody id="axTable"></tbody>
+      </table>
+    </section>
+
+    <section class="group">
+      <h2>Periods</h2>
+      <dl class="kv">
+        <dt>Polhode period</dt><dd><span id="o_P"></span><span class="u">s</span></dd>
+        <dt>Modulus <span class="sym">k</span>²</dt><dd id="o_k"></dd>
+        <dt id="o_linL">Linearized</dt><dd id="o_lin"></dd>
+      </dl>
+      <p class="note" id="linNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Euler's equations, no torque</div>
+          <div><i>I</i><sub>1</sub><i>ω̇</i><sub>1</sub> = (<i>I</i><sub>2</sub> − <i>I</i><sub>3</sub>) <i>ω</i><sub>2</sub><i>ω</i><sub>3</sub></div>
+          <div><i>I</i><sub>2</sub><i>ω̇</i><sub>2</sub> = (<i>I</i><sub>3</sub> − <i>I</i><sub>1</sub>) <i>ω</i><sub>3</sub><i>ω</i><sub>1</sub></div>
+          <div><i>I</i><sub>3</sub><i>ω̇</i><sub>3</sub> = (<i>I</i><sub>1</sub> − <i>I</i><sub>2</sub>) <i>ω</i><sub>1</sub><i>ω</i><sub>2</sub></div>
+        </div>
+        <div>
+          <div class="lab e">Energy ellipsoid</div>
+          <div><i>I</i><sub>1</sub><i>ω</i><sub>1</sub><sup>2</sup> + <i>I</i><sub>2</sub><i>ω</i><sub>2</sub><sup>2</sup> + <i>I</i><sub>3</sub><i>ω</i><sub>3</sub><sup>2</sup> = 2<i>T</i></div>
+        </div>
+        <div>
+          <div class="lab m">Momentum ellipsoid</div>
+          <div><i>I</i><sub>1</sub><sup>2</sup><i>ω</i><sub>1</sub><sup>2</sup> + <i>I</i><sub>2</sub><sup>2</sup><i>ω</i><sub>2</sub><sup>2</sup> + <i>I</i><sub>3</sub><sup>2</sup><i>ω</i><sub>3</sub><sup>2</sup> = <i>H</i><sup>2</sup></div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">Integrated with fixed-step RK4. The full polhode curve is drawn from the closed-form intersection of the two ellipsoids; the period uses the complete elliptic integral <span class="sym">K</span>(<span class="sym">k</span>). The <span class="sym">Ĥ</span> arrow has length 2<span class="sym">T</span>/<span class="sym">H</span>, the distance from the origin to the invariable plane in Poinsot's construction.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+if (!window.THREE || !THREE.OrbitControls) {
+  const vpEl = document.getElementById('viewport');
+  const d = document.createElement('div');
+  d.className = 'glfail';
+  d.textContent = 'The 3D library did not load. Check the network connection and reload the page.';
+  vpEl.appendChild(d);
+  return;
+}
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const TAU = 2 * Math.PI, D2R = Math.PI / 180;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUBD = ['₁', '₂', '₃'];
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 6));
+}
+const fin = (v) => (Number.isFinite(v) ? String(+v.toPrecision(6)) : '');
+
+/* =========================================================
+   Physics
+   ========================================================= */
+const twoTof = (I, w) => I[0] * w[0] * w[0] + I[1] * w[1] * w[1] + I[2] * w[2] * w[2];
+const H2of = (I, w) => { const a = I[0] * w[0], b = I[1] * w[1], c = I[2] * w[2]; return a * a + b * b + c * c; };
+const norm3 = (v) => Math.hypot(v[0], v[1], v[2]);
+
+function inertiaInfo(I) {
+  const o = [0, 1, 2].sort((p, q) => (I[p] - I[q]) || (p - q));
+  const [a, b, c] = o, Ia = I[a], Ib = I[b], Ic = I[c];
+  const tol = 1e-9 * Math.max(Ic, 1e-12);
+  const eqAB = Ib - Ia <= tol, eqBC = Ic - Ib <= tol;
+  let type;
+  const roleS = ['', '', ''], roleL = ['', '', ''];
+  if (eqAB && eqBC) { type = 'iso'; for (let i = 0; i < 3; i++) { roleS[i] = 'iso'; roleL[i] = 'isoinertial'; } }
+  else if (eqAB) { type = 'oblate'; roleS[c] = 'max · sym'; roleL[c] = 'symmetry (major)'; roleS[a] = roleS[b] = 'transv.'; roleL[a] = roleL[b] = 'transverse'; }
+  else if (eqBC) { type = 'prolate'; roleS[a] = 'min · sym'; roleL[a] = 'symmetry (minor)'; roleS[b] = roleS[c] = 'transv.'; roleL[b] = roleL[c] = 'transverse'; }
+  else { type = 'tri'; roleS[a] = 'min'; roleS[b] = 'int'; roleS[c] = 'max'; roleL[a] = 'minor'; roleL[b] = 'intermediate'; roleL[c] = 'major'; }
+  const viol = [];
+  for (let i = 0; i < 3; i++) { const j = (i + 1) % 3, k = (i + 2) % 3; if (I[j] + I[k] < I[i] * (1 - 1e-9)) viol.push(i); }
+  return { o, a, b, c, Ia, Ib, Ic, type, roleS, roleL, viol, tol };
+}
+
+function classify(I, w, inf) {
+  const tt = twoTof(I, w), h2 = H2of(I, w);
+  const res = { tt, h2, D: NaN, kind: 'zero', near: Infinity };
+  if (!(tt > 0)) return res;
+  res.D = h2 / tt;
+  if (inf.type === 'iso') { res.kind = 'iso'; return res; }
+  const h = [I[0] * w[0], I[1] * w[1], I[2] * w[2]];
+  const cx = w[1] * h[2] - w[2] * h[1], cy = w[2] * h[0] - w[0] * h[2], cz = w[0] * h[1] - w[1] * h[0];
+  let k = 0; for (let i = 1; i < 3; i++) if (Math.abs(w[i]) > Math.abs(w[k])) k = i;
+  res.k = k;
+  if (Math.hypot(cx, cy, cz) <= 1e-9 * norm3(w) * norm3(h)) { res.kind = 'eq'; return res; }
+  const span = inf.Ic - inf.Ia, tol = 1e-9 * span;
+  res.near = Math.abs(res.D - inf.Ib) / span;
+  if (Math.abs(res.D - inf.Ib) <= tol) res.kind = inf.type === 'tri' ? 'sep' : 'eq';
+  else res.kind = res.D > inf.Ib ? 'major' : 'minor';
+  return res;
+}
+
+/* Closed-form polhode: intersection of the energy and momentum ellipsoids.
+   Returns parametric curves f(theta), theta in [0, 2pi]. */
+function polhodeSet(I, tt, D, inf, mode, w) {
+  const { a, b, c, Ia, Ib, Ic } = inf;
+  const span = Ic - Ia;
+  if (!(tt > 0) || inf.type === 'iso') return { kind: 'point', fns: [] };
+  const tol = 1e-9 * span;
+  if (D >= Ic - tol || D <= Ia + tol) return { kind: 'point', fns: [] };
+  const fns = [];
+  if (Math.abs(D - Ib) <= tol) {
+    if (inf.type !== 'tri') return { kind: 'point', fns: [] };
+    const m = Math.sqrt(Ia * (Ib - Ia) / (Ic * (Ic - Ib)));
+    for (const s of [1, -1]) {
+      const n = Math.hypot(1, m), ua = 1 / n, uc = s * m / n;
+      const A = Math.sqrt(tt / (Ia * ua * ua + Ic * uc * uc)), B = Math.sqrt(tt / Ib);
+      fns.push((th) => { const v = [0, 0, 0], al = A * Math.cos(th); v[a] = al * ua; v[c] = al * uc; v[b] = B * Math.sin(th); return v; });
+    }
+    return { kind: 'sep', fns };
+  }
+  if (D > Ib) {
+    const ka = 1 / (D - Ia), kb = 1 / (D - Ib), kc = 1 / (Ic - D);
+    const sa = 1 / Math.sqrt(Ia * (D - Ia)), sb = 1 / Math.sqrt(Ib * (D - Ib)), sc = 1 / Math.sqrt(Ic * (Ic - D));
+    const signs = mode === 'both' ? [1, -1] : [w && w[c] < 0 ? -1 : 1];
+    for (const s of signs) fns.push((th) => {
+      const C = Math.cos(th), S = Math.sin(th), r = Math.sqrt(tt / (ka * C * C + kb * S * S + kc));
+      const v = [0, 0, 0]; v[a] = r * C * sa; v[b] = r * S * sb; v[c] = s * r * sc; return v;
+    });
+    return { kind: 'major', fns };
+  }
+  const ka = 1 / (D - Ia), kb = 1 / (Ib - D), kc = 1 / (Ic - D);
+  const sa = 1 / Math.sqrt(Ia * (D - Ia)), sb = 1 / Math.sqrt(Ib * (Ib - D)), sc = 1 / Math.sqrt(Ic * (Ic - D));
+  const signs = mode === 'both' ? [1, -1] : [w && w[a] < 0 ? -1 : 1];
+  for (const s of signs) fns.push((th) => {
+    const C = Math.cos(th), S = Math.sin(th), r = Math.sqrt(tt / (kb * C * C + kc * S * S + ka));
+    const v = [0, 0, 0]; v[b] = r * C * sb; v[c] = r * S * sc; v[a] = s * r * sa; return v;
+  });
+  return { kind: 'minor', fns };
+}
+
+function sampleClosed(f, maxSeg, cap) {
+  const out = [];
+  const N = 96, ms2 = maxSeg * maxSeg;
+  let t0 = 0, p0 = f(0);
+  out.push(p0[0], p0[1], p0[2]);
+  const refine = (ta, pa, tb, pb, depth) => {
+    const dx = pb[0] - pa[0], dy = pb[1] - pa[1], dz = pb[2] - pa[2];
+    if (depth > 0 && dx * dx + dy * dy + dz * dz > ms2 && out.length < cap * 3) {
+      const tm = 0.5 * (ta + tb), pm = f(tm);
+      refine(ta, pa, tm, pm, depth - 1); refine(tm, pm, tb, pb, depth - 1);
+    } else out.push(pb[0], pb[1], pb[2]);
+  };
+  for (let i = 1; i <= N; i++) {
+    const t1 = TAU * i / N, p1 = i === N ? f(0) : f(t1);
+    refine(t0, p0, t1, p1, 12);
+    t0 = t1; p0 = p1;
+  }
+  return out;
+}
+
+function ellipK(m) {
+  if (m >= 1) return Infinity;
+  let a = 1, b = Math.sqrt(1 - m);
+  for (let i = 0; i < 40; i++) { const an = 0.5 * (a + b); b = Math.sqrt(a * b); a = an; if (Math.abs(a - b) < 1e-15 * a) break; }
+  return Math.PI / (2 * a);
+}
+function polhodePeriod(inf, cl) {
+  if (cl.kind === 'sep') return { P: Infinity, m: 1 };
+  if (cl.kind !== 'major' && cl.kind !== 'minor') return { P: NaN, m: NaN };
+  const { Ia, Ib, Ic } = inf, tt = cl.tt, h2 = cl.h2;
+  let lam2, m;
+  if (cl.kind === 'major') { lam2 = (Ic - Ib) * (h2 - tt * Ia) / (Ia * Ib * Ic); m = (Ib - Ia) * (tt * Ic - h2) / ((Ic - Ib) * (h2 - tt * Ia)); }
+  else { lam2 = (Ib - Ia) * (tt * Ic - h2) / (Ia * Ib * Ic); m = (Ic - Ib) * (h2 - tt * Ia) / ((Ib - Ia) * (tt * Ic - h2)); }
+  if (!(lam2 > 0)) return { P: NaN, m: NaN };
+  m = clamp(m, 0, 1);
+  return { P: 4 * ellipK(m) / Math.sqrt(lam2), m };
+}
+function linearAbout(I, w) {
+  let k = 0; for (let i = 1; i < 3; i++) if (Math.abs(w[i]) > Math.abs(w[k])) k = i;
+  const i = (k + 1) % 3, j = (k + 2) % 3, nw = norm3(w);
+  const ang = nw > 0 ? Math.acos(clamp(Math.abs(w[k]) / nw, 0, 1)) / D2R : 0;
+  const s2 = w[k] * w[k] * (I[k] - I[i]) * (I[k] - I[j]) / (I[i] * I[j]);
+  return { k, ang, s2 };
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const MOI_PRESETS = { tri: [1.5, 2.5, 3.5], oblate: [2.5, 2.5, 4.0], prolate: [1.5, 3.5, 3.5], iso: [2.5, 2.5, 2.5] };
+const S = {
+  I: [1.5, 2.5, 3.5],
+  w0: [0.5, 0.5, 1.0],
+  w: [0.5, 0.5, 1.0],
+  t: 0,
+  playing: !reduceMotion,
+  speed: 1, spin: 1.0, eps: 0.1, nu: 0,
+  opacity: 0.22, trailLen: 700,
+  show: { energy: true, momentum: true, polhode: true, omega: true, grat: true, family: false, hplane: false, labels: true },
+  ortho: false,
+  tt0: 0, h20: 0,
+};
+let inf = inertiaInfo(S.I);
+let R = 1, fitR = 0, Ibar = 1, kappa = 1;
+let lastPolhodeTT = 0, lastFamilyTT = 0;
+
+/* RK4 on Euler's equations, with an optional internal energy sink */
+const k1 = [0, 0, 0], k2 = [0, 0, 0], k3 = [0, 0, 0], k4 = [0, 0, 0], wt = [0, 0, 0];
+function deriv(w, out) {
+  const I = S.I, w1 = w[0], w2 = w[1], w3 = w[2];
+  let d1 = (I[1] - I[2]) * w2 * w3 / I[0];
+  let d2 = (I[2] - I[0]) * w3 * w1 / I[1];
+  let d3 = (I[0] - I[1]) * w1 * w2 / I[2];
+  if (S.nu > 0) {
+    const h1 = I[0] * w1, h2 = I[1] * w2, h3 = I[2] * w3, hh = h1 * h1 + h2 * h2 + h3 * h3;
+    if (hh > 0) {
+      const s = (w1 * h1 + w2 * h2 + w3 * h3) / hh, g = S.nu * Ibar;
+      d1 -= g * (w1 - s * h1) / I[0]; d2 -= g * (w2 - s * h2) / I[1]; d3 -= g * (w3 - s * h3) / I[2];
+    }
+  }
+  out[0] = d1; out[1] = d2; out[2] = d3;
+}
+function rk4(w, h) {
+  deriv(w, k1);
+  for (let i = 0; i < 3; i++) wt[i] = w[i] + 0.5 * h * k1[i];
+  deriv(wt, k2);
+  for (let i = 0; i < 3; i++) wt[i] = w[i] + 0.5 * h * k2[i];
+  deriv(wt, k3);
+  for (let i = 0; i < 3; i++) wt[i] = w[i] + h * k3[i];
+  deriv(wt, k4);
+  for (let i = 0; i < 3; i++) w[i] += h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+}
+
+/* Trail ring buffer (positions of the omega tip) */
+const TRAIL_MAX = 2000;
+const trailBuf = new Float32Array(TRAIL_MAX * 3);
+let trailN = 0, trailHead = 0;
+function trailClear() { trailN = 0; trailHead = 0; }
+function trailPush(w) {
+  if (trailN > 0) {
+    const j = ((trailHead - 1 + TRAIL_MAX) % TRAIL_MAX) * 3;
+    const dx = w[0] - trailBuf[j], dy = w[1] - trailBuf[j + 1], dz = w[2] - trailBuf[j + 2];
+    const thr = 0.0035 * R;
+    if (dx * dx + dy * dy + dz * dz < thr * thr) return;
+  }
+  const j = trailHead * 3;
+  trailBuf[j] = w[0]; trailBuf[j + 1] = w[1]; trailBuf[j + 2] = w[2];
+  trailHead = (trailHead + 1) % TRAIL_MAX;
+  if (trailN < TRAIL_MAX) trailN++;
+}
+
+/* Time-history buffer */
+const HCAP = 400000;
+const Ht = new Float64Array(HCAP);
+const Hw = [new Float32Array(HCAP), new Float32Array(HCAP), new Float32Array(HCAP)];
+let hN = 0, hLastT = -Infinity;
+function histClear() { hN = 0; hLastT = -Infinity; }
+function histPush(t, w) {
+  if (hN >= HCAP) {
+    const half = HCAP >> 1;
+    Ht.copyWithin(0, half); Hw.forEach((a) => a.copyWithin(0, half));
+    hN -= half;
+  }
+  Ht[hN] = t; Hw[0][hN] = w[0]; Hw[1][hN] = w[1]; Hw[2][hN] = w[2];
+  hN++; hLastT = t;
+}
+
+function advance(dt) {
+  const w = S.w;
+  const rate = norm3(w) * (1 + kappa) + S.nu * 2;
+  const hmax = Math.min(0.01, 0.05 / Math.max(rate, 1e-6));
+  const n = Math.min(5000, Math.max(1, Math.ceil(dt / hmax)));
+  const h = dt / n;
+  for (let s = 0; s < n; s++) {
+    rk4(w, h);
+    S.t += h;
+    trailPush(w);
+    if (S.t - hLastT >= 0.01 - 1e-12) histPush(S.t, w);
+  }
+}
+
+/* =========================================================
+   3D scene
+   ========================================================= */
+const vp = $('#viewport');
+let G = null; // three.js objects
+let vpW = 1, vpH = 1, orthoBase = 1;
+const tmpV = new THREE.Vector3();
+const Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+const indexCache = new Map();
+function tubeIndex(maxPts, radial) {
+  const key = maxPts + ':' + radial;
+  if (indexCache.has(key)) return indexCache.get(key);
+  const idx = new Uint32Array((maxPts - 1) * radial * 6);
+  let q = 0;
+  for (let i = 0; i < maxPts - 1; i++) for (let j = 0; j < radial; j++) {
+    const j1 = (j + 1) % radial, a = i * radial + j, b = i * radial + j1, c = (i + 1) * radial + j, d = (i + 1) * radial + j1;
+    idx[q++] = a; idx[q++] = b; idx[q++] = c; idx[q++] = b; idx[q++] = d; idx[q++] = c;
+  }
+  const attr = new THREE.BufferAttribute(idx, 1);
+  indexCache.set(key, attr);
+  return attr;
+}
+
+class Tube {
+  constructor(maxPts, radial, material) {
+    this.max = maxPts; this.rad = radial;
+    const nv = maxPts * radial;
+    this.pos = new Float32Array(nv * 3); this.nor = new Float32Array(nv * 3);
+    const g = new THREE.BufferGeometry();
+    this.pa = new THREE.BufferAttribute(this.pos, 3); this.pa.setUsage(THREE.DynamicDrawUsage);
+    this.na = new THREE.BufferAttribute(this.nor, 3); this.na.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.pa); g.setAttribute('normal', this.na);
+    g.setIndex(tubeIndex(maxPts, radial));
+    g.setDrawRange(0, 0);
+    this.geo = g;
+    this.mesh = new THREE.Mesh(g, material);
+    this.mesh.frustumCulled = false;
+    this.cs = [];
+    for (let j = 0; j < radial; j++) { const t = TAU * j / radial; this.cs.push(Math.cos(t), Math.sin(t)); }
+  }
+  hide() { this.geo.setDrawRange(0, 0); this.mesh.visible = false; }
+  /* P: flat xyz array with n points; radius: number or fn(k, m) */
+  set(P, n, radius, closed) {
+    if (n < 2) { this.hide(); return; }
+    const m = Math.min(n, this.max);
+    const idx = (k) => (m === n ? k : Math.round(k * (n - 1) / (m - 1)));
+    const pos = this.pos, nor = this.nor, rad = this.rad, cs = this.cs;
+    let nx = 0, ny = 0, nz = 0, tx = 1, ty = 0, tz = 0;
+    for (let k = 0; k < m; k++) {
+      const i = idx(k);
+      let ia, ib;
+      if (closed && (k === 0 || k === m - 1)) { ia = idx(m - 2); ib = idx(1); } /* wrap across the seam */
+      else if (k === 0) { ia = 0; ib = idx(1); }
+      else if (k === m - 1) { ia = idx(m - 2); ib = i; }
+      else { ia = idx(k - 1); ib = idx(k + 1); }
+      let ux = P[ib * 3] - P[ia * 3], uy = P[ib * 3 + 1] - P[ia * 3 + 1], uz = P[ib * 3 + 2] - P[ia * 3 + 2];
+      let ul = Math.hypot(ux, uy, uz);
+      if (ul > 1e-14) { tx = ux / ul; ty = uy / ul; tz = uz / ul; }
+      if (k === 0) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz;
+      } else {
+        const d = nx * tx + ny * ty + nz * tz;
+        nx -= d * tx; ny -= d * ty; nz -= d * tz;
+      }
+      let nl = Math.hypot(nx, ny, nz);
+      if (nl < 1e-9) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz; nl = Math.hypot(nx, ny, nz);
+      }
+      nx /= nl; ny /= nl; nz /= nl;
+      const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+      const r = typeof radius === 'function' ? radius(k, m) : radius;
+      const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2];
+      for (let j = 0; j < rad; j++) {
+        const c = cs[2 * j], s = cs[2 * j + 1];
+        const dx = c * nx + s * bx, dy = c * ny + s * by, dz = c * nz + s * bz;
+        const o = (k * rad + j) * 3;
+        pos[o] = px + r * dx; pos[o + 1] = py + r * dy; pos[o + 2] = pz + r * dz;
+        nor[o] = dx; nor[o + 1] = dy; nor[o + 2] = dz;
+      }
+    }
+    this.pa.updateRange.offset = 0; this.pa.updateRange.count = m * rad * 3;
+    this.na.updateRange.offset = 0; this.na.updateRange.count = m * rad * 3;
+    this.pa.needsUpdate = true; this.na.needsUpdate = true;
+    this.geo.setDrawRange(0, (m - 1) * rad * 6);
+    this.mesh.visible = true;
+  }
+}
+
+function gratGeometry() {
+  const pts = [], seg = 120;
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const z = Math.sin(lat * D2R), rr = Math.cos(lat * D2R);
+    for (let i = 0; i < seg; i++) {
+      const a0 = TAU * i / seg, a1 = TAU * (i + 1) / seg;
+      pts.push(rr * Math.cos(a0), rr * Math.sin(a0), z, rr * Math.cos(a1), rr * Math.sin(a1), z);
+    }
+  }
+  for (let lon = 0; lon < 180; lon += 30) {
+    const c = Math.cos(lon * D2R), s = Math.sin(lon * D2R);
+    for (let i = 0; i < seg; i++) {
+      const a0 = TAU * i / seg, a1 = TAU * (i + 1) / seg;
+      pts.push(c * Math.cos(a0), s * Math.cos(a0), Math.sin(a0), c * Math.cos(a1), s * Math.cos(a1), Math.sin(a1));
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  return g;
+}
+
+function initGL() {
+  if (!window.THREE || !THREE.OrbitControls) throw new Error('three.js did not load');
+  const canvas = $('#gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+
+  const persp = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  persp.up.set(0, 0, 1); persp.position.set(5, 4, 3);
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.001, 1000);
+  ortho.up.set(0, 0, 1); ortho.position.set(5, 4, 3);
+  const controls = new THREE.OrbitControls(persp, canvas);
+  controls.enableDamping = !reduceMotion;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.rotateSpeed = 0.9;
+  controls.zoomSpeed = 1.1;
+  controls.minZoom = 0.05; controls.maxZoom = 60;
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.62);
+  scene.add(hemi, sun, sun.target);
+
+  const sphereGeo = new THREE.SphereGeometry(1, 120, 80);
+  const gratGeo = gratGeometry();
+  function makeEllipsoid() {
+    const g = new THREE.Group();
+    const back = new THREE.Mesh(sphereGeo, new THREE.MeshPhongMaterial({ transparent: true, depthWrite: false, side: THREE.BackSide, shininess: 20 }));
+    const front = new THREE.Mesh(sphereGeo, new THREE.MeshPhongMaterial({ transparent: true, depthWrite: false, side: THREE.FrontSide, shininess: 55, specular: 0x333333 }));
+    const grat = new THREE.LineSegments(gratGeo, new THREE.LineBasicMaterial({ transparent: true, depthWrite: false }));
+    back.renderOrder = 1; front.renderOrder = 2; grat.renderOrder = 3;
+    g.add(back, front, grat);
+    scene.add(g);
+    return { g, back, front, grat };
+  }
+  const E = makeEllipsoid(), M = makeEllipsoid();
+
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); scene.add(g);
+    return { g, shaft, head };
+  }
+
+  const axisMats = [0, 1, 2].map(() => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9 }));
+  const axes = axisMats.map((m) => makeArrow(m));
+  const originDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial());
+  scene.add(originDot);
+
+  const omegaMat = new THREE.MeshPhongMaterial({ shininess: 70 });
+  const omegaArrow = makeArrow(omegaMat);
+  const trailMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const trail = new Tube(TRAIL_MAX + 1, 8, trailMat); scene.add(trail.mesh);
+
+  const polMat = new THREE.MeshPhongMaterial({ shininess: 30 });
+  const pol = [new Tube(4000, 8, polMat), new Tube(4000, 8, polMat)];
+  pol.forEach((t) => scene.add(t.mesh));
+
+  const famMat = new THREE.MeshBasicMaterial();
+  const sepMat = new THREE.MeshBasicMaterial();
+  const fam = [];
+  for (let i = 0; i < 24; i++) { const t = new Tube(1500, 6, famMat); t.hide(); fam.push(t); scene.add(t.mesh); }
+
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 30 });
+  const hArrow = makeArrow(hMat);
+  const planeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const plane = new THREE.Mesh(new THREE.CircleGeometry(1, 96), planeMat);
+  plane.renderOrder = 4;
+  const ringPts = []; for (let i = 0; i < 128; i++) { const t = TAU * i / 128; ringPts.push(new THREE.Vector3(Math.cos(t), Math.sin(t), 0)); }
+  const ringMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false });
+  const ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ringPts), ringMat);
+  ring.renderOrder = 5;
+  const planeGroup = new THREE.Group(); planeGroup.add(plane, ring); scene.add(planeGroup);
+
+  return { renderer, scene, persp, ortho, controls, cam: persp, hemi, sun, E, M, axes, axisMats, originDot, omegaMat, omegaArrow, trailMat, trail, polMat, pol, famMat, sepMat, fam, hMat, hArrow, planeMat, ringMat, planeGroup };
+}
+
+const qTmp = new THREE.Quaternion();
+function setArrow(A, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-12)) { A.g.visible = false; return; }
+  A.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qTmp.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.55 * len), sl = len - hl;
+  A.shaft.quaternion.copy(qTmp); A.shaft.position.copy(origin); A.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  A.head.quaternion.copy(qTmp); A.head.position.copy(origin).add(vec); A.head.scale.set(headR, hl, headR);
+}
+
+/* ---------- labels ---------- */
+const labelsEl = $('#labels');
+const axLabels = [0, 1, 2].map((i) => {
+  const d = document.createElement('div');
+  d.className = 'vlabel';
+  d.style.setProperty('--c', `var(--c${i + 1})`);
+  d.innerHTML = `<span class="sym">ω</span><sub class="n">${i + 1}</sub><span class="role"></span>`;
+  labelsEl.appendChild(d);
+  return d;
+});
+const tipLabel = document.createElement('div');
+tipLabel.className = 'vlabel tip'; tipLabel.innerHTML = '<span class="sym">ω</span>';
+labelsEl.appendChild(tipLabel);
+const hLabel = document.createElement('div');
+hLabel.className = 'vlabel hl'; hLabel.innerHTML = '<span class="sym">Ĥ</span>';
+labelsEl.appendChild(hLabel);
+
+function placeLabel(el, v, dx = 0, dy = 0) {
+  tmpV.copy(v).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.2 || Math.abs(tmpV.y) > 1.2) { el.hidden = true; return; }
+  el.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+
+/* ---------- theme ---------- */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'sunken', 'view', 'ink', 'muted', 'rule', 'energy', 'momentum', 'omega', 'family', 'sep', 'hvec', 'c1', 'c2', 'c3'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  $('#themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (!G) { drawPlot(); return; }
+  const C = (n) => new THREE.Color(COL[n]);
+  G.renderer.setClearColor(C('view'), 1);
+  G.hemi.intensity = COL.dark ? 0.5 : 0.62;
+  G.sun.intensity = COL.dark ? 0.72 : 0.62;
+  G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+  for (const [obj, n] of [[G.E, 'energy'], [G.M, 'momentum']]) {
+    obj.back.material.color = C(n); obj.front.material.color = C(n); obj.grat.material.color = C(n);
+    obj.front.material.emissive = C(n).multiplyScalar(COL.dark ? 0.25 : 0.12);
+    obj.back.material.emissive = C(n).multiplyScalar(COL.dark ? 0.2 : 0.08);
+  }
+  G.axisMats.forEach((m, i) => { m.color = C('c' + (i + 1)); });
+  G.originDot.material.color = C('ink');
+  G.omegaMat.color = C('omega'); G.omegaMat.emissive = C('omega').multiplyScalar(0.3);
+  G.trailMat.color = C('omega'); G.trailMat.emissive = C('omega').multiplyScalar(0.3);
+  G.polMat.color = C('ink'); G.polMat.emissive = C('ink').multiplyScalar(COL.dark ? 0.35 : 0.0);
+  G.famMat.color = C('family'); G.sepMat.color = C('sep');
+  G.hMat.color = C('hvec'); G.hMat.emissive = C('hvec').multiplyScalar(0.2);
+  G.planeMat.color = C('hvec'); G.ringMat.color = C('hvec');
+  G.planeMat.opacity = COL.dark ? 0.14 : 0.1;
+  applyOpacity();
+  drawPlot();
+}
+function applyOpacity() {
+  if (!G) return;
+  const o = S.opacity;
+  for (const obj of [G.E, G.M]) {
+    obj.front.material.opacity = o;
+    obj.back.material.opacity = o * 0.75;
+    obj.grat.material.opacity = Math.min(0.6, o * 1.15 + (COL.dark ? 0.1 : 0.06));
+  }
+}
+
+/* ---------- camera ---------- */
+function setOrthoFrustum() {
+  if (!G) return;
+  const a = vpW / vpH;
+  let hh = orthoBase, hw = orthoBase * a;
+  if (a < 1) { hw = orthoBase; hh = orthoBase / a; }
+  G.ortho.left = -hw; G.ortho.right = hw; G.ortho.top = hh; G.ortho.bottom = -hh;
+  G.ortho.updateProjectionMatrix();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.persp.aspect = vpW / vpH; G.persp.updateProjectionMatrix();
+  setOrthoFrustum();
+}
+const ISO_DIR = new THREE.Vector3(1.0, 0.8, 0.62).normalize();
+function currentDir() {
+  const d = new THREE.Vector3().subVectors(G.cam.position, G.controls.target);
+  return d.lengthSq() > 0 ? d.normalize() : ISO_DIR.clone();
+}
+function fit(dir) {
+  if (!G) return;
+  dir = (dir || currentDir()).clone().normalize();
+  const rho = R * 1.42;
+  const a = vpW / vpH, vf = G.persp.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const f = Math.min(vf, hf);
+  const d = rho / Math.sin(f / 2);
+  G.controls.target.set(0, 0, 0);
+  G.persp.position.copy(dir).multiplyScalar(d);
+  G.persp.near = d * 0.01; G.persp.far = d * 30; G.persp.updateProjectionMatrix();
+  orthoBase = rho;
+  G.ortho.zoom = 1; G.ortho.position.copy(dir).multiplyScalar(d);
+  G.ortho.near = d * 0.001; G.ortho.far = d * 30;
+  setOrthoFrustum();
+  G.controls.minDistance = R * 0.15; G.controls.maxDistance = d * 10;
+  G.controls.update();
+  fitR = R;
+}
+function viewDir(which) {
+  if (which === 'iso') return ISO_DIR.clone();
+  const v = new THREE.Vector3(); v.setComponent(+which, 1);
+  if (+which === 2) v.set(0, -1e-4, 1);
+  return v.normalize();
+}
+function setOrtho(on) {
+  if (!G || on === S.ortho) return;
+  const dir = currentDir(), tgt = G.controls.target;
+  const dist = G.cam.position.distanceTo(tgt);
+  const tf = Math.tan(G.persp.fov * D2R / 2);
+  if (on) {
+    const halfH = dist * tf;
+    G.ortho.zoom = clamp(G.ortho.top / halfH, G.controls.minZoom, G.controls.maxZoom);
+    G.ortho.position.copy(tgt).addScaledVector(dir, Math.max(dist, R * 4));
+    G.ortho.updateProjectionMatrix();
+    G.cam = G.ortho;
+  } else {
+    const halfH = G.ortho.top / G.ortho.zoom;
+    G.persp.position.copy(tgt).addScaledVector(dir, halfH / tf);
+    G.cam = G.persp;
+  }
+  G.controls.object = G.cam;
+  S.ortho = on;
+  $('#perspBtn').setAttribute('aria-pressed', String(!on));
+  $('#orthoBtn').setAttribute('aria-pressed', String(on));
+  G.controls.update();
+}
+
+/* ---------- scene updates ---------- */
+function sizes() {
+  return { pol: 0.0085 * R, trail: 0.013 * R, shaft: 0.011 * R, head: 0.034 * R, headL: 0.1 * R, axis: 0.0042 * R, axHead: 0.02 * R, axHeadL: 0.065 * R, fam: 0.0042 * R, sep: 0.0062 * R };
+}
+const ORIGIN = new THREE.Vector3();
+function updateAxes() {
+  const s = sizes(), L = 1.22 * R;
+  for (let i = 0; i < 3; i++) {
+    const e = new THREE.Vector3(); e.setComponent(i, 1);
+    const from = e.clone().multiplyScalar(-L), vec = e.clone().multiplyScalar(2 * L);
+    setArrow(G.axes[i], from, vec, s.axis, s.axHead, s.axHeadL);
+  }
+  G.originDot.scale.setScalar(0.014 * R);
+}
+function updateEllipsoids() {
+  const I = S.I, w = S.w, tt = twoTof(I, w), H = Math.sqrt(H2of(I, w));
+  const ok = tt > 0;
+  G.E.g.visible = ok && S.show.energy;
+  G.M.g.visible = ok && S.show.momentum;
+  if (ok) {
+    G.E.g.scale.set(Math.sqrt(tt / I[0]), Math.sqrt(tt / I[1]), Math.sqrt(tt / I[2]));
+    G.M.g.scale.set(H / I[0], H / I[1], H / I[2]);
+  }
+  G.E.grat.visible = S.show.grat; G.M.grat.visible = S.show.grat;
+}
+function updatePolhode() {
+  G.pol.forEach((t) => t.hide());
+  lastPolhodeTT = twoTof(S.I, S.w);
+  if (!S.show.polhode) return;
+  const cl = classify(S.I, S.w, inf);
+  if (!['major', 'minor', 'sep'].includes(cl.kind)) return;
+  const set = polhodeSet(S.I, cl.tt, cl.D, inf, 'branch', S.w);
+  const s = sizes();
+  set.fns.forEach((f, i) => {
+    const P = sampleClosed(f, 0.01 * R, 4000);
+    G.pol[i].set(P, P.length / 3, s.pol, true);
+  });
+}
+function updateFamily() {
+  G.fam.forEach((t) => t.hide());
+  lastFamilyTT = twoTof(S.I, S.w);
+  if (!S.show.family || inf.type === 'iso') return;
+  const tt = lastFamilyTT;
+  if (!(tt > 0)) return;
+  const { Ia, Ib, Ic } = inf, span = Ic - Ia;
+  const us = [0.1, 0.28, 0.48, 0.68, 0.86];
+  const items = [];
+  if (Ib - Ia > 1e-9 * span) us.forEach((u) => items.push({ D: Ia + (Ib - Ia) * u }));
+  if (Ic - Ib > 1e-9 * span) us.forEach((u) => items.push({ D: Ib + (Ic - Ib) * u }));
+  if (inf.type === 'tri') items.push({ D: Ib, sep: true });
+  const s = sizes();
+  let n = 0;
+  for (const it of items) {
+    const set = polhodeSet(S.I, tt, it.D, inf, 'both');
+    for (const f of set.fns) {
+      if (n >= G.fam.length) break;
+      const P = sampleClosed(f, 0.02 * R, 1500);
+      const tube = G.fam[n++];
+      tube.mesh.material = it.sep ? G.sepMat : G.famMat;
+      tube.set(P, P.length / 3, it.sep ? s.sep : s.fam, true);
+    }
+  }
+}
+const trailScratch = new Float32Array((TRAIL_MAX + 1) * 3);
+const wVec = new THREE.Vector3(), hVec = new THREE.Vector3();
+function updateDynamic() {
+  const w = S.w, s = sizes();
+  wVec.set(w[0], w[1], w[2]);
+  const showW = S.show.omega && wVec.lengthSq() > 0;
+  if (showW) setArrow(G.omegaArrow, ORIGIN, wVec, s.shaft, s.head, s.headL); else G.omegaArrow.g.visible = false;
+
+  const n = Math.min(trailN, S.trailLen);
+  if (showW && n >= 2) {
+    let o = 0;
+    for (let k = n; k >= 1; k--) {
+      const j = ((trailHead - k + TRAIL_MAX) % TRAIL_MAX) * 3;
+      trailScratch[o++] = trailBuf[j]; trailScratch[o++] = trailBuf[j + 1]; trailScratch[o++] = trailBuf[j + 2];
+    }
+    trailScratch[o++] = w[0]; trailScratch[o++] = w[1]; trailScratch[o++] = w[2];
+    const rr = s.trail;
+    G.trail.set(trailScratch, n + 1, (k, m) => rr * (0.18 + 0.82 * Math.pow(k / (m - 1), 0.6)), false);
+  } else G.trail.hide();
+
+  const tt = twoTof(S.I, w);
+  const showH = S.show.hplane && tt > 0;
+  G.hArrow.g.visible = showH; G.planeGroup.visible = showH;
+  if (showH) {
+    hVec.set(S.I[0] * w[0], S.I[1] * w[1], S.I[2] * w[2]);
+    const H = hVec.length();
+    hVec.divideScalar(H);
+    const dist = tt / H;
+    const tip = hVec.clone().multiplyScalar(dist);
+    setArrow(G.hArrow, ORIGIN, tip, s.shaft * 0.8, s.head * 0.85, s.headL * 0.9);
+    G.planeGroup.position.copy(tip);
+    G.planeGroup.quaternion.setFromUnitVectors(Z_AXIS, hVec);
+    G.planeGroup.scale.setScalar(0.62 * R);
+    hLabel.dataset.x = tip.x; hLabel.dataset.y = tip.y; hLabel.dataset.z = tip.z;
+  }
+}
+function updateLabels() {
+  const showL = S.show.labels;
+  const L = 1.34 * R;
+  for (let i = 0; i < 3; i++) {
+    if (!showL) { axLabels[i].hidden = true; continue; }
+    const v = new THREE.Vector3(); v.setComponent(i, L);
+    placeLabel(axLabels[i], v);
+  }
+  if (S.show.omega && norm3(S.w) > 0) placeLabel(tipLabel, wVec, 14, -14); else tipLabel.hidden = true;
+  if (S.show.hplane && G.hArrow.g.visible) {
+    placeLabel(hLabel, new THREE.Vector3(+hLabel.dataset.x, +hLabel.dataset.y, +hLabel.dataset.z), -14, -12);
+  } else hLabel.hidden = true;
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = $('#plot');
+const pctx = plotCv.getContext('2d');
+const PL = { follow: true, win: 20, x0: 0, x1: 20, yAuto: true, y0: -1, y1: 1, show: [true, true, true], hoverX: null, m: { l: 50, r: 14, t: 8, b: 24 }, W: 1, H: 1 };
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  const d = Math.max(0, Math.ceil(-Math.log10(s) - 1e-9));
+  return { v: out, d };
+}
+function lowerBound(tv) {
+  let lo = 0, hi = hN;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+function yBound() {
+  const tt = twoTof(S.I, S.w);
+  if (!(tt > 0)) return 1;
+  let B = 0; for (let i = 0; i < 3; i++) B = Math.max(B, Math.sqrt(tt / S.I[i]));
+  return B * 1.08;
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  if (pw < 30 || ph < 30) return;
+  if (PL.follow) { PL.x1 = Math.max(S.t, PL.win); PL.x0 = PL.x1 - PL.win; }
+  if (PL.yAuto) { const B = yBound(); PL.y0 = -B; PL.y1 = B; }
+  const sx = pw / (PL.x1 - PL.x0), sy = ph / (PL.y1 - PL.y0);
+  const X = (v) => l + (v - PL.x0) * sx, Y = (v) => t + (PL.y1 - v) * sy;
+  const monoFont = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+
+  ctx.lineWidth = 1; ctx.font = monoFont; ctx.textBaseline = 'middle';
+  const xt = ticksOf(PL.x0, PL.x1, pw / 90), yt = ticksOf(PL.y0, PL.y1, ph / 34);
+  ctx.strokeStyle = COL.rule; ctx.fillStyle = COL.muted;
+  ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yt.v.forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), l - 6, Y(v)));
+  if (PL.y0 < 0 && PL.y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Y(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Y(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText('rad/s', 6, t + 6);
+  ctx.fillText('t, s', 6, t + ph + 12);
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (hN > 0) {
+    const i0 = Math.max(0, lowerBound(PL.x0) - 1), i1 = Math.min(hN - 1, lowerBound(PL.x1));
+    const cnt = i1 - i0 + 1;
+    ctx.lineWidth = 1.7; ctx.lineJoin = 'round';
+    for (let k = 0; k < 3; k++) {
+      if (!PL.show[k]) continue;
+      const arr = Hw[k];
+      ctx.strokeStyle = COL['c' + (k + 1)];
+      ctx.beginPath();
+      if (cnt <= pw * 2) {
+        ctx.moveTo(X(Ht[i0]), Y(arr[i0]));
+        for (let i = i0 + 1; i <= i1; i++) ctx.lineTo(X(Ht[i]), Y(arr[i]));
+      } else {
+        let px = null, mn = 0, mx = 0, ly = 0;
+        for (let i = i0; i <= i1; i++) {
+          const x = Math.floor(X(Ht[i])), y = Y(arr[i]);
+          if (x !== px) {
+            if (px === null) ctx.moveTo(x, y);
+            else { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); }
+            px = x; mn = mx = y;
+          } else { if (y < mn) mn = y; if (y > mx) mx = y; }
+          ly = y;
+        }
+        if (px !== null) { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); }
+      }
+      ctx.stroke();
+    }
+    // current time marker
+    if (S.t >= PL.x0 && S.t <= PL.x1) {
+      const x = Math.round(X(S.t)) + 0.5;
+      ctx.strokeStyle = COL.omega; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(x, t); ctx.lineTo(x, t + ph); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // hover readout
+    if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw) {
+      const tv = PL.x0 + (PL.hoverX - l) / sx;
+      let i = lowerBound(tv);
+      if (i >= hN) i = hN - 1;
+      if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+      const x = X(Ht[i]);
+      if (x >= l && x <= l + pw) {
+        ctx.strokeStyle = COL.muted; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+        for (let k = 0; k < 3; k++) {
+          if (!PL.show[k]) continue;
+          ctx.fillStyle = COL['c' + (k + 1)];
+          ctx.beginPath(); ctx.arc(x, Y(Hw[k][i]), 3.5, 0, TAU); ctx.fill();
+        }
+        const lines = [`t  ${fx(Ht[i], 2)} s`, ...[0, 1, 2].filter((k) => PL.show[k]).map((k) => `ω${SUBD[k]} ${fs(Hw[k][i], 3)}`)];
+        ctx.font = monoFont;
+        const bw = Math.max(...lines.map((s2) => ctx.measureText(s2).width)) + 16, bh = lines.length * 15 + 8;
+        let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+        const by = t + 6;
+        ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+        ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.textAlign = 'left';
+        lines.forEach((s2, j) => { ctx.fillStyle = j === 0 ? COL.ink : COL['c' + (([0, 1, 2].filter((k) => PL.show[k])[j - 1]) + 1)]; ctx.fillText(s2, bx + 8, by + 12 + j * 15); });
+      }
+    }
+  }
+  ctx.restore();
+}
+function setFollow(on) {
+  PL.follow = on;
+  $('#liveBtn').setAttribute('aria-pressed', String(on));
+}
+(function plotInteractions() {
+  const pointers = new Map();
+  let drag = null, pinch = null;
+  const pw = () => PL.W - PL.m.l - PL.m.r, ph = () => PL.H - PL.m.t - PL.m.b;
+  plotCv.addEventListener('pointerdown', (e) => {
+    plotCv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pointers.size === 1) drag = { x: e.offsetX, y: e.offsetY, x0: PL.x0, x1: PL.x1, y0: PL.y0, y1: PL.y1, moved: false, ymoved: false };
+    else if (pointers.size === 2) {
+      const [p, q] = [...pointers.values()];
+      pinch = { d: Math.max(10, Math.abs(p.x - q.x)), cx: (p.x + q.x) / 2, x0: PL.x0, x1: PL.x1 };
+      drag = null;
+    }
+  });
+  plotCv.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && pointers.size >= 2) {
+      const [p, q] = [...pointers.values()];
+      const d = Math.max(10, Math.abs(p.x - q.x)), f = pinch.d / d;
+      const span = (pinch.x1 - pinch.x0) * f;
+      const tc = pinch.x0 + (pinch.cx - PL.m.l) / pw() * (pinch.x1 - pinch.x0);
+      const frac = (pinch.cx - PL.m.l) / pw();
+      setFollow(false);
+      PL.x0 = tc - frac * span; PL.x1 = PL.x0 + span;
+      return;
+    }
+    if (drag) {
+      const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (!drag.moved) return;
+      setFollow(false);
+      const xs = (drag.x1 - drag.x0) / pw();
+      PL.x0 = drag.x0 - dx * xs; PL.x1 = drag.x1 - dx * xs;
+      if (drag.ymoved || Math.abs(dy) > 8) {
+        drag.ymoved = true; PL.yAuto = false;
+        const ys = (drag.y1 - drag.y0) / ph();
+        PL.y0 = drag.y0 + dy * ys; PL.y1 = drag.y1 + dy * ys;
+      }
+      return;
+    }
+    PL.hoverX = e.offsetX;
+  });
+  const end = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (pointers.size === 0) drag = null; };
+  plotCv.addEventListener('pointerup', end);
+  plotCv.addEventListener('pointercancel', end);
+  plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+  plotCv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unit, -300, 300) * 0.0018);
+    if (e.shiftKey || e.altKey) {
+      PL.yAuto = false;
+      const yc = PL.y1 - (e.offsetY - PL.m.t) / ph() * (PL.y1 - PL.y0);
+      PL.y0 = yc + (PL.y0 - yc) * f; PL.y1 = yc + (PL.y1 - yc) * f;
+    } else if (PL.follow) {
+      PL.win = clamp(PL.win * f, 0.2, 1e5);
+    } else {
+      const tc = PL.x0 + (e.offsetX - PL.m.l) / pw() * (PL.x1 - PL.x0);
+      PL.x0 = tc + (PL.x0 - tc) * f; PL.x1 = tc + (PL.x1 - tc) * f;
+    }
+  }, { passive: false });
+  plotCv.addEventListener('dblclick', () => { resetPlotView(); });
+})();
+function resetPlotView() {
+  PL.yAuto = true; PL.win = defaultWindow(); setFollow(true);
+}
+function defaultWindow() {
+  const cl = classify(S.I, S.w, inf);
+  const P = polhodePeriod(inf, cl).P;
+  if (isFinite(P) && P > 0) return clamp(2.4 * P, 8, 150);
+  return 30;
+}
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const el = (id) => document.getElementById(id);
+function regimeText(cl) {
+  const ax = (i) => `<span class="sym">ω</span><sub class="n">${i + 1}</sub>`;
+  const { a, b, c } = inf;
+  switch (cl.kind) {
+    case 'zero': return { t: 'No rotation', s: 'With ω = 0 both ellipsoids collapse to the origin. Set a nonzero ω(0).', pill: 'ω = 0: no rotation' };
+    case 'iso': return { t: 'Isoinertial body', s: 'Both ellipsoids are the same sphere. Every axis is principal, so ω stays constant: the polhode is a single point.', pill: 'Isoinertial: ω is constant' };
+    case 'eq': {
+      const k = cl.k, Ik = S.I[k];
+      const tied = inf.type !== 'tri';
+      let stab, short;
+      if (inf.type === 'oblate' && k !== c) { stab = 'Neutrally stable. A perturbation sends ω around the symmetry axis in a wide circle.'; short = 'neutral'; }
+      else if (inf.type === 'prolate' && k !== a) { stab = 'Neutrally stable. A perturbation sends ω around the symmetry axis in a wide circle.'; short = 'neutral'; }
+      else if (Math.abs(Ik - inf.Ic) <= inf.tol) { stab = 'Stable. A small perturbation gives a small polhode around this axis.'; short = 'stable'; }
+      else if (Math.abs(Ik - inf.Ia) <= inf.tol) { stab = 'Stable for a rigid body. With energy dissipation it is unstable and the spin migrates to the major axis.'; short = 'stable (rigid)'; }
+      else { stab = 'Unstable equilibrium. Exact spin stays put, but any perturbation grows into a flip along the separatrix (the intermediate-axis or Dzhanibekov effect). Try Perturbed.'; short = 'unstable'; }
+      const role = inf.roleL[k];
+      return { t: `Pure spin about ${ax(k)}`, s: `ω is parallel to H, so ω is constant (${role} axis). ${stab}`, pill: `Pure spin about ${ax(k)} · ${short}` };
+    }
+    case 'major': {
+      let s = `<span class="sym">I</span><sub class="n">int</sub> &lt; <span class="sym">D</span> &lt; <span class="sym">I</span><sub class="n">max</sub>. ${ax(c)} keeps its sign while ${ax(a)} and ${ax(b)} oscillate through zero.`;
+      if (inf.type === 'oblate') s = `Axisymmetric: ω cones around the symmetry axis ${ax(c)} at constant ${ax(c)}, and the polhode is a circle.`;
+      if (cl.near < 0.03 && inf.type === 'tri') s += ' Close to the separatrix: expect long dwells near ±' + ax(b).replace('</sub>', '</sub>') + ' and sign flips of ' + ax(b) + '.';
+      return { t: `Polhode encircles the major axis ${ax(c)}`, s, pill: `Encircles major axis ${ax(c)}` };
+    }
+    case 'minor': {
+      let s = `<span class="sym">I</span><sub class="n">min</sub> &lt; <span class="sym">D</span> &lt; <span class="sym">I</span><sub class="n">int</sub>. ${ax(a)} keeps its sign while ${ax(b)} and ${ax(c)} oscillate through zero.`;
+      if (inf.type === 'prolate') s = `Axisymmetric: ω cones around the symmetry axis ${ax(a)} at constant ${ax(a)}, and the polhode is a circle.`;
+      if (cl.near < 0.03 && inf.type === 'tri') s += ' Close to the separatrix: expect long dwells near ±' + ax(b) + ' and sign flips of ' + ax(b) + '.';
+      return { t: `Polhode encircles the minor axis ${ax(a)}`, s, pill: `Encircles minor axis ${ax(a)}` };
+    }
+    case 'sep': return { t: 'On the separatrix', s: `<span class="sym">D</span> = <span class="sym">I</span><sub class="n">int</sub>. ω approaches the intermediate axis ${ax(b)} asymptotically, so the period is infinite.`, pill: 'On the separatrix' };
+  }
+  return { t: '—', s: '', pill: '—' };
+}
+let lastRegKey = '';
+function updateReadouts() {
+  const I = S.I, w = S.w;
+  const cl = classify(I, w, inf);
+  el('tOut').textContent = S.t.toFixed(2);
+  for (let i = 0; i < 3; i++) el('o_w' + i).textContent = fs(w[i], 4);
+  el('o_wn').textContent = fs(norm3(w), 4);
+  el('o_T').textContent = fg(cl.tt / 2, 5);
+  el('o_H').textContent = fg(Math.sqrt(cl.h2), 5);
+  el('o_D').textContent = isFinite(cl.D) ? fg(cl.D, 5) : '—';
+  if (S.nu > 0) {
+    el('o_dTl').innerHTML = '<span class="sym">T</span>/<span class="sym">T</span>₀';
+    el('o_dT').textContent = S.tt0 > 0 ? fx(cl.tt / S.tt0, 4) : '—';
+  } else {
+    el('o_dTl').innerHTML = 'Δ<span class="sym">T</span>/<span class="sym">T</span>₀';
+    el('o_dT').textContent = S.tt0 > 0 ? sci(cl.tt / S.tt0 - 1, 1) : '—';
+  }
+  el('o_dH').textContent = S.h20 > 0 ? sci(Math.sqrt(cl.h2 / S.h20) - 1, 1) : '—';
+
+  const regKey = cl.kind + '|' + (cl.k ?? '') + '|' + (cl.near < 0.03) + '|' + inf.type + '|' + inf.o.join('');
+  if (regKey !== lastRegKey) {
+    const rt = regimeText(cl);
+    el('regTitle').innerHTML = rt.t; el('regSub').innerHTML = rt.s; el('regPill').innerHTML = rt.pill;
+    lastRegKey = regKey;
+  }
+
+  // D scale
+  const dw = el('dwrap');
+  if (inf.type === 'iso' || !(cl.tt > 0)) dw.hidden = true;
+  else {
+    dw.hidden = false;
+    const { a, b, c, Ia, Ib, Ic } = inf, span = Ic - Ia;
+    const pct = (v) => clamp((v - Ia) / span * 100, 0, 100);
+    el('zMin').style.width = pct(Ib) + '%';
+    el('zMaj').style.width = (100 - pct(Ib)) + '%';
+    [a, b, c].forEach((ax, j) => {
+      const tk = el('tk' + j);
+      tk.style.left = pct(I[ax]) + '%';
+      tk.firstElementChild.innerHTML = `<span class="sym">I</span><sub class="n">${ax + 1}</sub> ${fg(I[ax], 3)}`;
+      tk.firstElementChild.style.transform = j === 0 ? 'translateX(-8%)' : j === 2 ? 'translateX(-92%)' : 'translateX(-50%)';
+    });
+    // when two inertias coincide, hide the duplicate tick label
+    el('tk1').hidden = inf.type !== 'tri';
+    el('dMark').style.left = pct(cl.D) + '%';
+  }
+
+  // semi-axes
+  const H = Math.sqrt(cl.h2);
+  let rows = '';
+  for (let i = 0; i < 3; i++) {
+    const ea = cl.tt > 0 ? Math.sqrt(cl.tt / I[i]) : 0, ma = H / I[i];
+    rows += `<tr class="r${i + 1}"><td>ω${SUBD[i]}</td><td>${fg(I[i], 4)}</td><td>${fx(ea, 4)}</td><td>${fx(ma, 4)}</td></tr>`;
+  }
+  const tb = el('axTable'); if (tb.innerHTML !== rows) tb.innerHTML = rows;
+
+  // periods
+  const pr = polhodePeriod(inf, cl);
+  el('o_P').textContent = cl.kind === 'sep' ? '∞' : (isFinite(pr.P) ? fg(pr.P, 4) : '—');
+  el('o_k').textContent = isFinite(pr.m) ? fx(pr.m, 4) : '—';
+  if (cl.tt > 0 && inf.type !== 'iso') {
+    const lin = linearAbout(I, w);
+    const axn = `<span class="sym">ω</span><sub class="n">${lin.k + 1}</sub>`;
+    el('o_linL').innerHTML = `Linear about ${axn}`;
+    let txt, note;
+    if (lin.s2 > 1e-14) { const wp = Math.sqrt(lin.s2); txt = `stable · ${fg(TAU / wp, 4)} s`; note = `Small-angle frequency ω<sub class="n">p</sub> = ${fg(wp, 4)} rad/s. ω is ${fx(lin.ang, 1)}° from ${axn}.`; }
+    else if (lin.s2 < -1e-14) { const g = Math.sqrt(-lin.s2); txt = `unstable · e-fold ${fg(1 / g, 3)} s`; note = `Linear growth rate ${fg(g, 4)} s⁻¹ about the intermediate axis. ω is ${fx(lin.ang, 1)}° from ${axn}.`; }
+    else { txt = 'neutral'; note = `Transverse spin of an axisymmetric body: no restoring term. ω is ${fx(lin.ang, 1)}° from ${axn}.`; }
+    if (lin.ang > 20 && lin.s2 !== 0) note += ' That is far from the axis, so the linear estimate is rough.';
+    el('o_lin').textContent = txt; el('linNote').innerHTML = note;
+  } else { el('o_linL').textContent = 'Linearized'; el('o_lin').textContent = '—'; el('linNote').textContent = ''; }
+}
+
+function updateRolesUI() {
+  for (let i = 0; i < 3; i++) {
+    el('role' + i).textContent = inf.roleS[i];
+    axLabels[i].querySelector('.role').textContent = inf.roleS[i];
+  }
+  const { a, b, c } = inf;
+  el('axMax').textContent = ' ω' + SUBD[c];
+  el('axInt').textContent = ' ω' + SUBD[b];
+  el('axMin').textContent = ' ω' + SUBD[a];
+  $$('#moiGrid [data-moi]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.moi === inf.type)));
+  const warn = el('triWarn');
+  if (inf.viol.length) {
+    const i = inf.viol[0], j = (i + 1) % 3, k = (i + 2) % 3;
+    warn.hidden = false;
+    warn.innerHTML = `Not a physical rigid body: <span class="sym">I</span><sub class="n">${j + 1}</sub> + <span class="sym">I</span><sub class="n">${k + 1}</sub> &lt; <span class="sym">I</span><sub class="n">${i + 1}</sub> (triangle inequality). The math still runs.`;
+  } else warn.hidden = true;
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function rebuild(opts = {}) {
+  inf = inertiaInfo(S.I);
+  Ibar = (S.I[0] + S.I[1] + S.I[2]) / 3;
+  kappa = Math.max(Math.abs(S.I[1] - S.I[2]) / S.I[0], Math.abs(S.I[2] - S.I[0]) / S.I[1], Math.abs(S.I[0] - S.I[1]) / S.I[2]);
+  S.w = S.w0.slice(); S.t = 0;
+  S.tt0 = twoTof(S.I, S.w); S.h20 = H2of(S.I, S.w);
+  R = S.h20 > 0 ? Math.sqrt(S.h20) / inf.Ia : 1;
+  trailClear(); trailPush(S.w);
+  histClear(); histPush(0, S.w);
+  updateRolesUI();
+  if (G) {
+    updateAxes(); updateEllipsoids(); updatePolhode(); updateFamily(); updateDynamic();
+    const ratio = fitR > 0 ? R / fitR : Infinity;
+    if (opts.refit || ratio > 1.6 || ratio < 1 / 1.6) fit(currentDir());
+  }
+  lastRegKey = '';
+  if (opts.resetPlot !== false) resetPlotView();
+  updateReadouts();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt2 = (v) => (Number.isFinite(v) ? String(+v.toFixed(4)) : '');
+function syncInputs() {
+  for (let i = 0; i < 3; i++) {
+    el(`I${i + 1}r`).value = S.I[i]; el(`I${i + 1}n`).value = fmt2(S.I[i]);
+    el(`w${i + 1}r`).value = S.w0[i]; el(`w${i + 1}n`).value = fmt2(S.w0[i]);
+  }
+  el('spinR').value = S.spin; el('spinN').value = fmt2(S.spin);
+  el('epsR').value = S.eps; el('epsN').value = fmt2(S.eps);
+  el('nuR').value = S.nu; el('nuN').value = fmt2(S.nu);
+  el('opR').value = S.opacity; el('opOut').textContent = Math.round(S.opacity * 100) + '%';
+  el('trailR').value = S.trailLen; el('trailOut').textContent = S.trailLen === 0 ? 'off' : S.trailLen;
+  const sv = Math.log10(S.speed); el('speedR').value = sv; el('speedOut').textContent = speedText();
+  el('chkGrat').checked = S.show.grat; el('chkFamily').checked = S.show.family; el('chkH').checked = S.show.hplane; el('chkLabels').checked = S.show.labels;
+}
+function speedText() { return (S.speed < 1 ? S.speed.toFixed(2) : S.speed.toFixed(1)) + '×'; }
+function bindPair(rid, nid, o) {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = +r.value; n.value = fmt2(v); o.set(v); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt2(o.get()); return; }
+    if (o.min != null) v = Math.max(o.min, v);
+    n.value = fmt2(v); r.value = v; o.set(v);
+  });
+}
+for (let i = 0; i < 3; i++) {
+  bindPair(`I${i + 1}r`, `I${i + 1}n`, { min: 0.01, get: () => S.I[i], set: (v) => { S.I[i] = v; el('spinNote').hidden = true; rebuild(); } });
+  bindPair(`w${i + 1}r`, `w${i + 1}n`, { get: () => S.w0[i], set: (v) => { S.w0[i] = v; el('spinNote').hidden = true; rebuild(); } });
+}
+bindPair('spinR', 'spinN', { min: 0.001, get: () => S.spin, set: (v) => { S.spin = v; } });
+bindPair('epsR', 'epsN', { min: 0, get: () => S.eps, set: (v) => { S.eps = v; } });
+bindPair('nuR', 'nuN', { min: 0, get: () => S.nu, set: (v) => { S.nu = v; rebuild({ resetPlot: true }); } });
+el('opR').addEventListener('input', () => { S.opacity = +el('opR').value; el('opOut').textContent = Math.round(S.opacity * 100) + '%'; applyOpacity(); });
+el('trailR').addEventListener('input', () => { S.trailLen = +el('trailR').value; el('trailOut').textContent = S.trailLen === 0 ? 'off' : S.trailLen; });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+el('chkGrat').addEventListener('change', (e) => { S.show.grat = e.target.checked; if (G) updateEllipsoids(); });
+el('chkFamily').addEventListener('change', (e) => { S.show.family = e.target.checked; if (G) updateFamily(); });
+el('chkH').addEventListener('change', (e) => { S.show.hplane = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+
+$$('.legend .chip').forEach((btn) => btn.addEventListener('click', () => {
+  const key = btn.dataset.show;
+  S.show[key] = !S.show[key];
+  btn.setAttribute('aria-pressed', String(S.show[key]));
+  if (!G) return;
+  if (key === 'energy' || key === 'momentum') updateEllipsoids();
+  if (key === 'polhode') updatePolhode();
+}));
+$$('.hist-head [data-comp]').forEach((btn) => btn.addEventListener('click', () => {
+  const k = +btn.dataset.comp; PL.show[k] = !PL.show[k]; btn.setAttribute('aria-pressed', String(PL.show[k]));
+}));
+el('liveBtn').addEventListener('click', () => { if (!PL.follow) { PL.win = PL.x1 - PL.x0; } setFollow(true); });
+el('allBtn').addEventListener('click', () => {
+  setFollow(false); PL.yAuto = true;
+  const t0 = hN ? Ht[0] : 0; PL.x0 = t0; PL.x1 = Math.max(S.t, t0 + 1);
+});
+
+$$('#moiGrid [data-moi]').forEach((btn) => btn.addEventListener('click', () => {
+  S.I = MOI_PRESETS[btn.dataset.moi].slice();
+  el('spinNote').hidden = true;
+  syncInputs(); rebuild({ refit: true });
+}));
+$$('#spinGrid [data-spin]').forEach((btn) => btn.addEventListener('click', () => {
+  const which = btn.dataset.spin, pert = btn.dataset.pert === '1';
+  const info = inertiaInfo(S.I);
+  const k = which === 'max' ? info.c : which === 'min' ? info.a : info.b;
+  const w = [0, 0, 0];
+  w[k] = S.spin;
+  if (pert) { w[(k + 1) % 3] = S.eps * S.spin; w[(k + 2) % 3] = S.eps * S.spin; }
+  S.w0 = w;
+  const note = el('spinNote');
+  const I = (i) => `<span class="sym">I</span><sub class="n">${i + 1}</sub>`;
+  if (info.type === 'iso') { note.hidden = false; note.innerHTML = 'Isoinertial body: major, intermediate and minor are the same, and every spin is a pure spin.'; }
+  else if (info.type === 'oblate' && which !== 'max') { note.hidden = false; note.innerHTML = `${I(info.a)} = ${I(info.b)}, so ω${SUBD[k]} is a transverse axis, not a distinct ${which === 'int' ? 'intermediate' : 'minor'} axis.`; }
+  else if (info.type === 'prolate' && which !== 'min') { note.hidden = false; note.innerHTML = `${I(info.b)} = ${I(info.c)}, so ω${SUBD[k]} is a transverse axis, not a distinct ${which === 'int' ? 'intermediate' : 'major'} axis.`; }
+  else note.hidden = true;
+  syncInputs(); rebuild({ refit: true });
+  setPlaying(true);
+}));
+
+function setPlaying(on) {
+  S.playing = on;
+  const b = el('playBtn');
+  b.innerHTML = on
+    ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause'
+    : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+el('playBtn').addEventListener('click', () => setPlaying(!S.playing));
+el('resetBtn').addEventListener('click', () => rebuild({ resetPlot: true }));
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((btn) => btn.addEventListener('click', () => fit(viewDir(btn.dataset.view))));
+el('perspBtn').addEventListener('click', () => setOrtho(false));
+el('orthoBtn').addEventListener('click', () => setOrtho(true));
+el('themeBtn').addEventListener('click', () => { root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'); });
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => {
+  const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+  if (p && p.catch) p.catch(() => { fsBtn.hidden = true; });
+});
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+if (coarse) el('hint').textContent = 'One finger to rotate · Two fingers to pan and zoom';
+
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ' ) { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); setPlaying(!S.playing); }
+  else if (k === 'r') rebuild({ resetPlot: true });
+  else if (k === 'f') fit();
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === '1' || k === '2' || k === '3') fit(viewDir(String(+k - 1)));
+  else if (k === 'o') setOrtho(!S.ortho);
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+try {
+  G = initGL();
+  new ResizeObserver(() => resize()).observe(vp);
+  resize();
+  $('#gl').addEventListener('dblclick', () => fit());
+} catch (err) {
+  G = null;
+  const d = document.createElement('div');
+  d.className = 'glfail';
+  d.textContent = 'The 3D view could not start (' + (err && err.message ? err.message : 'WebGL unavailable') + '). The time history and analysis still work.';
+  vp.appendChild(d);
+}
+COL = readColors();
+syncInputs();
+setPlaying(S.playing);
+applyTheme();
+rebuild({ refit: true });
+if (G) fit(ISO_DIR.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawPlot());
+
+let last = performance.now(), roAcc = 0, frameNo = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000));
+  last = now; frameNo++;
+  if (S.playing && S.tt0 > 0) {
+    advance(dtReal * S.speed);
+    if (G && S.nu > 0) {
+      updateEllipsoids();
+      const tt = twoTof(S.I, S.w);
+      if (frameNo % 3 === 0 && Math.abs(tt / lastPolhodeTT - 1) > 1e-4) updatePolhode();
+      if (S.show.family && Math.abs(tt / lastFamilyTT - 1) > 0.01) updateFamily();
+    }
+  }
+  if (G) {
+    updateDynamic();
+    G.sun.position.copy(G.cam.position);
+    G.sun.target.position.copy(G.controls.target);
+    G.controls.update();
+    G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot();
+  roAcc += dtReal;
+  if (roAcc > 0.1) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* test hook (harmless in production) */
+window.__polhode = { S, rebuild, fit, setOrtho, classify: () => classify(S.I, S.w, inf), period: () => polhodePeriod(inf, classify(S.I, S.w, inf)) };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1977 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spinning Top Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches Polhode Explorer). Control rail | inertial-frame viewport over time-history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --trace: #cc2b26;
+  --bound: #1b8655;
+  --momentum: #2257c2;
+  --omega: #c97a00;
+  --on-omega: #1a1305;
+  --torque: #7340c2;
+  --weight: #47515d;
+  --axis: #6a7582;
+  --disk: #c5ccd4;
+  --disk-alt: #2c3540;
+  --axle: #39424d;
+  --table: #8d99a6;
+  --wrong: #8f99a4;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --trace: #ff5d51; --bound: #45c58c; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
+    --torque: #ac8dff; --weight: #b8c0ca; --axis: #7f8a97;
+    --disk: #4a5561; --disk-alt: #d5dbe2; --axle: #aab4bf; --table: #5d6977; --wrong: #6b7581;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --trace: #ff5d51; --bound: #45c58c; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
+  --torque: #ac8dff; --weight: #b8c0ca; --axis: #7f8a97;
+  --disk: #4a5561; --disk-alt: #d5dbe2; --axle: #aab4bf; --table: #5d6977; --wrong: #6b7581;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 80ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail {
+  min-height: 0; overflow: auto;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  scrollbar-width: thin;
+}
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+h3 { margin: 2px 0 -2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.warn { margin: 0; font-size: 13.5px; color: var(--trace); font-weight: 500; }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+.up { font-family: var(--f-math); font-style: normal; }
+.ac { position: relative; display: inline-block; }
+.ac::after { content: ""; position: absolute; left: 52%; transform: translateX(-50%); background: currentColor; pointer-events: none; }
+.ac.d::after { top: -.16em; width: .18em; height: .18em; border-radius: 50%; }
+.ac.d.s::after { top: .06em; }
+.ac.b::after { top: .1em; width: .62em; height: .07em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 40px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .tag { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); line-height: 1.1; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--omega); border-color: var(--omega); color: var(--on-omega); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--omega); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+.check .sw { width: 14px; height: 4px; border-radius: 2px; background: var(--sw); flex: none; }
+.check .sw.dot { height: 4px; background: repeating-linear-gradient(90deg, var(--sw) 0 3px, transparent 3px 6px); }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 216px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.viewport { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 18px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.legend { left: 10px; top: 10px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 13.5px; font-weight: 500; padding: 4px 10px 4px 7px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 13px; height: 13px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.seg .btn[aria-pressed="true"] { background: var(--ink); }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.regime-pill {
+  display: block;
+  left: 10px; bottom: 10px; max-width: min(58%, 540px);
+  padding: 6px 11px; border-radius: 6px; border: 1px solid var(--rule);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  font-size: 14px; font-weight: 600; line-height: 1.25;
+}
+.regime-pill.alert { border-color: var(--trace); color: var(--trace); }
+.hint { right: 10px; bottom: 10px; font-size: 12.5px; color: var(--muted); text-align: right; max-width: 34%; }
+.viewport.alerting .hint { display: none; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 220px; flex: 0 1 320px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tclock { margin-left: auto; font-size: 15px; }
+.tclock .sym { font-size: 17px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .spacer { flex: 1; }
+.hist-head .hint2 { font-size: 12px; color: var(--muted); }
+.hist-head .seg .btn { padding: 3px 9px; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.regime-card { display: grid; gap: 5px; }
+.regime-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.regime-card .rs { font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.kv .em { color: var(--bound); font-weight: 500; }
+.kv .bad { color: var(--wrong); }
+.kv .sep { grid-column: 1 / -1; border-top: 1px solid var(--rule); margin: 2px 0; }
+
+.ascale { position: relative; height: 50px; margin: 2px 6px 0; }
+.ascale .bar { position: absolute; top: 18px; left: 0; right: 0; height: 8px; border-radius: 4px; overflow: hidden; display: flex; }
+.ascale .bar .lo { background: color-mix(in srgb, var(--trace) 30%, transparent); }
+.ascale .bar .hi { flex: 1; background: color-mix(in srgb, var(--bound) 34%, transparent); }
+.ascale .tick { position: absolute; top: 14px; width: 0; height: 16px; border-left: 1.5px solid var(--ink); }
+.ascale .tick > span { position: absolute; top: 18px; left: 0; transform: translateX(-50%); white-space: nowrap; font-size: 12px; color: var(--muted); font-family: var(--f-num); }
+.ascale .amark { position: absolute; top: 0; width: 0; height: 28px; border-left: 2px solid var(--omega); }
+.ascale .amark > span { position: absolute; top: -3px; left: 4px; font-family: var(--f-math); font-style: italic; font-weight: 600; font-size: 15px; color: var(--omega); }
+.ascale-cap { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.tpwrap { position: relative; height: 190px; margin-inline: -4px; }
+#tp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .92em; line-height: 1.15; margin: 0 2px; }
+.frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 2px; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 270px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app {
+    height: auto;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "top top" "ctl stage" "ctl ana";
+    align-items: start;
+  }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(66vh, 660px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: min(64vh, 520px) auto 230px; }
+  .hint, .hist-head .hint2 { display: none; }
+  .viewbar { max-width: 56%; }
+  .legend .chip { font-size: 12.5px; padding: 3px 8px 3px 6px; }
+  .regime-pill { max-width: calc(100% - 20px); font-size: 13px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 23 · Spin stabilization</div>
+      <h1>Spinning Top Explorer</h1>
+    </div>
+    <p class="lede">A symmetric top on a fixed, frictionless pivot, described by 3-1-3 Euler angles in the inertial frame <span class="sym">F<sub>A</sub></span>. Gravity's torque about the pivot is always horizontal, so the total energy <span class="sym">E</span> and the vertical momentum <span class="sym">h</span><sub class="n"><span class="sym">Ẑ</span></sub> stay constant. The axis precesses about <span class="sym">Ẑ</span> while it nods between <span class="sym">θ</span><sub class="n">min</sub> and <span class="sym">θ</span><sub class="n">max</sub>.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart from the initial conditions</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd></dt><dd>Isometric view</dd>
+            <dt><kbd>T</kbd> <kbd>S</kbd></dt><dd>Top view, side view</dd>
+            <dt><kbd>O</kbd></dt><dd>Perspective / orthographic</dd>
+            <dt>Mouse</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <h3>Appendix A toy gyroscope</h3>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="appA-slow">Slow spin<small>60 rad/s, falls</small></button>
+        <button class="btn" type="button" data-preset="appA-fast">Fast spin<small>200 rad/s, nods 6.6°</small></button>
+      </div>
+      <h3>Motion type (keeps body, spin and <span class="sym">θ</span><sub class="n">0</sub>)</h3>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="cusps">Cusps<small>released from rest</small></button>
+        <button class="btn" type="button" data-preset="waves">Waves<small><span class="sym"><span class="ac d">ψ</span></span>(0) = ½ steady</small></button>
+        <button class="btn" type="button" data-preset="loops">Loops<small><span class="sym"><span class="ac d">ψ</span></span>(0) &lt; 0</small></button>
+        <button class="btn" type="button" data-preset="steady">Steady precession<small>no nod</small></button>
+      </div>
+      <h3>Upright top (<span class="sym">θ</span><sub class="n">0</sub> = 1°)</h3>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="sleep-ok">Sleeping<small>spin 1.5 × critical</small></button>
+        <button class="btn" type="button" data-preset="sleep-bad">Too slow<small>spin 0.75 × critical</small></button>
+      </div>
+      <p class="note" id="presetNote" hidden></p>
+    </section>
+
+    <section class="group">
+      <h2>Top <span class="unit">thin disk on a massless axle</span></h2>
+      <div class="slider">
+        <label for="mR"><span class="sym">m</span><span class="u">kg</span></label>
+        <input type="range" id="mR" min="0.02" max="1" step="0.005" aria-label="Mass slider">
+        <input type="number" id="mN" min="0.001" step="any" aria-label="Mass, kg">
+      </div>
+      <div class="slider">
+        <label for="rR"><span class="sym">r</span><span class="u">cm</span></label>
+        <input type="range" id="rR" min="0.5" max="10" step="0.1" aria-label="Disk radius slider">
+        <input type="number" id="rN" min="0.01" step="any" aria-label="Disk radius, cm">
+      </div>
+      <div class="slider">
+        <label for="lR"><span class="sym">l</span><span class="u">cm</span></label>
+        <input type="range" id="lR" min="0" max="12" step="0.1" aria-label="Pivot to center of mass slider">
+        <input type="number" id="lN" min="0" step="any" aria-label="Pivot to center of mass, cm">
+      </div>
+      <p class="note"><span class="sym">l</span> is the distance from the pivot to the center of mass along <span class="sym">p̂</span><sub class="n">3</sub>. <span class="sym">g</span> = 9.81 m/s².</p>
+    </section>
+
+    <section class="group">
+      <h2>Initial conditions</h2>
+      <div class="slider">
+        <label for="thR"><span class="sym">θ</span><sub class="n">0</sub><span class="u">deg</span></label>
+        <input type="range" id="thR" min="0" max="179" step="0.5" aria-label="Initial nutation angle slider">
+        <input type="number" id="thN" min="0" max="180" step="any" aria-label="Initial nutation angle, degrees">
+      </div>
+      <div class="slider">
+        <label for="wR"><span class="sym">ω</span><sub class="n">3<sub>0</sub></sub><span class="u">rad/s</span></label>
+        <input type="range" id="wR" min="0" max="400" step="1" aria-label="Spin rate slider">
+        <input type="number" id="wN" step="any" aria-label="Spin rate, rad/s">
+      </div>
+      <div class="slider">
+        <label for="pdR"><span class="sym"><span class="ac d">ψ</span></span>(0)<span class="u">rad/s</span></label>
+        <input type="range" id="pdR" min="-30" max="30" step="0.05" aria-label="Initial precession rate slider">
+        <input type="number" id="pdN" step="any" aria-label="Initial precession rate, rad/s">
+      </div>
+      <div class="slider">
+        <label for="tdR"><span class="sym"><span class="ac d">θ</span></span>(0)<span class="u">rad/s</span></label>
+        <input type="range" id="tdR" min="-30" max="30" step="0.05" aria-label="Initial nutation rate slider">
+        <input type="number" id="tdN" step="any" aria-label="Initial nutation rate, rad/s">
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap">
+        <button class="btn" type="button" id="zeroRates">Zero both rates</button>
+      </div>
+      <p class="note">The lesson's case is <span class="sym"><span class="ac d">ψ</span></span>(0) = <span class="sym"><span class="ac d">θ</span></span>(0) = 0. <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub> is the spin about <span class="sym">p̂</span><sub class="n">3</sub>, which gravity cannot change. Changing any input restarts from <span class="sym">t</span> = 0.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkBounds"><span class="sw dot" style="--sw:var(--bound)"></span><span><span class="sym">θ</span><sub class="n">min</sub> and <span class="sym">θ</span><sub class="n">max</sub> circles</span></label>
+        <label class="check"><input type="checkbox" id="chkWrong"><span class="sw dot" style="--sw:var(--wrong)"></span><span>Prediction using <span class="sym">I</span><sub class="n">t,cm</sub> (wrong)</span></label>
+        <label class="check"><input type="checkbox" id="chkHpath"><span class="sw" style="--sw:var(--momentum)"></span><span>Path of the <span class="sym">h̄</span> tip</span></label>
+        <label class="check"><input type="checkbox" id="chkArc"> <span><span class="sym">θ</span> arc</span></label>
+        <label class="check"><input type="checkbox" id="chkTable"> Table surface</label>
+        <label class="check"><input type="checkbox" id="chkStop"> Stop when the rim hits the table</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <div class="slider">
+        <label for="trailR" class="tag">Trace</label>
+        <input type="range" id="trailR" min="0" max="4000" step="20" aria-label="Apex trace length">
+        <output id="trailOut" class="tag"></output>
+      </div>
+      <p class="note">The red apex trace is the path of the axle tip, as in the lesson figure. The <span class="sym">h̄</span> tip stays in a horizontal plane because <span class="sym">h</span><sub class="n"><span class="sym">Ẑ</span></sub> is constant.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="viewport" id="viewport">
+      <canvas id="gl" aria-label="3D view of the spinning top in the inertial frame"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="overlay legend" role="group" aria-label="Show or hide">
+        <button class="chip" type="button" data-show="trace" style="--sw:var(--trace)" aria-pressed="true"><span class="sw"></span>Apex trace</button>
+        <button class="chip" type="button" data-show="h" style="--sw:var(--momentum)" aria-pressed="true"><span class="sw"></span><span><span class="sym">h̄</span> angular momentum</span></button>
+        <button class="chip" type="button" data-show="w" style="--sw:var(--omega)" aria-pressed="false"><span class="sw"></span><span><span class="sym"><span class="ac b">ω</span></span> angular velocity</span></button>
+        <button class="chip" type="button" data-show="torque" style="--sw:var(--torque)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ḡ</span><sub class="n">c</sub> gravity torque</span></button>
+        <button class="chip" type="button" data-show="weight" style="--sw:var(--weight)" aria-pressed="true"><span class="sw"></span><span><span class="sym">mg</span> weight</span></button>
+      </div>
+      <div class="overlay viewbar">
+        <div class="seg" role="group" aria-label="View direction">
+          <button class="btn" type="button" data-view="iso" title="Isometric view (0)">Iso</button>
+          <button class="btn" type="button" data-view="top" title="Look down Ẑ (T)">Top</button>
+          <button class="btn" type="button" data-view="side" title="Side view (S)">Side</button>
+        </div>
+        <button class="btn" type="button" id="fitBtn" title="Fit (F)">Fit</button>
+        <div class="seg" role="group" aria-label="Projection">
+          <button class="btn" type="button" id="perspBtn" aria-pressed="true">Persp</button>
+          <button class="btn" type="button" id="orthoBtn" aria-pressed="false">Ortho</button>
+        </div>
+      </div>
+      <div class="overlay regime-pill" id="regPill">—</div>
+      <div class="overlay hint" id="hint">Drag to rotate · Right-drag or Shift-drag to pan · Scroll to zoom · Double-click to fit</div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn" title="Restart (R)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="-2.3" max="0.3" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+        <button class="btn" type="button" id="autoSpeed" title="Pick a speed that shows the nod clearly">Auto</button>
+      </div>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0.000</span> s</div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="th" aria-pressed="true"><span class="sym">θ</span></button>
+          <button class="btn" type="button" data-q="pd" aria-pressed="false"><span class="sym"><span class="ac d">ψ</span></span></button>
+          <button class="btn" type="button" data-q="td" aria-pressed="false"><span class="sym"><span class="ac d">θ</span></span></button>
+          <button class="btn" type="button" data-q="fd" aria-pressed="false"><span class="sym"><span class="ac d">φ</span></span></button>
+        </div>
+        <span class="spacer"></span>
+        <span class="hint2">Drag to pan · Scroll to zoom · Shift-scroll for value · Double-click to reset</span>
+        <button class="btn" type="button" id="liveBtn" aria-pressed="true">Live</button>
+        <button class="btn" type="button" id="allBtn">Show all</button>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="Time history plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group regime-card">
+      <h2>Motion</h2>
+      <div class="rt" id="regTitle">—</div>
+      <div class="rs" id="regSub"></div>
+    </section>
+
+    <section class="group">
+      <h2>Turning points <span class="unit"><span class="sym"><span class="ac d">θ</span></span>² vs <span class="sym">θ</span></span></h2>
+      <div class="tpwrap"><canvas id="tp" aria-label="Nutation rate squared versus nutation angle"></canvas></div>
+      <dl class="kv">
+        <dt><span class="sym">θ</span><sub class="n">min</sub></dt><dd><span id="o_thmin"></span><span class="u">deg</span></dd>
+        <dt><span class="sym">θ</span><sub class="n">max</sub></dt><dd class="em"><span id="o_thmax"></span><span class="u">deg</span></dd>
+        <dt>Nod <span class="sym">θ</span><sub class="n">max</sub> − <span class="sym">θ</span><sub class="n">min</sub></dt><dd><span id="o_nod"></span><span class="u">deg</span></dd>
+        <dt id="o_cfL">Closed form (notes)</dt><dd id="o_cf"></dd>
+        <dt>With <span class="sym">I</span><sub class="n">t,cm</sub> (wrong)</dt><dd class="bad" id="o_wrong"></dd>
+        <dt>Rim hits table at</dt><dd><span id="o_thc"></span><span class="u">deg</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Precession and nutation</h2>
+      <dl class="kv">
+        <dt><span class="sym"><span class="ac d">ψ</span></span> range</dt><dd><span id="o_pdr"></span><span class="u">rad/s</span></dd>
+        <dt>Mean <span class="sym"><span class="ac d">ψ</span></span>, exact</dt><dd class="em"><span id="o_pdm"></span><span class="u">rad/s</span></dd>
+        <dt>Gyroscopic <span class="sym">mgl</span>/<span class="sym">I<sub>a</sub>ω</span><sub class="n">3<sub>0</sub></sub></dt><dd><span id="o_gyro"></span><span class="u">rad/s</span></dd>
+        <dt>Nutation period</dt><dd><span id="o_Tn"></span><span class="u">s</span></dd>
+        <dt>Precession period</dt><dd><span id="o_Tp"></span><span class="u">s</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Spin parameter</h2>
+      <dl class="kv">
+        <dt><span class="sym">a</span> = <span class="sym">I<sub>a</sub></span>²<span class="sym">ω</span><sub class="n">3<sub>0</sub></sub>² / 2<span class="sym">I<sub>t</sub>mgl</span></dt><dd id="o_a"></dd>
+        <dt>Critical spin (<span class="sym">a</span> = 2)</dt><dd><span id="o_wc"></span><span class="u">rad/s</span></dd>
+      </dl>
+      <div id="awrap">
+        <div class="ascale">
+          <div class="bar"><div class="lo" id="aLo"></div><div class="hi"></div></div>
+          <div class="tick" id="atk0"><span>0.1</span></div>
+          <div class="tick" id="atk1"><span>1</span></div>
+          <div class="tick" id="atk2"><span>2</span></div>
+          <div class="tick" id="atk3"><span>10</span></div>
+          <div class="tick" id="atk4"><span>100</span></div>
+          <div class="amark" id="aMark"><span>a</span></div>
+        </div>
+        <div class="ascale-cap"><span>upright spin unstable</span><span>upright spin stable</span></div>
+      </div>
+      <p class="note">Larger <span class="sym">a</span> means a smaller nod and a slower precession.</p>
+    </section>
+
+    <section class="group">
+      <h2>Live state</h2>
+      <dl class="kv">
+        <dt><span class="sym">θ</span> nutation</dt><dd><span id="o_th"></span><span class="u">deg</span></dd>
+        <dt><span class="sym">ψ</span> precession</dt><dd><span id="o_ps"></span><span class="u">deg</span></dd>
+        <dt><span class="sym">φ</span> spin angle</dt><dd><span id="o_ph"></span><span class="u">deg</span></dd>
+        <dt class="sep"></dt><dd class="sep"></dd>
+        <dt><span class="sym"><span class="ac d">θ</span></span></dt><dd><span id="o_td"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym"><span class="ac d">ψ</span></span></dt><dd><span id="o_pd"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym"><span class="ac d">φ</span></span></dt><dd><span id="o_fd"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">3</sub></dt><dd><span id="o_w3"></span><span class="u">rad/s</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Inertias about the pivot <span class="unit">kg·m²</span></h2>
+      <dl class="kv">
+        <dt><span class="sym">I<sub>a</sub></span> = ½<span class="sym">mr</span>²</dt><dd id="o_Ia"></dd>
+        <dt><span class="sym">I</span><sub class="n">t,cm</sub> = ¼<span class="sym">mr</span>²</dt><dd id="o_Itcm"></dd>
+        <dt><span class="sym">ml</span>²</dt><dd id="o_ml2"></dd>
+        <dt><span class="sym">I<sub>t</sub></span> = <span class="sym">I</span><sub class="n">t,cm</sub> + <span class="sym">ml</span>²</dt><dd class="em" id="o_It"></dd>
+        <dt><span class="sym">I<sub>t</sub></span> / <span class="sym">I</span><sub class="n">t,cm</sub></dt><dd id="o_ratio"></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Constants of motion</h2>
+      <dl class="kv">
+        <dt><span class="sym">E</span> = <span class="sym">KE</span> + <span class="sym">PE</span></dt><dd><span id="o_E"></span><span class="u">J</span></dd>
+        <dt><span class="sym">h</span><sub class="n"><span class="sym">Ẑ</span></sub></dt><dd><span id="o_hZ"></span><span class="u">N·m·s</span></dd>
+        <dt>Drift in <span class="sym">E</span></dt><dd id="o_dE"></dd>
+        <dt>Drift in <span class="sym">h</span><sub class="n"><span class="sym">Ẑ</span></sub></dt><dd id="o_dh"></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Euler's equations about the pivot</div>
+          <div><i>I<sub>t</sub><span class="ac d s">ω</span></i><sub>1</sub> = (<i>I<sub>t</sub></i> − <i>I<sub>a</sub></i>) <i>ω</i><sub>2</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>1</sub></div>
+          <div><i>I<sub>t</sub><span class="ac d s">ω</span></i><sub>2</sub> = (<i>I<sub>a</sub></i> − <i>I<sub>t</sub></i>) <i>ω</i><sub>1</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>2</sub></div>
+          <div><i>I<sub>a</sub><span class="ac d s">ω</span></i><sub>3</sub> = 0, &nbsp; <i>ḡ<sub>c</sub></i> = −<i>mgl</i> (<i>p̂</i><sub>3</sub> × <i>Ẑ</i>)</div>
+        </div>
+        <div>
+          <div class="lab">Constants of motion</div>
+          <div class="box"><i>E</i> = ½<i>I<sub>t</sub></i>(<i><span class="ac d">θ</span></i>² + <i><span class="ac d">ψ</span></i>² sin²<i>θ</i>) + ½<i>I<sub>a</sub>ω</i><sub>3<sub>0</sub></sub>² + <i>mgl</i> cos <i>θ</i></div>
+          <div class="box" style="margin-top:6px"><i>h<sub>Ẑ</sub></i> = <i>I<sub>t</sub><span class="ac d">ψ</span></i> sin²<i>θ</i> + <i>I<sub>a</sub>ω</i><sub>3<sub>0</sub></sub> cos <i>θ</i></div>
+        </div>
+        <div>
+          <div class="lab">Released from rest</div>
+          <div>cos <i>θ</i><sub>max</sub> = <i>a</i>/2 − √(1 − <i>a</i> cos <i>θ</i><sub>0</sub> + (<i>a</i>/2)²)</div>
+          <div><i><span class="ac d">ψ</span></i> = (cos <i>θ</i><sub>0</sub> − cos <i>θ</i>) <span class="frac"><span><i>I<sub>a</sub>ω</i><sub>3<sub>0</sub></sub></span><span><i>I<sub>t</sub></i> sin²<i>θ</i></span></span></div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">The motion is integrated with fixed-step RK4 on Euler's equations and a quaternion, so it stays valid at <span class="sym">θ</span> = 0 where the Euler angles are singular. The turning points come from the cubic in cos <span class="sym">θ</span> built from <span class="sym">E</span> and <span class="sym">h</span><sub class="n"><span class="sym">Ẑ</span></sub>, which works for any initial rates. The exact nutation period and mean <span class="sym"><span class="ac d">ψ</span></span> are integrals over one nod between those roots.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+if (!window.THREE || !THREE.OrbitControls) {
+  const d = document.createElement('div');
+  d.className = 'glfail';
+  d.textContent = 'The 3D library did not load. Check the network connection and reload the page.';
+  document.getElementById('viewport').appendChild(d);
+  return;
+}
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const G0 = 9.81;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 6));
+}
+const wrapPi = (a) => a - TAU * Math.floor((a + Math.PI) / TAU);
+
+/* =========================================================
+   Top model
+   ========================================================= */
+const S = {
+  m: 0.2, r: 3.0, l: 4.0,            // kg, cm, cm
+  th0: 30, w30: 150, pd0: 0, td0: 0,  // deg, rad/s, rad/s, rad/s
+  speed: 0.2, playing: !reduceMotion,
+  trailLen: 2400,
+  show: { trace: true, h: true, w: false, torque: true, weight: true, bounds: true, wrong: false, hpath: false, arc: true, table: true, stop: false, labels: true },
+  ortho: false,
+  q: [1, 0, 0, 0], w: [0, 0, 0], t: 0,
+  psiU: 0, psiPrev: 0,
+  E0: 0, hZ0: 0, contact: null,
+};
+
+function bodyOf(s) {
+  const m = s.m, r = s.r / 100, l = s.l / 100;
+  const Ia = 0.5 * m * r * r, Itcm = 0.25 * m * r * r, ml2 = m * l * l;
+  return { m, r, l, Ia, Itcm, ml2, It: Itcm + ml2, mgl: m * G0 * l };
+}
+let B = bodyOf(S);
+
+/* Turning-point analysis from the two constants of motion.
+   With u = cos(theta): u_dot^2 = f(u) = (2/It)(1-u^2)(E' - mgl u) - ((hZ - Ia w3 u)/It)^2 */
+function analyze(Ia, It, mgl, th0deg, w3, pd0, td0) {
+  const th0 = th0deg * D2R, u0 = Math.cos(th0), s0 = Math.sin(th0);
+  const hZ = It * pd0 * s0 * s0 + Ia * w3 * u0;
+  const Ep = 0.5 * It * (td0 * td0 + pd0 * pd0 * s0 * s0) + mgl * u0;
+  const A = 2 / It, P = hZ / It, Q = Ia * w3 / It;
+  const c3 = A * mgl, c2 = -(A * Ep + Q * Q), c1 = -A * mgl + 2 * P * Q, c0 = A * Ep - P * P;
+  const f = (u) => ((c3 * u + c2) * u + c1) * u + c0;
+  const fp = (u) => (3 * c3 * u + 2 * c2) * u + c1;
+  const scale = Math.abs(c3) + Math.abs(c2) + Math.abs(c1) + Math.abs(c0);
+  const res = { hZ, Ep, c3, c2, c1, c0, f, P, Q, u0, ok: true };
+  const bisect = (lo, hi) => { // f(lo) > 0 >= f(hi) or the reverse
+    let flo = f(lo);
+    for (let i = 0; i < 200; i++) {
+      const mid = 0.5 * (lo + hi), fm = f(mid);
+      if ((fm > 0) === (flo > 0)) { lo = mid; flo = fm; } else hi = mid;
+      if (Math.abs(hi - lo) < 1e-15) break;
+    }
+    return 0.5 * (lo + hi);
+  };
+  let u1, u2;
+  if (!(scale > 0)) { u1 = u2 = u0; }
+  else {
+    const f0 = f(u0);
+    if (f0 > 1e-12 * scale) {
+      u2 = bisect(u0, -1);
+      u1 = bisect(u0, 1);
+    } else {
+      const d = fp(u0), tolD = 1e-7 * scale;
+      if (d > tolD && u0 < 1) {
+        const lo = u0 + Math.min(1e-7, 0.5 * (1 - u0));
+        u2 = u0; u1 = f(lo) > 0 ? bisect(lo, 1) : u0;
+      } else if (d < -tolD && u0 > -1) {
+        const hi = u0 - Math.min(1e-7, 0.5 * (1 + u0));
+        u1 = u0; u2 = f(hi) > 0 ? bisect(hi, -1) : u0;
+      } else { u1 = u2 = u0; }
+    }
+  }
+  u1 = clamp(u1, -1, 1); u2 = clamp(u2, -1, 1);
+  res.u1 = u1; res.u2 = u2;
+  res.thMin = Math.acos(u1) * R2D; res.thMax = Math.acos(u2) * R2D;
+  const pdOf = (u) => {
+    const d = 1 - u * u;
+    if (d < 1e-12) return u > 0 ? Q / (1 + u) : -Q / (1 - u);
+    return (P - Q * u) / d;
+  };
+  res.pdOf = pdOf;
+  // u(s) = u2 + (u1-u2) sin^2 s ; du/sqrt(f) = 2 ds / sqrt(g(u)), g(u) = -c2 - c3 (u1 + u2 + u)
+  const gOf = (u) => -c2 - c3 * (u1 + u2 + u);
+  let T = 0, dpsi = 0, N = 400, okInt = true;
+  for (let i = 0; i < N; i++) {
+    const s = (i + 0.5) / N * (Math.PI / 2), sn = Math.sin(s);
+    const u = u2 + (u1 - u2) * sn * sn, g = gOf(u);
+    if (!(g > 0)) { okInt = false; break; }
+    const w = (Math.PI / 2) / N * 2 / Math.sqrt(g);
+    T += w; dpsi += w * pdOf(u);
+  }
+  if (okInt) { res.Tnut = 2 * T; res.pdMean = dpsi / T; } else { res.Tnut = Infinity; res.pdMean = NaN; }
+  const tidy = (v, ref) => (Math.abs(v) < 1e-9 * Math.max(Math.abs(ref), 1e-30) ? 0 : v);
+  const pa = pdOf(u1), pb = pdOf(u2), big = Math.max(Math.abs(pa), Math.abs(pb));
+  res.pdAtMin = tidy(pa, big); res.pdAtMax = tidy(pb, big);
+  res.pdLo = Math.min(res.pdAtMin, res.pdAtMax); res.pdHi = Math.max(res.pdAtMin, res.pdAtMax);
+  return res;
+}
+function closedForm(Ia, It, mgl, th0deg, w3) {
+  if (!(mgl > 0)) return { a: Infinity, thMax: NaN };
+  const a = Ia * Ia * w3 * w3 / (2 * It * mgl), c0 = Math.cos(th0deg * D2R);
+  const cm = a / 2 - Math.sqrt(1 - a * c0 + a * a / 4);
+  return { a, cosMax: cm, thMax: cm >= -1 && cm <= 1 ? Math.acos(cm) * R2D : NaN };
+}
+function steadySlow(Ia, It, mgl, th, w3) {
+  const c = Math.cos(th * D2R), L = Ia * w3, disc = L * L - 4 * It * mgl * c;
+  if (disc < 0 || !(Math.abs(L) + mgl > 0)) return NaN;
+  const den = L + Math.sign(L || 1) * Math.sqrt(disc);
+  if (den === 0) return NaN;
+  return 2 * mgl / den;
+}
+let AN = null, ANW = null, CF = null;
+/* the turning point that is not the release angle */
+function otherTh(an) { return Math.abs(an.thMax - S.th0) >= Math.abs(an.thMin - S.th0) ? an.thMax : an.thMin; }
+
+/* =========================================================
+   Rigid-body integration: quaternion (body -> inertial) + body rates
+   ========================================================= */
+const Y = new Float64Array(7), K1 = new Float64Array(7), K2 = new Float64Array(7), K3 = new Float64Array(7), K4 = new Float64Array(7), YT = new Float64Array(7);
+function deriv(y, out) {
+  const qw = y[0], qx = y[1], qy = y[2], qz = y[3], w1 = y[4], w2 = y[5], w3 = y[6];
+  out[0] = -0.5 * (qx * w1 + qy * w2 + qz * w3);
+  out[1] = 0.5 * (qw * w1 + qy * w3 - qz * w2);
+  out[2] = 0.5 * (qw * w2 + qz * w1 - qx * w3);
+  out[3] = 0.5 * (qw * w3 + qx * w2 - qy * w1);
+  const z1 = 2 * (qx * qz - qw * qy), z2 = 2 * (qy * qz + qw * qx); // Z-hat in body components
+  const It = B.It, Ia = B.Ia, mgl = B.mgl;
+  out[4] = ((It - Ia) * w2 * w3 + mgl * z2) / It;
+  out[5] = ((Ia - It) * w1 * w3 - mgl * z1) / It;
+  out[6] = 0;
+}
+function rk4(h) {
+  deriv(Y, K1);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(YT, K2);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(YT, K3);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(YT, K4);
+  for (let i = 0; i < 7; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[0], Y[1], Y[2], Y[3]);
+  Y[0] /= n; Y[1] /= n; Y[2] /= n; Y[3] /= n;
+}
+/* Rotation matrix rows from the quaternion */
+function Rmat(y) {
+  const w = y[0], x = y[1], yy = y[2], z = y[3];
+  return [
+    1 - 2 * (yy * yy + z * z), 2 * (x * yy - w * z), 2 * (x * z + w * yy),
+    2 * (x * yy + w * z), 1 - 2 * (x * x + z * z), 2 * (yy * z - w * x),
+    2 * (x * z - w * yy), 2 * (yy * z + w * x), 1 - 2 * (x * x + yy * yy),
+  ];
+}
+/* 3-1-3 angles and rates. C_P/A = R^T */
+function eulerOf(y) {
+  const R = Rmat(y), w1 = y[4], w2 = y[5], w3 = y[6];
+  const th = Math.acos(clamp(R[8], -1, 1)), st = Math.sin(th);
+  const ps = Math.atan2(R[2], -R[5]), ph = Math.atan2(R[6], R[7]);
+  const sp = Math.sin(ph), cp = Math.cos(ph);
+  const td = w1 * cp - w2 * sp;
+  const pd = st > 1e-7 ? (w1 * sp + w2 * cp) / st : NaN;
+  const fd = isFinite(pd) ? w3 - pd * Math.cos(th) : NaN;
+  return { R, th, ps, ph, td, pd, fd };
+}
+function invariantsOf(y) {
+  const R = Rmat(y), w1 = y[4], w2 = y[5], w3 = y[6];
+  const E = 0.5 * B.It * (w1 * w1 + w2 * w2) + 0.5 * B.Ia * w3 * w3 + B.mgl * R[8];
+  const hZ = R[6] * B.It * w1 + R[7] * B.It * w2 + R[8] * B.Ia * w3;
+  return { E, hZ };
+}
+
+/* Apex trace (axle tip) and h-tip path ring buffers */
+const TRAIL_MAX = 4000;
+function makeRing(n) { return { buf: new Float32Array(n * 3), n: 0, head: 0, max: n }; }
+const apex = makeRing(TRAIL_MAX), hring = makeRing(2000);
+function ringClear(rg) { rg.n = 0; rg.head = 0; }
+function ringPush(rg, x, y, z, thr) {
+  if (rg.n > 0) {
+    const j = ((rg.head - 1 + rg.max) % rg.max) * 3;
+    const dx = x - rg.buf[j], dy = y - rg.buf[j + 1], dz = z - rg.buf[j + 2];
+    if (dx * dx + dy * dy + dz * dz < thr * thr) return;
+  }
+  const j = rg.head * 3;
+  rg.buf[j] = x; rg.buf[j + 1] = y; rg.buf[j + 2] = z;
+  rg.head = (rg.head + 1) % rg.max;
+  if (rg.n < rg.max) rg.n++;
+}
+
+/* Time-history buffer */
+const HCAP = 400000;
+const Ht = new Float64Array(HCAP);
+const HQ = { th: new Float32Array(HCAP), pd: new Float32Array(HCAP), td: new Float32Array(HCAP), fd: new Float32Array(HCAP) };
+let hN = 0, hLastT = -Infinity, hDt = 0.005;
+function histClear() { hN = 0; hLastT = -Infinity; }
+function histPush(t, e) {
+  if (hN >= HCAP) {
+    const half = HCAP >> 1;
+    Ht.copyWithin(0, half); Object.values(HQ).forEach((a) => a.copyWithin(0, half));
+    hN -= half;
+  }
+  Ht[hN] = t; HQ.th[hN] = e.th * R2D; HQ.pd[hN] = e.pd; HQ.td[hN] = e.td; HQ.fd[hN] = e.fd;
+  hN++; hLastT = t;
+}
+
+let hStep = 1e-4;
+let hScale = 1, wScale = 1; // scene length per unit of |h|, |omega|
+function sampleState() {
+  const e = eulerOf(Y);
+  // unwrap psi
+  if (Math.sin(e.th) > 1e-6) { S.psiU += wrapPi(e.ps - S.psiPrev); S.psiPrev = e.ps; }
+  return e;
+}
+function pushTraces(e) {
+  const R = e.R;
+  ringPush(apex, R[2], R[5], R[8], 0.0025);
+  const h1 = B.It * Y[4], h2 = B.It * Y[5], h3 = B.Ia * Y[6];
+  const hx = R[0] * h1 + R[1] * h2 + R[2] * h3, hy = R[3] * h1 + R[4] * h2 + R[5] * h3, hz = R[6] * h1 + R[7] * h2 + R[8] * h3;
+  ringPush(hring, hx * hScale, hy * hScale, hz * hScale, 0.004);
+}
+function rimHeight(th) { return B.l * Math.cos(th) - B.r * Math.sin(th); }
+let contactArmed = false;
+function advance(dt) {
+  const n = Math.min(6000, Math.max(1, Math.ceil(dt / hStep)));
+  const h = dt / n;
+  for (let s = 0; s < n; s++) {
+    rk4(h);
+    S.t += h;
+    const e = sampleState();
+    pushTraces(e);
+    if (S.t - hLastT >= hDt - 1e-15) histPush(S.t, e);
+    if (contactArmed && S.show.stop && rimHeight(e.th) < 0) {
+      S.contact = { t: S.t, th: e.th * R2D };
+      contactArmed = false;
+      setPlaying(false);
+      lastRegKey = '';
+      return;
+    }
+  }
+}
+
+/* =========================================================
+   3D scene
+   ========================================================= */
+const vp = $('#viewport');
+let G = null;
+let vpW = 1, vpH = 1, orthoBase = 1;
+const FIT_R = 1.55;
+const tmpV = new THREE.Vector3();
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+const indexCache = new Map();
+function tubeIndex(maxPts, radial) {
+  const key = maxPts + ':' + radial;
+  if (indexCache.has(key)) return indexCache.get(key);
+  const idx = new Uint32Array((maxPts - 1) * radial * 6);
+  let q = 0;
+  for (let i = 0; i < maxPts - 1; i++) for (let j = 0; j < radial; j++) {
+    const j1 = (j + 1) % radial, a = i * radial + j, b = i * radial + j1, c = (i + 1) * radial + j, d = (i + 1) * radial + j1;
+    idx[q++] = a; idx[q++] = b; idx[q++] = c; idx[q++] = b; idx[q++] = d; idx[q++] = c;
+  }
+  const attr = new THREE.BufferAttribute(idx, 1);
+  indexCache.set(key, attr);
+  return attr;
+}
+class Tube {
+  constructor(maxPts, radial, material) {
+    this.max = maxPts; this.rad = radial;
+    const nv = maxPts * radial;
+    this.pos = new Float32Array(nv * 3); this.nor = new Float32Array(nv * 3);
+    const g = new THREE.BufferGeometry();
+    this.pa = new THREE.BufferAttribute(this.pos, 3); this.pa.setUsage(THREE.DynamicDrawUsage);
+    this.na = new THREE.BufferAttribute(this.nor, 3); this.na.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.pa); g.setAttribute('normal', this.na);
+    g.setIndex(tubeIndex(maxPts, radial));
+    g.setDrawRange(0, 0);
+    this.geo = g;
+    this.mesh = new THREE.Mesh(g, material);
+    this.mesh.frustumCulled = false;
+    this.cs = [];
+    for (let j = 0; j < radial; j++) { const t = TAU * j / radial; this.cs.push(Math.cos(t), Math.sin(t)); }
+  }
+  hide() { this.geo.setDrawRange(0, 0); this.mesh.visible = false; }
+  set(P, n, radius) {
+    if (n < 2) { this.hide(); return; }
+    const m = Math.min(n, this.max);
+    const idx = (k) => (m === n ? k : Math.round(k * (n - 1) / (m - 1)));
+    const pos = this.pos, nor = this.nor, rad = this.rad, cs = this.cs;
+    let nx = 0, ny = 0, nz = 0, tx = 1, ty = 0, tz = 0;
+    for (let k = 0; k < m; k++) {
+      const i = idx(k);
+      const ia = k === 0 ? 0 : idx(k - 1), ib = k === m - 1 ? i : idx(k + 1);
+      const ux = P[ib * 3] - P[ia * 3], uy = P[ib * 3 + 1] - P[ia * 3 + 1], uz = P[ib * 3 + 2] - P[ia * 3 + 2];
+      const ul = Math.hypot(ux, uy, uz);
+      if (ul > 1e-14) { tx = ux / ul; ty = uy / ul; tz = uz / ul; }
+      if (k === 0) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz;
+      } else {
+        const d = nx * tx + ny * ty + nz * tz;
+        nx -= d * tx; ny -= d * ty; nz -= d * tz;
+      }
+      let nl = Math.hypot(nx, ny, nz);
+      if (nl < 1e-9) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz; nl = Math.hypot(nx, ny, nz);
+      }
+      nx /= nl; ny /= nl; nz /= nl;
+      const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+      const r = typeof radius === 'function' ? radius(k, m) : radius;
+      const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2];
+      for (let j = 0; j < rad; j++) {
+        const c = cs[2 * j], s = cs[2 * j + 1];
+        const dx = c * nx + s * bx, dy = c * ny + s * by, dz = c * nz + s * bz;
+        const o = (k * rad + j) * 3;
+        pos[o] = px + r * dx; pos[o + 1] = py + r * dy; pos[o + 2] = pz + r * dz;
+        nor[o] = dx; nor[o + 1] = dy; nor[o + 2] = dz;
+      }
+    }
+    this.pa.updateRange.offset = 0; this.pa.updateRange.count = m * rad * 3;
+    this.na.updateRange.offset = 0; this.na.updateRange.count = m * rad * 3;
+    this.pa.needsUpdate = true; this.na.needsUpdate = true;
+    this.geo.setDrawRange(0, (m - 1) * rad * 6);
+    this.mesh.visible = true;
+  }
+}
+
+function dotTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(32, 32, 28, 0, TAU); x.fill();
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+
+function initGL() {
+  const canvas = $('#gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+
+  const persp = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  persp.up.set(0, 0, 1);
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.001, 1000);
+  ortho.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(persp, canvas);
+  controls.enableDamping = !reduceMotion;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.zoomSpeed = 1.1;
+  controls.minZoom = 0.05; controls.maxZoom = 60;
+  controls.minDistance = 0.3; controls.maxDistance = 60;
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.66);
+  scene.add(hemi, sun, sun.target);
+
+  // ---- inertial axes
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); scene.add(g);
+    return { g, shaft, head };
+  }
+  const axisMat = new THREE.MeshBasicMaterial();
+  const axes = [0, 1, 2].map(() => makeArrow(axisMat));
+
+  // ---- table
+  const tableMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false });
+  const table = new THREE.Mesh(new THREE.CircleGeometry(1.45, 96), tableMat);
+  table.renderOrder = 1;
+  const gridPts = [];
+  for (let k = -6; k <= 6; k++) {
+    const x = k * 0.2, h = Math.sqrt(Math.max(0, 1.45 * 1.45 - x * x));
+    gridPts.push(x, -h, 0, x, h, 0, -h, x, 0, h, x, 0);
+  }
+  const gridGeo = new THREE.BufferGeometry(); gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridPts, 3));
+  const gridMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35, depthWrite: false });
+  const grid = new THREE.LineSegments(gridGeo, gridMat); grid.renderOrder = 1;
+  const tableGroup = new THREE.Group(); tableGroup.add(table, grid); scene.add(tableGroup);
+
+  // ---- the top (built in body coordinates, axle along +z)
+  const topGroup = new THREE.Group(); scene.add(topGroup);
+  const axleMat = new THREE.MeshPhongMaterial({ shininess: 80 });
+  const diskMatA = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const diskMatB = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const axle = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20, 1).rotateX(Math.PI / 2).translate(0, 0, 0.5), axleMat);
+  const pivotBall = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), axleMat);
+  const diskGroup = new THREE.Group();
+  const WEDGES = 8;
+  for (let i = 0; i < WEDGES; i++) {
+    const geo = new THREE.CylinderGeometry(1, 1, 1, 12, 1, false, TAU * i / WEDGES, TAU / WEDGES).rotateX(Math.PI / 2);
+    diskGroup.add(new THREE.Mesh(geo, i % 2 ? diskMatB : diskMatA));
+  }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20, 1).rotateX(Math.PI / 2), axleMat);
+  topGroup.add(axle, pivotBall, diskGroup, hub);
+
+  // ---- vectors
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const wMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const tqMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const mgMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const hArrow = makeArrow(hMat), wArrow = makeArrow(wMat), tqArrow = makeArrow(tqMat), mgArrow = makeArrow(mgMat);
+
+  // ---- traces
+  const traceMat = new THREE.MeshPhongMaterial({ shininess: 30 });
+  const trace = new Tube(TRAIL_MAX + 1, 7, traceMat); scene.add(trace.mesh);
+  const hpMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85 });
+  const hpath = new Tube(2001, 6, hpMat); scene.add(hpath.mesh);
+
+  // ---- dotted bound circles
+  const dotTex = dotTexture();
+  function makeDots(nPts, size) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nPts * 3), 3));
+    const mat = new THREE.PointsMaterial({ size, sizeAttenuation: false, map: dotTex, transparent: true, alphaTest: 0.35, depthWrite: false });
+    const p = new THREE.Points(geo, mat); p.frustumCulled = false; p.renderOrder = 6; scene.add(p);
+    return { p, geo, mat, n: nPts };
+  }
+  const boundMin = makeDots(150, 4.5), boundMax = makeDots(150, 4.5), boundWrong = makeDots(150, 4.5);
+
+  // ---- theta arc
+  const arcGeo = new THREE.BufferGeometry();
+  arcGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(41 * 3), 3));
+  const arcMat = new THREE.LineBasicMaterial();
+  const arc = new THREE.Line(arcGeo, arcMat); arc.frustumCulled = false; scene.add(arc);
+  const zGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)]);
+
+  return { renderer, scene, persp, ortho, controls, cam: persp, hemi, sun, axes, axisMat, tableGroup, tableMat, gridMat, topGroup, axle, pivotBall, diskGroup, hub, axleMat, diskMatA, diskMatB, hArrow, wArrow, tqArrow, mgArrow, hMat, wMat, tqMat, mgMat, trace, traceMat, hpath, hpMat, boundMin, boundMax, boundWrong, arc, arcMat };
+}
+
+const qTmp = new THREE.Quaternion();
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qTmp.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qTmp); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qTmp); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+
+/* ---------- labels ---------- */
+const labelsEl = $('#labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; labelsEl.appendChild(d); return d;
+}
+const L = {
+  a1: mkLabel('<span class="sym">â</span><sub class="n">1</sub>', 'var(--axis)', 'small'),
+  a2: mkLabel('<span class="sym">â</span><sub class="n">2</sub>', 'var(--axis)', 'small'),
+  a3: mkLabel('<span class="sym">â</span><sub class="n">3</sub> ≡ <span class="sym">Ẑ</span>', 'var(--axis)', 'small'),
+  p3: mkLabel('<span class="sym">p̂</span><sub class="n">3</sub>', 'var(--ink)'),
+  h: mkLabel('<span class="sym">h̄</span>', 'var(--momentum)'),
+  w: mkLabel('<span class="sym"><span class="ac b">ω</span></span>', 'var(--omega)'),
+  tq: mkLabel('<span class="sym">ḡ</span><sub class="n">c</sub>', 'var(--torque)'),
+  mg: mkLabel('<span class="sym">mg</span>', 'var(--weight)', 'small'),
+  th: mkLabel('<span class="sym">θ</span>', 'var(--ink)', 'small'),
+  bmin: mkLabel('<span class="sym">θ</span><sub class="n">min</sub>', 'var(--bound)', 'small'),
+  bmax: mkLabel('<span class="sym">θ</span><sub class="n">max</sub>', 'var(--bound)', 'small'),
+};
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.copy(v).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.15 || Math.abs(tmpV.y) > 1.15) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+
+/* ---------- theme ---------- */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'trace', 'bound', 'momentum', 'omega', 'torque', 'weight', 'axis', 'disk', 'disk-alt', 'axle', 'table', 'wrong'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  $('#themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]);
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62;
+    G.sun.intensity = COL.dark ? 0.75 : 0.66;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G.axisMat.color = C('axis');
+    G.tableMat.color = C('table'); G.gridMat.color = C('table');
+    G.tableMat.opacity = COL.dark ? 0.16 : 0.12;
+    G.axleMat.color = C('axle');
+    G.diskMatA.color = C('disk'); G.diskMatB.color = C('disk-alt');
+    G.hMat.color = C('momentum'); G.hMat.emissive = C('momentum').multiplyScalar(0.25);
+    G.wMat.color = C('omega'); G.wMat.emissive = C('omega').multiplyScalar(0.3);
+    G.tqMat.color = C('torque'); G.tqMat.emissive = C('torque').multiplyScalar(0.25);
+    G.mgMat.color = C('weight'); G.mgMat.emissive = C('weight').multiplyScalar(0.2);
+    G.traceMat.color = C('trace'); G.traceMat.emissive = C('trace').multiplyScalar(0.3);
+    G.hpMat.color = C('momentum');
+    G.boundMin.mat.color = C('bound'); G.boundMax.mat.color = C('bound'); G.boundWrong.mat.color = C('wrong');
+    G.arcMat.color = C('ink');
+  }
+  drawPlot(); drawTP();
+}
+
+/* ---------- camera ---------- */
+function setOrthoFrustum() {
+  if (!G) return;
+  const a = vpW / vpH;
+  let hh = orthoBase, hw = orthoBase * a;
+  if (a < 1) { hw = orthoBase; hh = orthoBase / a; }
+  G.ortho.left = -hw; G.ortho.right = hw; G.ortho.top = hh; G.ortho.bottom = -hh;
+  G.ortho.updateProjectionMatrix();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.persp.aspect = vpW / vpH; G.persp.updateProjectionMatrix();
+  setOrthoFrustum();
+}
+const ISO_DIR = new THREE.Vector3(1.0, -0.35, 0.5).normalize();
+const VIEW_CENTER = new THREE.Vector3(0, 0, 0.45);
+function currentDir() {
+  const d = new THREE.Vector3().subVectors(G.cam.position, G.controls.target);
+  return d.lengthSq() > 0 ? d.normalize() : ISO_DIR.clone();
+}
+function fit(dir) {
+  if (!G) return;
+  dir = (dir || currentDir()).clone().normalize();
+  const rho = FIT_R;
+  const a = vpW / vpH, vf = G.persp.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const f = Math.min(vf, hf);
+  const d = rho / Math.sin(f / 2);
+  G.controls.target.copy(VIEW_CENTER);
+  G.persp.position.copy(VIEW_CENTER).addScaledVector(dir, d);
+  G.persp.near = d * 0.01; G.persp.far = d * 30; G.persp.updateProjectionMatrix();
+  orthoBase = rho;
+  G.ortho.zoom = 1; G.ortho.position.copy(VIEW_CENTER).addScaledVector(dir, d);
+  G.ortho.near = d * 0.001; G.ortho.far = d * 30;
+  setOrthoFrustum();
+  G.controls.update();
+}
+function viewDir(which) {
+  if (which === 'top') return new THREE.Vector3(0.0, -1e-4, 1).normalize();
+  if (which === 'side') return new THREE.Vector3(1, 0, 0.0001).normalize();
+  return ISO_DIR.clone();
+}
+function setOrtho(on) {
+  if (!G || on === S.ortho) return;
+  const dir = currentDir(), tgt = G.controls.target;
+  const dist = G.cam.position.distanceTo(tgt);
+  const tf = Math.tan(G.persp.fov * D2R / 2);
+  if (on) {
+    const halfH = dist * tf;
+    G.ortho.zoom = clamp(G.ortho.top / halfH, G.controls.minZoom, G.controls.maxZoom);
+    G.ortho.position.copy(tgt).addScaledVector(dir, Math.max(dist, 6));
+    G.ortho.updateProjectionMatrix();
+    G.cam = G.ortho;
+  } else {
+    const halfH = G.ortho.top / G.ortho.zoom;
+    G.persp.position.copy(tgt).addScaledVector(dir, halfH / tf);
+    G.cam = G.persp;
+  }
+  G.controls.object = G.cam;
+  S.ortho = on;
+  el('perspBtn').setAttribute('aria-pressed', String(!on));
+  el('orthoBtn').setAttribute('aria-pressed', String(on));
+  G.controls.update();
+}
+
+/* ---------- scene updates ---------- */
+let LAX = 1; // axle length in meters (scene unit)
+function updateBodyGeometry() {
+  const r = B.r, l = B.l;
+  LAX = Math.max(l + 0.6 * r, 1.2 * r, 1e-4);
+  const rs = r / LAX, ls = l / LAX;
+  const thick = clamp(0.1 * rs, 0.018, 0.05);
+  G.axle.scale.set(0.014, 0.014, 1);
+  G.pivotBall.scale.setScalar(0.022);
+  G.diskGroup.scale.set(rs, rs, thick); G.diskGroup.position.set(0, 0, ls);
+  G.hub.scale.set(Math.min(0.045, rs * 0.3), Math.min(0.045, rs * 0.3), thick * 1.6); G.hub.position.set(0, 0, ls);
+}
+function updateAxes() {
+  const lens = [1.25, 1.25, 1.3];
+  for (let i = 0; i < 3; i++) {
+    const v = new THREE.Vector3(); v.setComponent(i, lens[i]);
+    setArrow(G.axes[i], new THREE.Vector3(), v, 0.0055, 0.024, 0.075);
+  }
+}
+function setCircle(D, thDeg) {
+  if (!isFinite(thDeg)) { D.p.visible = false; return; }
+  const th = thDeg * D2R, s = Math.sin(th), c = Math.cos(th), arr = D.geo.attributes.position.array;
+  for (let i = 0; i < D.n; i++) {
+    const a = TAU * i / D.n;
+    arr[3 * i] = s * Math.cos(a); arr[3 * i + 1] = s * Math.sin(a); arr[3 * i + 2] = c;
+  }
+  D.geo.attributes.position.needsUpdate = true;
+  D.p.visible = true;
+}
+function updateBounds() {
+  if (!G) return;
+  const showB = S.show.bounds && AN;
+  if (showB) {
+    setCircle(G.boundMin, AN.thMin);
+    if (Math.abs(AN.thMax - AN.thMin) > 0.05) setCircle(G.boundMax, AN.thMax); else G.boundMax.p.visible = false;
+  } else { G.boundMin.p.visible = false; G.boundMax.p.visible = false; }
+  if (S.show.wrong && ANW && Math.abs(ANW.thMax - ANW.thMin) > 0.02) setCircle(G.boundWrong, otherTh(ANW));
+  else G.boundWrong.p.visible = false;
+}
+const ORIGIN = new THREE.Vector3();
+const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
+const traceScratch = new Float32Array((TRAIL_MAX + 1) * 3);
+const hScratch = new Float32Array(2001 * 3);
+let curE = null;
+function ringToScratch(rg, scratch, count, tail) {
+  const n = Math.min(rg.n, count);
+  let o = 0;
+  for (let k = n; k >= 1; k--) {
+    const j = ((rg.head - k + rg.max) % rg.max) * 3;
+    scratch[o++] = rg.buf[j]; scratch[o++] = rg.buf[j + 1]; scratch[o++] = rg.buf[j + 2];
+  }
+  if (tail) { scratch[o++] = tail[0]; scratch[o++] = tail[1]; scratch[o++] = tail[2]; }
+  return n + (tail ? 1 : 0);
+}
+function updateDynamic() {
+  const e = curE, R = e.R;
+  G.topGroup.quaternion.set(Y[1], Y[2], Y[3], Y[0]);
+  const p3 = vA.set(R[2], R[5], R[8]);
+
+  // apex trace
+  if (S.show.trace && S.trailLen > 0) {
+    const n = ringToScratch(apex, traceScratch, S.trailLen, [p3.x, p3.y, p3.z]);
+    G.trace.set(traceScratch, n, (k, m) => 0.0075 * (0.25 + 0.75 * Math.pow(k / Math.max(1, m - 1), 0.5)));
+  } else G.trace.hide();
+
+  // h vector (inertial)
+  const h1 = B.It * Y[4], h2 = B.It * Y[5], h3 = B.Ia * Y[6];
+  const hv = vB.set(R[0] * h1 + R[1] * h2 + R[2] * h3, R[3] * h1 + R[4] * h2 + R[5] * h3, R[6] * h1 + R[7] * h2 + R[8] * h3).multiplyScalar(hScale);
+  if (S.show.h) setArrow(G.hArrow, ORIGIN, hv, 0.013, 0.036, 0.1); else G.hArrow.g.visible = false;
+  if (S.show.hpath) {
+    const n = ringToScratch(hring, hScratch, 2000, [hv.x, hv.y, hv.z]);
+    G.hpath.set(hScratch, n, 0.0045);
+  } else G.hpath.hide();
+
+  // omega vector (inertial)
+  const wv = vC.set(R[0] * Y[4] + R[1] * Y[5] + R[2] * Y[6], R[3] * Y[4] + R[4] * Y[5] + R[5] * Y[6], R[6] * Y[4] + R[7] * Y[5] + R[8] * Y[6]).multiplyScalar(wScale);
+  if (S.show.w) setArrow(G.wArrow, ORIGIN, wv, 0.011, 0.032, 0.09); else G.wArrow.g.visible = false;
+
+  // gravity torque about the pivot: mgl (Z x p3), drawn with |torque| = mgl -> 0.85
+  const tq = new THREE.Vector3(-p3.y, p3.x, 0).multiplyScalar(0.85);
+  if (S.show.torque && B.mgl > 0) setArrow(G.tqArrow, ORIGIN, tq, 0.012, 0.034, 0.09); else G.tqArrow.g.visible = false;
+  const cm = new THREE.Vector3().copy(p3).multiplyScalar(B.l / LAX);
+  if (S.show.weight && B.mgl > 0) setArrow(G.mgArrow, cm, new THREE.Vector3(0, 0, -0.34), 0.009, 0.026, 0.07); else G.mgArrow.g.visible = false;
+
+  // theta arc
+  const th = e.th;
+  if (S.show.arc && th > 0.5 * D2R) {
+    const arr = G.arc.geometry.attributes.position.array;
+    const hz = Math.hypot(p3.x, p3.y), ex = hz > 1e-9 ? p3.x / hz : 1, ey = hz > 1e-9 ? p3.y / hz : 0;
+    const rr = 0.3;
+    for (let i = 0; i <= 40; i++) {
+      const a = th * i / 40;
+      arr[3 * i] = rr * Math.sin(a) * ex; arr[3 * i + 1] = rr * Math.sin(a) * ey; arr[3 * i + 2] = rr * Math.cos(a);
+    }
+    G.arc.geometry.attributes.position.needsUpdate = true;
+    G.arc.visible = true;
+  } else G.arc.visible = false;
+
+  G.tableGroup.visible = S.show.table;
+  return { p3, hv, wv, tq, cm };
+}
+function updateLabels(geo) {
+  const on = S.show.labels;
+  const hideAll = (...ks) => ks.forEach((k) => { L[k].hidden = true; });
+  if (!on) { Object.keys(L).forEach((k) => { L[k].hidden = true; }); return; }
+  placeLabel(L.a1, new THREE.Vector3(1.36, 0, 0));
+  placeLabel(L.a2, new THREE.Vector3(0, 1.36, 0));
+  placeLabel(L.a3, new THREE.Vector3(0, 0, 1.4), 22, 0);
+  placeLabel(L.p3, geo.p3.clone().multiplyScalar(1.12));
+  if (G.hArrow.g.visible) placeLabel(L.h, geo.hv.clone().multiplyScalar(1.06), 14, -10); else hideAll('h');
+  if (G.wArrow.g.visible) placeLabel(L.w, geo.wv.clone().multiplyScalar(1.06), -14, -10); else hideAll('w');
+  if (G.tqArrow.g.visible && geo.tq.length() > 0.08) placeLabel(L.tq, geo.tq.clone().multiplyScalar(1.12)); else hideAll('tq');
+  if (G.mgArrow.g.visible) placeLabel(L.mg, geo.cm.clone().add(new THREE.Vector3(0, 0, -0.4))); else hideAll('mg');
+  if (G.arc.visible) {
+    const th = curE.th * 0.5, hz = Math.hypot(geo.p3.x, geo.p3.y), ex = hz > 1e-9 ? geo.p3.x / hz : 1, ey = hz > 1e-9 ? geo.p3.y / hz : 0;
+    placeLabel(L.th, new THREE.Vector3(0.4 * Math.sin(th) * ex, 0.4 * Math.sin(th) * ey, 0.4 * Math.cos(th)));
+  } else hideAll('th');
+  // circle labels at the point of each circle nearest the camera's right
+  const lblCircle = (lab, D, thDeg) => {
+    if (!D.p.visible) { lab.hidden = true; return; }
+    const s = Math.sin(thDeg * D2R), c = Math.cos(thDeg * D2R);
+    const right = new THREE.Vector3().setFromMatrixColumn(G.cam.matrixWorld, 0);
+    right.z = 0; if (right.lengthSq() < 1e-9) right.set(1, 0, 0); right.normalize();
+    placeLabel(lab, new THREE.Vector3(right.x * s, right.y * s, c), 26, 0);
+  };
+  lblCircle(L.bmin, G.boundMin, AN ? AN.thMin : NaN);
+  lblCircle(L.bmax, G.boundMax, AN ? AN.thMax : NaN);
+}
+
+/* =========================================================
+   Time-history plot
+   ========================================================= */
+const plotCv = $('#plot');
+const pctx = plotCv.getContext('2d');
+const PL = { q: 'th', follow: true, win: 2, x0: 0, x1: 2, yAuto: true, y0: -1, y1: 1, hoverX: null, m: { l: 54, r: 70, t: 10, b: 24 }, W: 1, H: 1 };
+const QINFO = {
+  th: { label: 'θ', dot: false, unit: 'deg', color: 'trace' },
+  pd: { label: 'ψ', dot: true, unit: 'rad/s', color: 'momentum' },
+  td: { label: 'θ', dot: true, unit: 'rad/s', color: 'torque' },
+  fd: { label: 'φ', dot: true, unit: 'rad/s', color: 'omega' },
+};
+/* draw a symbol, with an optional dot above it, on a canvas; returns its width */
+function canvasSym(ctx, base, dot, x, y, px) {
+  ctx.fillText(base, x, y);
+  const w = ctx.measureText(base).width;
+  if (dot) { ctx.beginPath(); ctx.arc(x + w * 0.55, y - px * 0.78, Math.max(1.1, px * 0.1), 0, TAU); ctx.fill(); }
+  return w;
+}
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  const d = Math.max(0, Math.ceil(-Math.log10(s) - 1e-9));
+  return { v: out, d };
+}
+function lowerBound(tv) {
+  let lo = 0, hi = hN;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+function refLines() {
+  const out = [];
+  if (!AN) return out;
+  if (PL.q === 'th') {
+    out.push({ v: AN.thMin, lab: 'θmin', col: 'bound' });
+    if (Math.abs(AN.thMax - AN.thMin) > 1e-3) out.push({ v: AN.thMax, lab: 'θmax', col: 'bound' });
+    if (S.show.wrong && ANW) out.push({ v: otherTh(ANW), lab: 'It,cm', col: 'wrong' });
+    const thc = tableAngle();
+    if (S.show.table && isFinite(thc) && thc < 180) out.push({ v: thc, lab: 'table', col: 'muted', dot: true });
+  } else if (PL.q === 'pd') {
+    if (isFinite(AN.pdMean)) out.push({ v: AN.pdMean, lab: 'mean', col: 'bound' });
+    const gy = gyroRate(); if (isFinite(gy)) out.push({ v: gy, lab: 'mgl/Iaω', col: 'muted', dot: true });
+  } else if (PL.q === 'td') {
+    out.push({ v: 0, lab: '', col: 'muted' });
+  } else if (PL.q === 'fd') {
+    out.push({ v: S.w30, lab: 'ω30', col: 'muted', dot: true });
+  }
+  return out;
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  if (pw < 30 || ph < 30) return;
+  const arr = HQ[PL.q], info = QINFO[PL.q];
+  if (PL.follow) { PL.x1 = Math.max(S.t, PL.win); PL.x0 = PL.x1 - PL.win; }
+  const refs = refLines();
+  let i0 = 0, i1 = -1;
+  if (hN > 0) { i0 = Math.max(0, lowerBound(PL.x0) - 1); i1 = Math.min(hN - 1, lowerBound(PL.x1)); }
+  if (PL.yAuto) {
+    let mn = Infinity, mx = -Infinity;
+    for (let i = i0; i <= i1; i++) { const v = arr[i]; if (isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; } }
+    refs.forEach((rf) => { if (rf.col !== 'muted' || PL.q !== 'th') { mn = Math.min(mn, rf.v); mx = Math.max(mx, rf.v); } });
+    if (!isFinite(mn)) { mn = -1; mx = 1; }
+    let span = mx - mn;
+    if (span < 1e-6) span = Math.max(Math.abs(mx) * 0.1, PL.q === 'th' ? 1 : 0.1);
+    PL.y0 = mn - 0.12 * span; PL.y1 = mx + 0.12 * span;
+    if (PL.q === 'th') { PL.y0 = Math.max(PL.y0, -2); PL.y1 = Math.min(PL.y1, 182); }
+  }
+  const sx = pw / (PL.x1 - PL.x0), sy = ph / (PL.y1 - PL.y0);
+  const X = (v) => l + (v - PL.x0) * sx, Yp = (v) => t + (PL.y1 - v) * sy;
+  const monoFont = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  ctx.lineWidth = 1; ctx.font = monoFont; ctx.textBaseline = 'middle';
+  const xt = ticksOf(PL.x0, PL.x1, pw / 90), yt = ticksOf(PL.y0, PL.y1, ph / 34);
+  ctx.strokeStyle = COL.rule; ctx.fillStyle = COL.muted;
+  ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yt.v.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), l - 6, Yp(v)));
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(info.unit, 6, t + 6);
+  ctx.fillText('t, s', 6, t + ph + 12);
+
+  // reference lines (labels in the right margin)
+  refs.forEach((rf) => {
+    if (rf.v < PL.y0 || rf.v > PL.y1) return;
+    const y = Math.round(Yp(rf.v)) + 0.5;
+    ctx.strokeStyle = COL[rf.col]; ctx.lineWidth = 1.2; ctx.setLineDash(rf.dot ? [2, 3] : [6, 4]);
+    ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]);
+    if (rf.lab) { ctx.fillStyle = COL[rf.col]; ctx.textAlign = 'left'; ctx.fillText(rf.lab, l + pw + 6, y); }
+  });
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (i1 >= i0) {
+    ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.strokeStyle = COL[info.color];
+    ctx.beginPath();
+    const cnt = i1 - i0 + 1;
+    let pen = false;
+    if (cnt <= pw * 2) {
+      for (let i = i0; i <= i1; i++) {
+        const v = arr[i];
+        if (!isFinite(v)) { pen = false; continue; }
+        if (!pen) { ctx.moveTo(X(Ht[i]), Yp(v)); pen = true; } else ctx.lineTo(X(Ht[i]), Yp(v));
+      }
+    } else {
+      let px = null, mn = 0, mx = 0, ly = 0;
+      for (let i = i0; i <= i1; i++) {
+        const v = arr[i]; if (!isFinite(v)) continue;
+        const x = Math.floor(X(Ht[i])), y = Yp(v);
+        if (x !== px) {
+          if (px === null) ctx.moveTo(x, y);
+          else { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); }
+          px = x; mn = mx = y;
+        } else { if (y < mn) mn = y; if (y > mx) mx = y; }
+        ly = y;
+      }
+      if (px !== null) { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); }
+    }
+    ctx.stroke();
+    if (S.t >= PL.x0 && S.t <= PL.x1) {
+      const x = Math.round(X(S.t)) + 0.5;
+      ctx.strokeStyle = COL.omega; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(x, t); ctx.lineTo(x, t + ph); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+      const tv = PL.x0 + (PL.hoverX - l) / sx;
+      let i = lowerBound(tv);
+      if (i >= hN) i = hN - 1;
+      if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+      const x = X(Ht[i]);
+      if (x >= l && x <= l + pw && isFinite(arr[i])) {
+        ctx.strokeStyle = COL.muted; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+        ctx.fillStyle = COL[info.color]; ctx.beginPath(); ctx.arc(x, Yp(arr[i]), 3.5, 0, TAU); ctx.fill();
+        const lines = [`t ${fx(Ht[i], 4)} s`, `${info.label} ${fs(arr[i], PL.q === 'th' ? 2 : 3)} ${info.unit}`];
+        const bw = Math.max(...lines.map((s2) => ctx.measureText(s2).width)) + 16, bh = lines.length * 15 + 12;
+        let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+        const by = t + 6;
+        ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+        ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = COL.ink; ctx.fillText(lines[0], bx + 8, by + 13);
+        ctx.fillStyle = COL[info.color];
+        const sw = canvasSym(ctx, info.label, info.dot, bx + 8, by + 30, 11);
+        ctx.fillText(lines[1].slice(info.label.length), bx + 8 + sw, by + 30);
+      }
+    }
+  }
+  ctx.restore();
+}
+function setFollow(on) { PL.follow = on; el('liveBtn').setAttribute('aria-pressed', String(on)); }
+(function plotInteractions() {
+  const pointers = new Map();
+  let drag = null, pinch = null;
+  const pw = () => PL.W - PL.m.l - PL.m.r, ph = () => PL.H - PL.m.t - PL.m.b;
+  plotCv.addEventListener('pointerdown', (e) => {
+    plotCv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pointers.size === 1) drag = { x: e.offsetX, y: e.offsetY, x0: PL.x0, x1: PL.x1, y0: PL.y0, y1: PL.y1, moved: false, ymoved: false };
+    else if (pointers.size === 2) {
+      const [p, q] = [...pointers.values()];
+      pinch = { d: Math.max(10, Math.abs(p.x - q.x)), cx: (p.x + q.x) / 2, x0: PL.x0, x1: PL.x1 };
+      drag = null;
+    }
+  });
+  plotCv.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && pointers.size >= 2) {
+      const [p, q] = [...pointers.values()];
+      const d = Math.max(10, Math.abs(p.x - q.x)), f = pinch.d / d;
+      const span = (pinch.x1 - pinch.x0) * f;
+      const frac = (pinch.cx - PL.m.l) / pw();
+      const tc = pinch.x0 + frac * (pinch.x1 - pinch.x0);
+      setFollow(false);
+      PL.x0 = tc - frac * span; PL.x1 = PL.x0 + span;
+      return;
+    }
+    if (drag) {
+      const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (!drag.moved) return;
+      setFollow(false);
+      const xs = (drag.x1 - drag.x0) / pw();
+      PL.x0 = drag.x0 - dx * xs; PL.x1 = drag.x1 - dx * xs;
+      if (drag.ymoved || Math.abs(dy) > 8) {
+        drag.ymoved = true; PL.yAuto = false;
+        const ys = (drag.y1 - drag.y0) / ph();
+        PL.y0 = drag.y0 + dy * ys; PL.y1 = drag.y1 + dy * ys;
+      }
+      return;
+    }
+    PL.hoverX = e.offsetX;
+  });
+  const end = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (pointers.size === 0) drag = null; };
+  plotCv.addEventListener('pointerup', end);
+  plotCv.addEventListener('pointercancel', end);
+  plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+  plotCv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unit, -300, 300) * 0.0018);
+    if (e.shiftKey || e.altKey) {
+      PL.yAuto = false;
+      const yc = PL.y1 - (e.offsetY - PL.m.t) / ph() * (PL.y1 - PL.y0);
+      PL.y0 = yc + (PL.y0 - yc) * f; PL.y1 = yc + (PL.y1 - yc) * f;
+    } else if (PL.follow) {
+      PL.win = clamp(PL.win * f, 0.005, 1e5);
+    } else {
+      const tc = PL.x0 + (e.offsetX - PL.m.l) / pw() * (PL.x1 - PL.x0);
+      PL.x0 = tc + (PL.x0 - tc) * f; PL.x1 = tc + (PL.x1 - tc) * f;
+    }
+  }, { passive: false });
+  plotCv.addEventListener('dblclick', () => resetPlotView());
+})();
+function defaultWindow() {
+  if (!AN) return 2;
+  const Tn = AN.Tnut, Tp = isFinite(AN.pdMean) && Math.abs(AN.pdMean) > 1e-9 ? TAU / Math.abs(AN.pdMean) : Infinity;
+  if (isFinite(Tn) && Tn > 0) return clamp(Math.max(3 * Tn, Math.min(1.2 * Tp, 30 * Tn)), 0.05, 200);
+  if (isFinite(Tp)) return clamp(1.2 * Tp, 0.05, 200);
+  return 5;
+}
+function resetPlotView() { PL.yAuto = true; PL.win = defaultWindow(); setFollow(true); }
+
+/* ---------- turning-point chart: theta-dot^2 vs theta ---------- */
+const tpCv = el('tp'), tctx = tpCv.getContext('2d');
+function thdot2(an, It, thDeg) {
+  // theta_dot^2 = f(u) / sin^2(theta)
+  const u = Math.cos(thDeg * D2R), s2 = 1 - u * u;
+  if (s2 < 1e-10) return NaN;
+  return an.f(u) / s2;
+}
+function drawTP() {
+  const rect = tpCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (tpCv.width !== Math.round(W * dpr) || tpCv.height !== Math.round(H * dpr)) { tpCv.width = Math.round(W * dpr); tpCv.height = Math.round(H * dpr); }
+  const ctx = tctx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  if (!AN) return;
+  const m = { l: 46, r: 10, t: 12, b: 30 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 40 || ph < 40) return;
+  const lo0 = AN.thMin, hi0 = AN.thMax, span = Math.max(hi0 - lo0, 2);
+  let lo = Math.max(0.2, lo0 - 0.45 * span), hi = Math.min(179.8, hi0 + 0.45 * span);
+  if (S.show.wrong && ANW) { lo = Math.min(lo, Math.max(0.2, ANW.thMin - 0.2 * span)); hi = Math.max(hi, Math.min(179.8, ANW.thMax + 0.2 * span)); }
+  const N = 260, xs = [], ys = [], ysW = [];
+  let ymax = 0;
+  for (let i = 0; i <= N; i++) {
+    const th = lo + (hi - lo) * i / N; xs.push(th);
+    const v = thdot2(AN, B.It, th); ys.push(v); if (isFinite(v)) ymax = Math.max(ymax, v);
+    if (S.show.wrong && ANW) { const w = thdot2(ANW, B.Itcm, th); ysW.push(w); if (isFinite(w)) ymax = Math.max(ymax, w); }
+  }
+  if (!(ymax > 0)) ymax = 1;
+  const y1 = ymax * 1.12, y0 = -0.55 * ymax;
+  const X = (v) => m.l + (v - lo) / (hi - lo) * pw, Yp = (v) => m.t + (y1 - v) / (y1 - y0) * ph;
+  const monoFont = '10.5px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  ctx.font = monoFont; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  // allowed band
+  ctx.fillStyle = COL.bound; ctx.globalAlpha = 0.12;
+  ctx.fillRect(X(AN.thMin), m.t, Math.max(1, X(AN.thMax) - X(AN.thMin)), ph); ctx.globalAlpha = 1;
+  // grid
+  const xt = ticksOf(lo, hi, pw / 60);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d) + '°', X(v), m.t + ph + 11));
+  ctx.strokeStyle = COL.muted; ctx.beginPath(); const yz = Math.round(Yp(0)) + 0.5; ctx.moveTo(m.l, yz); ctx.lineTo(m.l + pw, yz); ctx.stroke();
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.textAlign = 'right'; ctx.fillStyle = COL.muted;
+  ctx.fillText('0', m.l - 5, Yp(0));
+  ctx.fillText(fg(ymax, 2), m.l - 5, Yp(ymax));
+  ctx.textAlign = 'left';
+  const sw0 = canvasSym(ctx, 'θ', true, m.l + 5, m.t + 10, 10.5);
+  ctx.fillText('², rad²/s²', m.l + 5 + sw0, m.t + 10);
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  const drawCurve = (vals, col, dash) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.setLineDash(dash || []);
+    ctx.beginPath(); let pen = false;
+    for (let i = 0; i <= N; i++) {
+      const v = vals[i]; if (!isFinite(v)) { pen = false; continue; }
+      const yy = Yp(Math.max(v, y0 - (y1 - y0)));
+      if (!pen) { ctx.moveTo(X(xs[i]), yy); pen = true; } else ctx.lineTo(X(xs[i]), yy);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if (S.show.wrong && ANW) drawCurve(ysW, COL.wrong, [5, 4]);
+  drawCurve(ys, COL.ink);
+  // live dot
+  if (curE) {
+    const th = curE.th * R2D, v = curE.td * curE.td;
+    if (th >= lo && th <= hi) { ctx.fillStyle = COL.omega; ctx.beginPath(); ctx.arc(X(th), Yp(v), 4.5, 0, TAU); ctx.fill(); }
+  }
+  ctx.restore();
+  // root markers
+  ctx.fillStyle = COL.bound; ctx.textAlign = 'center';
+  const mk = (th, lab) => { const x = X(th); ctx.beginPath(); ctx.arc(x, Yp(0), 3.5, 0, TAU); ctx.fill(); ctx.fillText(lab, x, m.t + ph + 23); };
+  if (Math.abs(AN.thMax - AN.thMin) > 0.05) { mk(AN.thMin, 'θmin'); mk(AN.thMax, 'θmax'); } else mk(AN.thMin, 'θ0');
+}
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function gyroRate() { return B.Ia * S.w30 !== 0 ? B.mgl / (B.Ia * S.w30) : NaN; }
+function tableAngle() { return B.l > 0 ? Math.atan2(B.l, B.r) * R2D : NaN; }
+const SYM = (s) => `<span class="sym">${s}</span>`;
+function classify() {
+  const isRest = Math.abs(S.pd0) < 1e-12 && Math.abs(S.td0) < 1e-12;
+  const nod = AN.thMax - AN.thMin;
+  const aval = CF.a;
+  const tmx = fx(AN.thMax, 1) + '°';
+  if (!(B.mgl > 0)) return { k: 'free', t: 'No gravity torque', s: `The center of mass is at the pivot (${SYM('l')} = 0), so the top is torque-free: the axis cones about ${SYM('h̄')} at a fixed angle.`, pill: 'Torque-free: l = 0' };
+  if (Math.abs(S.w30) < 1e-12) return { k: 'pend', t: 'No spin: a spherical pendulum', s: `Without spin there is no gyroscopic stiffness. The top swings down to ${SYM('θ')}<sub class="n">max</sub> = ${tmx} and back.`, pill: 'No spin: falls like a pendulum' };
+  if (S.th0 < 3 && isRest) {
+    if (aval > 2) return { k: 'sleep', t: 'Sleeping top: upright spin is stable', s: `${SYM('a')} = ${fx(aval, 2)} &gt; 2, so the upright spin is stable. The axis stays within ${SYM('θ')}<sub class="n">max</sub> = ${tmx} of vertical.`, pill: `Sleeping top · a = ${fx(aval, 2)} > 2` };
+    return { k: 'fall', t: 'Upright spin is unstable', s: `${SYM('a')} = ${fx(aval, 2)} &lt; 2: the spin is below the critical rate, so the top falls away from vertical to ${SYM('θ')}<sub class="n">max</sub> = ${tmx}.`, pill: `Upright spin unstable · a = ${fx(aval, 2)} < 2` };
+  }
+  if (nod < 0.02) return { k: 'steady', t: 'Steady precession', s: `${SYM('θ')} stays at ${fx(S.th0, 1)}°: no nod. The axis precesses at a constant ${SYM('<span class="ac d">ψ</span>')} = ${fg(AN.pdMean, 4)} rad/s (gyroscopic estimate ${fg(gyroRate(), 4)} rad/s).`, pill: 'Steady precession · no nod' };
+  let shape, sh;
+  const us = AN.Q !== 0 ? AN.P / AN.Q : NaN, eps = 2e-4 * Math.max(AN.u1 - AN.u2, 1e-9);
+  if (isRest || Math.abs(us - AN.u1) <= eps || Math.abs(us - AN.u2) <= eps) {
+    shape = 'cusps'; sh = `Released with no precession or nutation rate, so the axis stops for an instant at ${SYM('θ')}<sub class="n">0</sub> each nod and the apex trace has cusps. ${SYM('<span class="ac d">ψ</span>')} swings from 0 to ${fg(AN.pdHi, 3)} rad/s.`;
+  } else if (us > AN.u2 && us < AN.u1) {
+    shape = 'loops'; sh = `${SYM('<span class="ac d">ψ</span>')} changes sign during each nod (from ${fg(AN.pdLo, 3)} to ${fg(AN.pdHi, 3)} rad/s), so the apex trace loops back on itself.`;
+  } else {
+    shape = 'waves'; sh = `${SYM('<span class="ac d">ψ</span>')} keeps one sign (${fg(AN.pdLo, 3)} to ${fg(AN.pdHi, 3)} rad/s), so the apex trace undulates between the two circles without stopping.`;
+  }
+  const Shape = shape[0].toUpperCase() + shape.slice(1);
+  if (AN.thMax > 90) return { k: 'falls', t: 'Falls past horizontal', s: `${SYM('θ')}<sub class="n">max</sub> = ${tmx}. The spin is too slow for the top to hold itself up, so the axle drops below the pivot height. ${sh}`, pill: `Falls past horizontal · θmax = ${tmx}` };
+  return { k: shape, t: `Nutation with ${shape}`, s: `The axis nods between ${fx(AN.thMin, 2)}° and ${tmx} while it precesses about ${SYM('Ẑ')}. ${sh}`, pill: `${Shape} · nods ${fx(nod, 2)}°` };
+}
+let lastRegKey = '';
+function updateStatic() {
+  // values that depend only on the inputs
+  el('o_Ia').textContent = sci(B.Ia, 2);
+  el('o_Itcm').textContent = sci(B.Itcm, 2);
+  el('o_ml2').textContent = sci(B.ml2, 2);
+  el('o_It').textContent = sci(B.It, 2);
+  el('o_ratio').textContent = fx(B.It / B.Itcm, 2) + '×';
+  el('o_thmin').textContent = fx(AN.thMin, 3);
+  el('o_thmax').textContent = fx(AN.thMax, 3);
+  el('o_nod').textContent = fx(AN.thMax - AN.thMin, 3);
+  const isRest = Math.abs(S.pd0) < 1e-12 && Math.abs(S.td0) < 1e-12;
+  el('o_cf').textContent = isRest && isFinite(CF.thMax) ? fx(CF.thMax, 3) + '°' : isRest ? '—' : 'needs both rates = 0';
+  const wrongTh = ANW ? otherTh(ANW) : NaN;
+  el('o_wrong').textContent = isFinite(wrongTh) ? fx(wrongTh, 2) + '°' : '—';
+  const thc = tableAngle();
+  el('o_thc').textContent = B.l > 0 ? fx(thc, 1) : '—';
+  el('o_pdr').textContent = `${fg(AN.pdLo, 3)} to ${fg(AN.pdHi, 3)}`;
+  el('o_pdm').textContent = fg(AN.pdMean, 4);
+  el('o_gyro').textContent = fg(gyroRate(), 4);
+  el('o_Tn').textContent = AN.thMax - AN.thMin > 1e-4 || isFinite(AN.Tnut) ? fg(AN.Tnut, 4) : '—';
+  el('o_Tp').textContent = isFinite(AN.pdMean) && Math.abs(AN.pdMean) > 1e-12 ? fg(TAU / Math.abs(AN.pdMean), 4) : '∞';
+  el('o_a').textContent = isFinite(CF.a) ? fg(CF.a, 4) : '∞';
+  const wc = B.Ia > 0 ? Math.sqrt(4 * B.It * B.mgl) / B.Ia : NaN;
+  el('o_wc').textContent = B.mgl > 0 ? fg(wc, 4) : '—';
+  // a scale: log10 from 0.1 to 100
+  const pos = (a) => clamp((Math.log10(a) + 1) / 3 * 100, 0, 100);
+  el('aLo').style.width = pos(2) + '%';
+  [0.1, 1, 2, 10, 100].forEach((v, i) => { el('atk' + i).style.left = pos(v) + '%'; });
+  el('atk0').firstElementChild.style.transform = 'translateX(-10%)';
+  el('atk4').firstElementChild.style.transform = 'translateX(-90%)';
+  el('aMark').style.left = (isFinite(CF.a) && CF.a > 0 ? pos(CF.a) : CF.a === Infinity ? 100 : 0) + '%';
+  el('awrap').hidden = !(B.mgl > 0);
+}
+function updateReadouts() {
+  const e = curE;
+  el('tOut').textContent = S.t.toFixed(3);
+  el('o_th').textContent = fs(e.th * R2D, 3);
+  el('o_ps').textContent = fs(S.psiU * R2D, 1);
+  el('o_ph').textContent = fs(e.ph * R2D, 1);
+  el('o_td').textContent = fs(e.td, 4);
+  el('o_pd').textContent = fs(e.pd, 4);
+  el('o_fd').textContent = fs(e.fd, 3);
+  el('o_w3').textContent = fs(Y[6], 3);
+  const iv = invariantsOf(Y);
+  el('o_E').textContent = fg(iv.E, 5);
+  el('o_hZ').textContent = fg(iv.hZ, 5);
+  const eScale = Math.abs(S.E0) > 0 ? Math.abs(S.E0) : 1;
+  const hRef = Math.max(Math.abs(S.hZ0), B.Ia * Math.abs(S.w30), 1e-30);
+  el('o_dE').textContent = sci((iv.E - S.E0) / eScale, 1);
+  el('o_dh').textContent = sci((iv.hZ - S.hZ0) / hRef, 1);
+
+  let key;
+  if (S.contact) key = 'contact|' + S.contact.t;
+  else key = 'reg|' + [S.m, S.r, S.l, S.th0, S.w30, S.pd0, S.td0].join(',');
+  if (key !== lastRegKey) {
+    const c = classify();
+    let t = c.t, s = c.s, pill = c.pill;
+    const thc = tableAngle();
+    if (B.l > 0 && AN.thMax > thc && rimHeight(S.th0 * D2R) >= 0) s += ` On a real table the disk rim would touch at ${SYM('θ')} = ${fx(thc, 1)}°.`;
+    const pillEl = el('regPill');
+    pillEl.classList.toggle('alert', !!S.contact);
+    vp.classList.toggle('alerting', !!S.contact);
+    if (S.contact) {
+      pill = `Rim hit the table at t = ${fx(S.contact.t, 3)} s (θ = ${fx(S.contact.th, 1)}°). Press Play to continue without the table.`;
+    }
+    el('regTitle').innerHTML = t; el('regSub').innerHTML = s; pillEl.innerHTML = pill;
+    lastRegKey = key;
+  }
+}
+
+/* =========================================================
+   Rebuild
+   ========================================================= */
+function autoSpeed() {
+  const Tn = AN.Tnut, Tp = isFinite(AN.pdMean) && Math.abs(AN.pdMean) > 1e-9 ? TAU / Math.abs(AN.pdMean) : Infinity;
+  let sp = 1;
+  const cands = [];
+  if (isFinite(Tn) && AN.thMax - AN.thMin > 0.05) cands.push(Tn / 0.9);
+  if (isFinite(Tp)) cands.push(Tp / 7);
+  if (cands.length) sp = Math.min(...cands);
+  // keep the visible spin rate readable
+  if (Math.abs(S.w30) > 0) sp = Math.min(sp, 40 / Math.abs(S.w30));
+  S.speed = clamp(sp, 0.005, 2);
+  syncSpeed();
+}
+function rebuild(opts = {}) {
+  B = bodyOf(S);
+  AN = analyze(B.Ia, B.It, B.mgl, S.th0, S.w30, S.pd0, S.td0);
+  ANW = analyze(B.Ia, B.Itcm, B.mgl, S.th0, S.w30, S.pd0, S.td0);
+  CF = closedForm(B.Ia, B.It, B.mgl, S.th0, S.w30);
+  // initial state: psi = phi = 0, theta = theta0
+  const th = S.th0 * D2R;
+  Y[0] = Math.cos(th / 2); Y[1] = Math.sin(th / 2); Y[2] = 0; Y[3] = 0;
+  Y[4] = S.td0; Y[5] = S.pd0 * Math.sin(th); Y[6] = S.w30;
+  S.t = 0; S.psiU = 0; S.psiPrev = 0; S.contact = null;
+  contactArmed = rimHeight(th) >= -1e-12;
+  const iv = invariantsOf(Y); S.E0 = iv.E; S.hZ0 = iv.hZ;
+  const wmag = Math.hypot(Y[4], Y[5], Y[6]);
+  const hmag = Math.hypot(B.It * Y[4], B.It * Y[5], B.Ia * Y[6]);
+  hScale = hmag > 0 ? 1.3 / hmag : 1; wScale = wmag > 0 ? 1.3 / wmag : 1;
+  const rate = wmag + Math.abs(B.Ia * S.w30 / B.It) + Math.sqrt(B.mgl / B.It) + Math.abs(S.pd0) + Math.abs(S.td0);
+  hStep = Math.min(2e-3, 0.03 / Math.max(rate, 1e-6));
+  hDt = isFinite(AN.Tnut) && AN.Tnut > 0 ? clamp(AN.Tnut / 160, 1e-5, 0.01) : 0.005;
+  ringClear(apex); ringClear(hring); histClear();
+  curE = sampleState(); S.psiU = 0; S.psiPrev = curE.ps;
+  pushTraces(curE); histPush(0, curE);
+  if (G) { updateBodyGeometry(); updateBounds(); }
+  if (opts.autoSpeed) autoSpeed();
+  lastRegKey = '';
+  resetPlotView();
+  updateStatic(); updateReadouts();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (Number.isFinite(v) ? String(+v.toFixed(4)) : '');
+const PAIRS = [
+  ['mR', 'mN', 'm', 0.001, null], ['rR', 'rN', 'r', 0.01, null], ['lR', 'lN', 'l', 0, null],
+  ['thR', 'thN', 'th0', 0, 180], ['wR', 'wN', 'w30', null, null], ['pdR', 'pdN', 'pd0', null, null], ['tdR', 'tdN', 'td0', null, null],
+];
+function syncInputs() {
+  PAIRS.forEach(([r, n, k]) => { el(r).value = S[k]; el(n).value = fmt(S[k]); });
+  el('trailR').value = S.trailLen; el('trailOut').textContent = S.trailLen === 0 ? 'off' : S.trailLen;
+  el('chkBounds').checked = S.show.bounds; el('chkWrong').checked = S.show.wrong; el('chkHpath').checked = S.show.hpath;
+  el('chkArc').checked = S.show.arc; el('chkTable').checked = S.show.table; el('chkStop').checked = S.show.stop; el('chkLabels').checked = S.show.labels;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return (s < 0.1 ? s.toFixed(3) : s < 1 ? s.toFixed(2) : s.toFixed(1)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, key, mn, mx]) => {
+  const r = el(rid), n = el(nid);
+  const set = (v) => { S[key] = v; el('presetNote').hidden = true; rebuild(); };
+  r.addEventListener('input', () => { const v = +r.value; n.value = fmt(v); set(v); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(S[key]); return; }
+    if (mn != null) v = Math.max(mn, v);
+    if (mx != null) v = Math.min(mx, v);
+    n.value = fmt(v); r.value = v; set(v);
+  });
+});
+el('zeroRates').addEventListener('click', () => { S.pd0 = 0; S.td0 = 0; syncInputs(); rebuild(); });
+el('trailR').addEventListener('input', () => { S.trailLen = +el('trailR').value; el('trailOut').textContent = S.trailLen === 0 ? 'off' : S.trailLen; });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+el('autoSpeed').addEventListener('click', () => autoSpeed());
+const chk = (id, key, after) => el(id).addEventListener('change', (e) => { S.show[key] = e.target.checked; if (after) after(); });
+chk('chkBounds', 'bounds', () => updateBounds());
+chk('chkWrong', 'wrong', () => { updateBounds(); drawTP(); });
+chk('chkHpath', 'hpath');
+chk('chkArc', 'arc');
+chk('chkTable', 'table');
+chk('chkStop', 'stop', () => { lastRegKey = ''; });
+chk('chkLabels', 'labels');
+
+$$('.legend .chip').forEach((btn) => btn.addEventListener('click', () => {
+  const key = btn.dataset.show;
+  S.show[key] = !S.show[key];
+  btn.setAttribute('aria-pressed', String(S.show[key]));
+}));
+$$('#histTabs [data-q]').forEach((btn) => btn.addEventListener('click', () => {
+  PL.q = btn.dataset.q; PL.yAuto = true;
+  $$('#histTabs [data-q]').forEach((b2) => b2.setAttribute('aria-pressed', String(b2 === btn)));
+}));
+el('liveBtn').addEventListener('click', () => { if (!PL.follow) PL.win = PL.x1 - PL.x0; setFollow(true); });
+el('allBtn').addEventListener('click', () => { setFollow(false); PL.yAuto = true; const t0 = hN ? Ht[0] : 0; PL.x0 = t0; PL.x1 = Math.max(S.t, t0 + 1e-3); });
+
+function presetNote(html) { const n = el('presetNote'); if (html) { n.innerHTML = html; n.hidden = false; } else n.hidden = true; }
+function applyPreset(name) {
+  presetNote(null);
+  const b = bodyOf(S);
+  if (name === 'appA-slow' || name === 'appA-fast') {
+    Object.assign(S, { m: 0.2, r: 3, l: 4, th0: 30, pd0: 0, td0: 0, w30: name === 'appA-slow' ? 60 : 200 });
+    S.show.stop = name === 'appA-slow';
+  } else if (name === 'cusps') {
+    S.pd0 = 0; S.td0 = 0;
+  } else if (['waves', 'loops', 'steady'].includes(name)) {
+    if (S.th0 < 2) S.th0 = 30;
+    const ps = steadySlow(b.Ia, b.It, b.mgl, S.th0, S.w30);
+    if (!isFinite(ps)) {
+      presetNote(`No steady precession exists at ${SYM('θ')}<sub class="n">0</sub> = ${fx(S.th0, 1)}° with this spin. Raise ${SYM('ω')}<sub class="n">3<sub>0</sub></sub> above ${fg(Math.sqrt(4 * b.It * b.mgl * Math.cos(S.th0 * D2R)) / b.Ia, 3)} rad/s.`);
+      return;
+    }
+    S.td0 = 0;
+    S.pd0 = name === 'steady' ? ps : name === 'waves' ? 0.5 * ps : -0.75 * ps;
+    if (name === 'steady') presetNote(`${SYM('<span class="ac d">ψ</span>')}(0) set to the slow steady root ${fg(ps, 4)} rad/s of <span class="sym">I<sub>t</sub><span class="ac d">ψ</span></span>² cos <span class="sym">θ</span> − <span class="sym">I<sub>a</sub>ω</span><sub class="n">3<sub>0</sub></sub><span class="sym"><span class="ac d">ψ</span></span> + <span class="sym">mgl</span> = 0.`);
+  } else if (name === 'sleep-ok' || name === 'sleep-bad') {
+    const wc = Math.sqrt(4 * b.It * b.mgl) / b.Ia;
+    if (!isFinite(wc) || !(b.mgl > 0)) { presetNote('Set ' + SYM('l') + ' above zero first.'); return; }
+    S.th0 = 1; S.pd0 = 0; S.td0 = 0;
+    S.w30 = +(wc * (name === 'sleep-ok' ? 1.5 : 0.75)).toFixed(2);
+    presetNote(`Critical spin ${SYM('ω')} = √(4<span class="sym">I<sub>t</sub>mgl</span>) / <span class="sym">I<sub>a</sub></span> = ${fg(wc, 4)} rad/s for this body.`);
+  }
+  syncInputs();
+  rebuild({ autoSpeed: true });
+  setPlaying(true);
+}
+$$('[data-preset]').forEach((btn) => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on
+    ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause'
+    : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+el('playBtn').addEventListener('click', () => {
+  if (!S.playing && S.contact) { S.contact = null; contactArmed = false; lastRegKey = ''; }
+  setPlaying(!S.playing);
+});
+el('resetBtn').addEventListener('click', () => rebuild());
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((btn) => btn.addEventListener('click', () => fit(viewDir(btn.dataset.view))));
+el('perspBtn').addEventListener('click', () => setOrtho(false));
+el('orthoBtn').addEventListener('click', () => setOrtho(true));
+el('themeBtn').addEventListener('click', () => { root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'); });
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => {
+  const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+  if (p && p.catch) p.catch(() => { fsBtn.hidden = true; });
+});
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+if (coarse) el('hint').textContent = 'One finger to rotate · Two fingers to pan and zoom';
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') rebuild();
+  else if (k === 'f') fit();
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+  else if (k === 'o') setOrtho(!S.ortho);
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+try {
+  G = initGL();
+  new ResizeObserver(() => resize()).observe(vp);
+  resize();
+  updateAxes();
+  $('#gl').addEventListener('dblclick', () => fit());
+} catch (err) {
+  G = null;
+  const d = document.createElement('div');
+  d.className = 'glfail';
+  d.textContent = 'The 3D view could not start (' + (err && err.message ? err.message : 'WebGL unavailable') + '). The plots and analysis still work.';
+  vp.appendChild(d);
+}
+COL = readColors();
+syncInputs();
+setPlaying(S.playing);
+rebuild({ autoSpeed: true });
+applyTheme();
+if (G) fit(ISO_DIR.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawTP(); });
+new ResizeObserver(() => drawTP()).observe(tpCv);
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000));
+  last = now;
+  if (S.playing) { advance(dtReal * S.speed); curE = eulerOf(Y); }
+  if (G) {
+    const geo = updateDynamic();
+    G.sun.position.copy(G.cam.position);
+    G.sun.target.position.copy(G.controls.target);
+    G.controls.update();
+    G.renderer.render(G.scene, G.cam);
+    updateLabels(geo);
+  }
+  drawPlot();
+  roAcc += dtReal;
+  if (roAcc > 0.1) { roAcc = 0; updateReadouts(); drawTP(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__top = { S, Y, rebuild, applyPreset, an: () => AN, anw: () => ANW, cf: () => CF, B: () => B, euler: () => eulerOf(Y), inv: () => invariantsOf(Y), advance, hist: () => ({ hN, Ht, HQ }) };
+})();
+</script>
+</body>
+</html>

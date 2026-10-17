@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Astronautical Engineering Lesson Apps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;1,400&display=swap">
+<style>
+:root {
+  --paper: #eaedf0; --panel: #f9fafb; --ink: #141a21; --muted: #586370; --rule: #cfd5dc; --accent: #c97a00;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #0b0e12; --panel: #13181e; --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039; --accent: #ffb01f; color-scheme: dark; }
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-ui); font-size: 16px; line-height: 1.4; padding-inline: 16px; padding-block: 40px 56px; }
+main { max-width: 920px; margin-inline: auto; display: grid; gap: 28px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 4px 0 8px; font-size: clamp(30px, 6vw, 44px); line-height: 1.05; font-weight: 700; text-wrap: balance; }
+.lede { margin: 0; max-width: 62ch; color: var(--muted); font-size: 17px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+.card { display: grid; gap: 8px; padding: 18px 20px 16px; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; color: inherit; text-decoration: none; }
+.card:hover { border-color: var(--accent); }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card .topic { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.card h2 { margin: 0; font-size: 22px; line-height: 1.15; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.card .go { margin-top: 4px; font-weight: 600; color: var(--accent); }
+.card .eqn { font-family: var(--f-math); font-style: italic; color: var(--ink); font-size: 15px; }
+footer { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Astronautical Engineering</div>
+    <h1>Lesson Apps</h1>
+    <p class="lede">Interactive tools that go with lecture. Each one opens in its own page and runs in the browser, with nothing to install.</p>
+  </header>
+
+  <section class="grid" aria-label="Lessons">
+    <!-- Add a new lesson: copy this whole <a> block, change href, topic, title and text. -->
+    <a class="card" href="polhode-explorer/">
+      <span class="topic">Spacecraft attitude dynamics</span>
+      <h2>Polhode Explorer</h2>
+      <p>Torque-free rigid body in the principal-axis frame: energy and momentum ellipsoids, the animated angular velocity vector, and the polhode. Includes inertia and spin presets.</p>
+      <span class="eqn">I₁ω₁² + I₂ω₂² + I₃ω₃² = 2T</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="spinning-top-explorer/">
+      <span class="topic">Spin stabilization · Lesson 23</span>
+      <h2>Spinning Top Explorer</h2>
+      <p>A heavy symmetric top on a fixed pivot: precession and nutation from the two constants of motion, with the apex trace, turning points, and the Appendix A toy gyroscope.</p>
+      <span class="eqn">a = I<sub>a</sub>²ω<sub>3₀</sub>² / 2I<sub>t</sub>mgl</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="misaligned-burn-simulator/">
+      <span class="topic">Spin stabilization · Lesson 24</span>
+      <h2>Misaligned Burn Simulator</h2>
+      <p>A spin-stabilized upper stage fires with a misaligned engine: bounded transverse rates, the epicycloid of the spin axis with its rolling circles, impulse and pulse torques, and what happens with no spin.</p>
+      <span class="eqn">Ω = ω<sub>3₀</sub>(I<sub>t</sub> − I<sub>a</sub>)/I<sub>t</sub></span>
+      <span class="go">Open →</span>
+    </a>
+  </section>
+
+  <footer>More lessons will be added here during the term.</footer>
+</main>
+</body>
+</html>

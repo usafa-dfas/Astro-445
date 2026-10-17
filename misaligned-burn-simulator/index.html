@@ -1,0 +1,1822 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Misaligned Burn Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches Polhode and Spinning Top Explorers). Controls | [3D view | pointing plane] over rate history | analysis */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --c1: #1b8655;
+  --c2: #7340c2;
+  --c3: #08808f;
+  --trace: #2257c2;
+  --fixed: #cc2b26;
+  --roll: #1b8655;
+  --hvec: #c97a00;
+  --torque: #b02a6b;
+  --plume: #f08a24;
+  --nospin: #cc2b26;
+  --good: #1b8655;
+  --bad: #cc2b26;
+  --axis: #6a7582;
+  --hull: #c5ccd4;
+  --hull-alt: #2c3540;
+  --metal: #39424d;
+  --on-accent: #1a1305;
+  --accent: #c97a00;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+    --trace: #5b96ff; --fixed: #ff5d51; --roll: #45c58c; --hvec: #ffb01f; --torque: #ff6fb0; --plume: #ffa24a;
+    --nospin: #ff5d51; --good: #45c58c; --bad: #ff5d51; --axis: #7f8a97;
+    --hull: #4a5561; --hull-alt: #d5dbe2; --metal: #aab4bf; --accent: #ffb01f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+  --trace: #5b96ff; --fixed: #ff5d51; --roll: #45c58c; --hvec: #ffb01f; --torque: #ff6fb0; --plume: #ffa24a;
+  --nospin: #ff5d51; --good: #45c58c; --bad: #ff5d51; --axis: #7f8a97;
+  --hull: #4a5561; --hull-alt: #d5dbe2; --metal: #aab4bf; --accent: #ffb01f;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 80ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+h3 { margin: 2px 0 -2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+.ac { position: relative; display: inline-block; }
+.ac::after { content: ""; position: absolute; left: 52%; transform: translateX(-50%); background: currentColor; pointer-events: none; }
+.ac.d::after { top: .06em; width: .18em; height: .18em; border-radius: 50%; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 44px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.slider[hidden] { display: none !important; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); line-height: 1.1; }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 44px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+.check[hidden] { display: none !important; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .ppwrap { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; cursor: grab; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small .sym { font-size: 14.5px; }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; }
+.chip .sw.dash { background: repeating-linear-gradient(90deg, var(--sw) 0 3px, transparent 3px 5px); border-width: 0; height: 3px; width: 14px; border-radius: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.chip[aria-pressed="false"] .sw.dash { opacity: .35; background: repeating-linear-gradient(90deg, var(--sw) 0 3px, transparent 3px 5px); }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 58%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { left: 10px; bottom: 10px; font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.ppread { right: 10px; top: 42px; font-family: var(--f-num); font-size: 12px; color: var(--muted); text-align: right; flex-direction: column; gap: 1px; padding: 4px 8px; border-radius: 5px; background: color-mix(in srgb, var(--panel) 85%, transparent); }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 230px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; }
+.phase-chip[data-p="spin"] { color: var(--c3); border-color: var(--c3); }
+.phase-chip[data-p="burn"] { color: var(--plume); border-color: var(--plume); }
+.phase-chip[data-p="coast"] { color: var(--muted); }
+.tclock { margin-left: auto; display: flex; gap: 14px; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .spacer { flex: 1; }
+.hist-head .hint2 { font-size: 12px; color: var(--muted); }
+.hist-head .seg .btn { padding: 3px 9px; }
+.plotwrap { position: relative; min-height: 0; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2px dotted var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.hleg[hidden] { display: none !important; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.phase-card { display: grid; gap: 5px; }
+.phase-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.phase-card .rs { font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.kv .em { color: var(--good); font-weight: 500; }
+.kv .warnv { color: var(--nospin); font-weight: 500; }
+.kv .sep { grid-column: 1 / -1; border-top: 1px solid var(--rule); margin: 2px 0; }
+.big { font-size: 14px; }
+.big b { font-size: 18px; font-family: var(--f-num); color: var(--nospin); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 280px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1599px) { .hist-head .hint2 { display: none; } }
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 230px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 340px; }
+  .hist-head .hint2 { display: none; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 24 · Spin stabilization (2)</div>
+      <h1>Misaligned Burn Simulator</h1>
+    </div>
+    <p class="lede">An axisymmetric upper stage spins up, then fires its main engine with a misalignment torque fixed in the body. Spin couples the transverse rates at the relative spin rate <span class="sym">Ω</span>, so a torque that would tumble the vehicle produces only a bounded wobble, and <span class="sym">p̂</span><sub class="n">3</sub> traces an epicycloid about its starting direction.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit both views</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side 3D view</dd>
+            <dt>3D view</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+            <dt>Pointing plane</dt><dd>Drag pan, scroll zoom, double-click fit</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="appA">Appendix A<small>oblate, c about p̂₂</small></button>
+        <button class="btn" type="button" data-preset="prolate">Prolate stage<small>c about p̂₁</small></button>
+        <button class="btn" type="button" data-preset="nospin">No spin<small>ω₃₀ = 0, tumbles</small></button>
+        <button class="btn" type="button" data-preset="mission">Full mission<small>spin-up, burn, coast</small></button>
+        <button class="btn" type="button" data-preset="impulse">Impulse<small>H δ(t) about p̂₂</small></button>
+        <button class="btn" type="button" data-preset="pulse">Long pulse<small>Δt|Ω| = 2</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Vehicle <span class="pill" id="shapePill">oblate</span></h2>
+      <div class="slider">
+        <label for="ItR"><span class="sym">I<sub>t</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="ItR" min="5" max="200" step="1" aria-label="Transverse moment of inertia slider">
+        <input type="number" id="ItN" min="0.01" step="any" aria-label="Transverse moment of inertia">
+      </div>
+      <div class="slider">
+        <label for="IaR"><span class="sym">I<sub>a</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="IaR" min="5" max="200" step="1" aria-label="Axial moment of inertia slider">
+        <input type="number" id="IaN" min="0.01" step="any" aria-label="Axial moment of inertia">
+      </div>
+      <p class="note">Moments about the center of mass. <span class="sym">I<sub>t</sub></span> &gt; <span class="sym">I<sub>a</sub></span> is prolate (<span class="sym">Ω</span> &gt; 0); <span class="sym">I<sub>t</sub></span> &lt; <span class="sym">I<sub>a</sub></span> is oblate (<span class="sym">Ω</span> &lt; 0). The drawing's height follows the ratio.</p>
+    </section>
+
+    <section class="group">
+      <h2>Spin</h2>
+      <div class="slider">
+        <label for="wR"><span class="sym">ω</span><sub class="n">3<sub>0</sub></sub><span class="u">rad/s</span></label>
+        <input type="range" id="wR" min="0" max="8" step="0.05" aria-label="Spin rate slider">
+        <input type="number" id="wN" step="any" aria-label="Spin rate, rad/s">
+      </div>
+      <div class="row"><button class="btn" type="button" id="dblSpin">Double the spin</button><button class="btn" type="button" id="halfSpin">Halve it</button></div>
+      <label class="check"><input type="checkbox" id="chkSpinup"> Include a spin-up phase</label>
+      <div class="slider" id="tsuRow">
+        <label for="tsuR"><span class="sym">T</span><sub class="n">su</sub><span class="u">s</span></label>
+        <input type="range" id="tsuR" min="1" max="30" step="0.5" aria-label="Spin-up duration slider">
+        <input type="number" id="tsuN" min="0.1" step="any" aria-label="Spin-up duration, s">
+      </div>
+      <p class="note" id="spinupNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Misalignment torque</h2>
+      <div class="row"><span class="lbl">Type</span>
+        <div class="seg" role="group" aria-label="Torque type" id="modeSeg">
+          <button class="btn" type="button" data-mode="step">Step</button>
+          <button class="btn" type="button" data-mode="impulse">Impulse</button>
+          <button class="btn" type="button" data-mode="pulse">Pulse</button>
+        </div>
+      </div>
+      <div class="row"><span class="lbl">About</span>
+        <div class="seg" role="group" aria-label="Torque axis" id="axisSeg">
+          <button class="btn" type="button" data-axis="0"><span class="sym">p̂</span><sub class="n">1</sub></button>
+          <button class="btn" type="button" data-axis="1"><span class="sym">p̂</span><sub class="n">2</sub></button>
+        </div>
+      </div>
+      <div class="slider" id="cRow">
+        <label for="cR"><span class="sym">c</span><span class="u">N·m</span></label>
+        <input type="range" id="cR" min="-2" max="2" step="0.01" aria-label="Torque slider">
+        <input type="number" id="cN" step="any" aria-label="Torque, N·m">
+      </div>
+      <div class="slider" id="tbRow">
+        <label for="tbR"><span class="sym">T</span><sub class="n">burn</sub><span class="u">s</span></label>
+        <input type="range" id="tbR" min="1" max="120" step="1" aria-label="Burn duration slider">
+        <input type="number" id="tbN" min="0.01" step="any" aria-label="Burn duration, s">
+      </div>
+      <div class="slider" id="hRow">
+        <label for="hR"><span class="sym">H</span><span class="u">N·m·s</span></label>
+        <input type="range" id="hR" min="-3" max="3" step="0.01" aria-label="Angular impulse slider">
+        <input type="number" id="hN" step="any" aria-label="Angular impulse, N·m·s">
+      </div>
+      <div class="slider" id="dtRow">
+        <label for="dtR"><span class="sym">Δt</span><span class="u">s</span></label>
+        <input type="range" id="dtR" min="0.02" max="10" step="0.01" aria-label="Pulse duration slider">
+        <input type="number" id="dtN" min="0.001" step="any" aria-label="Pulse duration, s">
+      </div>
+      <label class="check" id="dblRow"><input type="checkbox" id="chkDouble"> <span>Show the double-counting mistake</span></label>
+      <p class="note" id="modeNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="row"><span class="lbl">3D tilt</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">Exaggerated</button>
+          <button class="btn" type="button" data-ex="1">True scale</button>
+        </div>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkNoSpin"> No-spin comparison in the plots</label>
+        <label class="check"><input type="checkbox" id="chkPlume"> Engine plume</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <div class="slider">
+        <label for="trailR" class="tag">Trace</label>
+        <input type="range" id="trailR" min="0" max="6000" step="50" aria-label="3D trace length">
+        <output id="trailOut" class="tag"></output>
+      </div>
+      <p class="note">The pointing error here is a fraction of a degree, so the 3D view magnifies the tilt of <span class="sym">p̂</span><sub class="n">3</sub> and <span class="sym">h̄</span> away from <span class="sym">â</span><sub class="n">3</sub>. The pointing plane on the right is always at true scale.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the spinning stage"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Inertial frame</div>
+        <div class="overlay legend" role="group" aria-label="Show or hide in 3D">
+          <button class="chip" type="button" data-show="trace" style="--sw:var(--trace)" aria-pressed="true"><span class="sw"></span><span><span class="sym">p̂</span><sub class="n">3</sub> trace</span></button>
+          <button class="chip" type="button" data-show="h" style="--sw:var(--hvec)" aria-pressed="true"><span class="sw"></span><span><span class="sym">h̄</span></span></button>
+          <button class="chip" type="button" data-show="torque" style="--sw:var(--torque)" aria-pressed="true"><span class="sw"></span><span>Torque <span class="sym">ḡ</span></span></button>
+          <button class="chip" type="button" data-show="baxes" style="--sw:var(--c1)" aria-pressed="true"><span class="sw"></span>Body axes</button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl">tilt ×1</div>
+      </div>
+      <div class="ppwrap" id="ppwrap">
+        <canvas id="pp" aria-label="Pointing plane: theta 1 versus theta 2"></canvas>
+        <div class="overlay vtitle">Pointing plane, degrees</div>
+        <div class="overlay legend" role="group" aria-label="Show or hide in the pointing plane" id="ppLegend">
+          <button class="chip" type="button" data-pshow="sim" style="--sw:var(--trace)" aria-pressed="true"><span class="sw"></span>Simulated</button>
+          <button class="chip" type="button" data-pshow="formula" style="--sw:var(--ink)" aria-pressed="true"><span class="sw dash"></span>Epicycloid formula</button>
+          <button class="chip" type="button" data-pshow="construct" style="--sw:var(--fixed)" aria-pressed="true"><span class="sw"></span>Rolling circles</button>
+          <button class="chip" type="button" data-pshow="cone" style="--sw:var(--hvec)" aria-pressed="true"><span class="sw dash"></span>Coning about <span class="sym">h̄</span></button>
+        </div>
+        <div class="overlay viewbar"><button class="btn" type="button" id="ppFit">Fit</button></div>
+        <div class="overlay ppread" id="ppRead"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="-1" max="1.6" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip" data-p="coast">Coast</span>
+      <div class="tclock"><span><span class="sym">t</span> = <span id="tOut">0.00</span> s</span><span id="tbClock">burn <span class="sym">τ</span> = <span id="tauOut">0.00</span> s</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="rates" aria-pressed="true">Transverse rates</button>
+          <button class="btn" type="button" data-q="err" aria-pressed="false">Pointing error</button>
+          <button class="btn" type="button" data-q="spin" aria-pressed="false">Spin <span class="sym">ω</span><sub class="n">3</sub></button>
+        </div>
+        <span class="hleg"><span class="ln" style="--c:var(--ink)"></span>exact</span>
+        <span class="hleg" id="nsLeg"><span class="ln dash" style="--c:var(--nospin)"></span>no spin</span>
+        <span class="spacer"></span>
+        <span class="hint2">Drag to pan · Scroll to zoom · Double-click to reset</span>
+        <button class="btn" type="button" id="liveBtn" aria-pressed="true">Live</button>
+        <button class="btn" type="button" id="allBtn">Show all</button>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="Time history plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group phase-card">
+      <h2>What is happening</h2>
+      <div class="rt" id="phTitle">—</div>
+      <div class="rs" id="phSub"></div>
+    </section>
+
+    <section class="group">
+      <h2>Transverse rates</h2>
+      <dl class="kv">
+        <dt><span class="sym">Ω</span> = <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub>(<span class="sym">I<sub>t</sub></span> − <span class="sym">I<sub>a</sub></span>)/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_Om"></span><span class="u">rad/s</span></dd>
+        <dt id="o_scaleL"><span class="sym">c</span>/<span class="sym">I<sub>t</sub>Ω</span></dt><dd><span id="o_scale"></span><span class="u">rad/s</span></dd>
+        <dt>Peak, formula</dt><dd class="em"><span id="o_peakF"></span><span class="u">rad/s</span></dd>
+        <dt>Peak, simulated</dt><dd><span id="o_peakS"></span><span class="u">rad/s</span></dd>
+        <dt>First peak at</dt><dd><span id="o_tpk"></span><span class="u">s</span></dd>
+        <dt>Period 2π/|<span class="sym">Ω</span>|</dt><dd><span id="o_per"></span><span class="u">s</span></dd>
+      </dl>
+    </section>
+
+    <section class="group" id="secNoSpin">
+      <h2>What spin buys you</h2>
+      <dl class="kv">
+        <dt id="o_nsRateL">No spin, rate at cutoff</dt><dd class="warnv"><span id="o_nsRate"></span><span class="u">rad/s</span></dd>
+        <dt id="o_nsTiltL">No spin, tilt at cutoff</dt><dd class="warnv"><span id="o_nsTilt"></span><span class="u">deg</span></dd>
+      </dl>
+      <p class="big" id="o_ratio"></p>
+    </section>
+
+    <section class="group" id="secEpi">
+      <h2>Epicycloid <span class="unit">small-angle formula</span></h2>
+      <dl class="kv">
+        <dt><span class="sym">A<sub>p</sub></span> = <span class="sym">c</span>/<span class="sym">I<sub>a</sub>Ωω</span><sub class="n">3<sub>0</sub></sub></dt><dd><span id="o_Ap"></span><span class="u">rad</span></dd>
+        <dt><span class="sym">A<sub>n</sub></span> = <span class="sym">c</span>/<span class="sym">I<sub>t</sub>Ωω</span><sub class="n">3<sub>0</sub></sub></dt><dd><span id="o_An"></span><span class="u">rad</span></dd>
+        <dt><span class="sym">ω<sub>p</sub></span> = <span class="sym">I<sub>a</sub>ω</span><sub class="n">3<sub>0</sub></sub>/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_wp"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω<sub>n</sub></span> = <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub></dt><dd><span id="o_wn"></span><span class="u">rad/s</span></dd>
+        <dt>Max error, formula</dt><dd class="em"><span id="o_maxF"></span><span class="u">deg</span></dd>
+        <dt>Max error, simulated</dt><dd><span id="o_maxS"></span><span class="u">deg</span></dd>
+      </dl>
+      <p class="note" id="epiNote"></p>
+    </section>
+
+    <section class="group" id="secImp" hidden>
+      <h2>Impulse model</h2>
+      <dl class="kv">
+        <dt>Rate jump <span class="sym">H</span>/<span class="sym">I<sub>t</sub></span></dt><dd class="em"><span id="o_jump"></span><span class="u">rad/s</span></dd>
+        <dt>Cone half-angle <span class="sym">γ</span></dt><dd><span id="o_gam"></span><span class="u">deg</span></dd>
+        <dt id="o_pulseL">Pulse delivers</dt><dd><span id="o_pulse"></span></dd>
+        <dt>Δ<span class="sym">t</span>·|<span class="sym">Ω</span>|</dt><dd id="o_dtOm"></dd>
+      </dl>
+      <p class="note" id="impNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Live state</h2>
+      <dl class="kv">
+        <dt><span class="sym">ω</span><sub class="n">1</sub></dt><dd style="color:var(--c1)"><span id="o_w1"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">2</sub></dt><dd style="color:var(--c2)"><span id="o_w2"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">3</sub></dt><dd style="color:var(--c3)"><span id="o_w3"></span><span class="u">rad/s</span></dd>
+        <dt>Transverse |<span class="sym">ω</span><sub class="n">t</sub>|</dt><dd><span id="o_wt"></span><span class="u">rad/s</span></dd>
+        <dt class="sep"></dt><dd class="sep"></dd>
+        <dt><span class="sym">θ</span><sub class="n">1</sub></dt><dd><span id="o_th1"></span><span class="u">deg</span></dd>
+        <dt><span class="sym">θ</span><sub class="n">2</sub></dt><dd><span id="o_th2"></span><span class="u">deg</span></dd>
+        <dt>Pointing error</dt><dd><span id="o_err"></span><span class="u">deg</span></dd>
+        <dt><span class="sym">h̄</span> tilt from <span class="sym">â</span><sub class="n">3</sub></dt><dd><span id="o_htilt"></span><span class="u">deg</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Euler's equations, axisymmetric</div>
+          <div><i>I<sub>t</sub></i><span class="ac d"><i>ω</i></span><sub>1</sub> = (<i>I<sub>t</sub></i> − <i>I<sub>a</sub></i>) <i>ω</i><sub>2</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>1</sub></div>
+          <div><i>I<sub>t</sub></i><span class="ac d"><i>ω</i></span><sub>2</sub> = (<i>I<sub>a</sub></i> − <i>I<sub>t</sub></i>) <i>ω</i><sub>1</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>2</sub></div>
+          <div><i>I<sub>a</sub></i><span class="ac d"><i>ω</i></span><sub>3</sub> = <i>g</i><sub>3</sub></div>
+        </div>
+        <div>
+          <div class="lab">Step torque <i>c</i> about <i>p̂</i><sub>1</sub></div>
+          <div class="box"><i>ω</i><sub>1</sub> = (<i>c</i>/<i>I<sub>t</sub>Ω</i>) sin <i>Ωt</i>, &nbsp; <i>ω</i><sub>2</sub> = −(<i>c</i>/<i>I<sub>t</sub>Ω</i>)(1 − cos <i>Ωt</i>)</div>
+        </div>
+        <div>
+          <div class="lab">Step torque <i>c</i> about <i>p̂</i><sub>2</sub></div>
+          <div class="box"><i>ω</i><sub>1</sub> = (<i>c</i>/<i>I<sub>t</sub>Ω</i>)(1 − cos <i>Ωt</i>), &nbsp; <i>ω</i><sub>2</sub> = (<i>c</i>/<i>I<sub>t</sub>Ω</i>) sin <i>Ωt</i></div>
+        </div>
+        <div>
+          <div class="lab">Impulse <i>H</i> δ(<i>t</i>) about <i>p̂</i><sub>2</sub></div>
+          <div class="box"><i>ω</i><sub>1</sub> = (<i>H</i>/<i>I<sub>t</sub></i>) sin <i>Ωt</i>, &nbsp; <i>ω</i><sub>2</sub> = (<i>H</i>/<i>I<sub>t</sub></i>) cos <i>Ωt</i></div>
+        </div>
+        <div>
+          <div class="lab">Epicycloid, torque about <i>p̂</i><sub>1</sub></div>
+          <div><i>θ</i><sub>1</sub> = −<i>A<sub>p</sub></i>(1 − cos <i>ω<sub>p</sub>t</i>) + <i>A<sub>n</sub></i>(1 − cos <i>ω<sub>n</sub>t</i>)</div>
+          <div><i>θ</i><sub>2</sub> = <i>A<sub>p</sub></i> sin <i>ω<sub>p</sub>t</i> − <i>A<sub>n</sub></i> sin <i>ω<sub>n</sub>t</i></div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">The simulation integrates the full nonlinear Euler equations and a quaternion with fixed-step RK4, splitting the step exactly at spin-up end, ignition and cutoff. An impulse is applied as an instant jump in the transverse rate. The epicycloid is drawn for a torque about <span class="sym">p̂</span><sub class="n">1</sub> and rotated to match the torque axis and the vehicle's spin angle at ignition. A torque about <span class="sym">p̂</span><sub class="n">2</sub> gives the same curve turned 90°.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-4) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const SUBD = ['₁', '₂', '₃'];
+
+/* quaternion helpers, [w, x, y, z], active rotation body -> inertial */
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (a) => [a[0], -a[1], -a[2], -a[3]];
+const qaa = (ax, ay, az, ang) => { const s = Math.sin(ang / 2); return [Math.cos(ang / 2), ax * s, ay * s, az * s]; };
+function qrot(q, v) {
+  const r = qmul(qmul(q, [0, v[0], v[1], v[2]]), qconj(q));
+  return [r[1], r[2], r[3]];
+}
+function rodrigues(v, k, a) { // rotate v about unit k by a
+  const c = Math.cos(a), s = Math.sin(a), d = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+  return [
+    v[0] * c + (k[1] * v[2] - k[2] * v[1]) * s + k[0] * d * (1 - c),
+    v[1] * c + (k[2] * v[0] - k[0] * v[2]) * s + k[1] * d * (1 - c),
+    v[2] * c + (k[0] * v[1] - k[1] * v[0]) * s + k[2] * d * (1 - c),
+  ];
+}
+/* 1-2 angles of a pointing direction p (inertial unit vector) */
+const anglesOf = (p) => [Math.atan2(-p[1], p[2]), Math.asin(clamp(p[0], -1, 1))];
+const dirOf = (t1, t2) => [Math.sin(t2), -Math.sin(t1) * Math.cos(t2), Math.cos(t1) * Math.cos(t2)];
+
+/* =========================================================
+   State
+   ========================================================= */
+const S = {
+  It: 40, Ia: 60, w30: 2.0,
+  spinup: false, Tsu: 10,
+  mode: 'step', axis: 1, c: 0.5, Tb: 30, H: 0.5, dt: 0.1,
+  dbl: false,
+  speed: 1.5, playing: !reduceMotion,
+  trailLen: 4000, exag: 'auto',
+  show: { trace: true, h: true, torque: true, baxes: true, nospin: true, plume: true, labels: true },
+  pshow: { sim: true, formula: true, construct: true, cone: true },
+};
+let P = {}; // derived parameters, set in rebuild
+const Y = new Float64Array(7); // qw qx qy qz w1 w2 w3
+let simT = 0, impulseDone = false, ign = null, cut = null, peakSim = 0, maxErr = 0, flashT = 0;
+
+function derive() {
+  const It = S.It, Ia = S.Ia, w3 = S.w30;
+  const Om = w3 * (It - Ia) / It;
+  const tIgn = S.spinup ? S.Tsu : 0;
+  const dur = S.mode === 'step' ? S.Tb : S.mode === 'pulse' ? S.dt : 0;
+  const tCut = tIgn + dur;
+  const phiIgn = S.spinup ? 0.5 * w3 * S.Tsu : 0;
+  const alpha = S.axis === 0 ? 0 : Math.PI / 2;
+  const beta = phiIgn + alpha;
+  const g = S.mode === 'step' ? S.c : S.mode === 'pulse' ? S.H / S.dt : 0;
+  const scale = S.mode === 'step' ? S.c / (It * Om) : NaN;
+  const epiOK = S.mode === 'step' && Math.abs(Om) > 1e-12 && Math.abs(w3) > 1e-12;
+  const Ap = epiOK ? S.c / (Ia * Om * w3) : NaN, An = epiOK ? S.c / (It * Om * w3) : NaN;
+  const wp = Ia * w3 / It, wn = w3;
+  P = { It, Ia, w3, Om, tIgn, tCut, dur, phiIgn, alpha, beta, g, scale, epiOK, Ap, An, wp, wn,
+    shape: Math.abs(It - Ia) < 1e-9 * Math.max(It, Ia) ? 'spherical' : It > Ia ? 'prolate' : 'oblate' };
+}
+
+/* =========================================================
+   Analytic solutions (exact for the rates, since w3 is constant once the spin-up ends)
+   ========================================================= */
+const Sf = (Om, t) => (Math.abs(Om * t) < 1e-7 ? t : Math.sin(Om * t) / Om);
+const Cf = (Om, t) => (Math.abs(Om * t) < 1e-7 ? 0.5 * Om * t * t : (1 - Math.cos(Om * t)) / Om);
+function free(w1, w2, Om, t) { const c = Math.cos(Om * t), s = Math.sin(Om * t); return [w1 * c + w2 * s, -w1 * s + w2 * c]; }
+function forced(a, b, Om, It, t) { return [(a * Sf(Om, t) + b * Cf(Om, t)) / It, (-a * Cf(Om, t) + b * Sf(Om, t)) / It]; }
+function anaW(t, mult = 1) {
+  if (t < P.tIgn) return [0, 0];
+  const tau = t - P.tIgn, Om = P.Om, It = P.It;
+  const a = S.axis === 0 ? 1 : 0, b = 1 - a;
+  if (S.mode === 'impulse') {
+    const j = mult * S.H / It;
+    return free(a * j, b * j, Om, tau);
+  }
+  const G = P.g * mult;
+  if (tau <= P.dur) return forced(a * G, b * G, Om, It, tau);
+  const wc = forced(a * G, b * G, Om, It, P.dur);
+  return free(wc[0], wc[1], Om, tau - P.dur);
+}
+function rotRef(t1r, t2r) { // rotate a pointing offset computed for torque about p1 at zero spin angle
+  const v0 = t2r, v1 = -t1r, c = Math.cos(P.beta), s = Math.sin(P.beta);
+  const vx = c * v0 - s * v1, vy = s * v0 + c * v1;
+  return [-vy, vx];
+}
+function epiRef(tau) {
+  const { Ap, An, wp, wn } = P;
+  return [-Ap * (1 - Math.cos(wp * tau)) + An * (1 - Math.cos(wn * tau)), Ap * Math.sin(wp * tau) - An * Math.sin(wn * tau)];
+}
+function epiAt(tau) { const r = epiRef(tau); return rotRef(r[0], r[1]); }
+let epiMax = NaN;
+function computeEpiMax() {
+  if (!P.epiOK) { epiMax = NaN; return; }
+  let m = 0; const N = Math.min(200000, Math.max(4000, Math.ceil(P.dur * Math.max(P.wp, Math.abs(P.wn)) * 40)));
+  for (let i = 0; i <= N; i++) { const r = epiRef(P.dur * i / N); m = Math.max(m, Math.hypot(r[0], r[1])); }
+  epiMax = m;
+}
+/* predicted torque-free cone after an ideal impulse (mult = 2 for the double-counting mistake) */
+function impulseCone(mult) {
+  const j = mult * S.H;
+  const hb = [S.axis === 0 ? j : 0, S.axis === 1 ? j : 0, P.Ia * P.w3];
+  const c = Math.cos(P.phiIgn), s = Math.sin(P.phiIgn);
+  const h = [c * hb[0] - s * hb[1], s * hb[0] + c * hb[1], hb[2]];
+  const n = Math.hypot(h[0], h[1], h[2]);
+  return n > 0 ? { k: [h[0] / n, h[1] / n, h[2] / n], p: [0, 0, 1] } : null;
+}
+function conePts(cone, N = 240) {
+  const out = [];
+  for (let i = 0; i <= N; i++) out.push(anglesOf(rodrigues(cone.p, cone.k, TAU * i / N)));
+  return out;
+}
+
+/* =========================================================
+   Integration
+   ========================================================= */
+const K1 = new Float64Array(7), K2 = new Float64Array(7), K3 = new Float64Array(7), K4 = new Float64Array(7), YT = new Float64Array(7);
+let G1 = 0, G2 = 0, G3 = 0;
+function deriv(y, out) {
+  const qw = y[0], qx = y[1], qy = y[2], qz = y[3], w1 = y[4], w2 = y[5], w3 = y[6];
+  out[0] = -0.5 * (qx * w1 + qy * w2 + qz * w3);
+  out[1] = 0.5 * (qw * w1 + qy * w3 - qz * w2);
+  out[2] = 0.5 * (qw * w2 + qz * w1 - qx * w3);
+  out[3] = 0.5 * (qw * w3 + qx * w2 - qy * w1);
+  out[4] = ((P.It - P.Ia) * w2 * w3 + G1) / P.It;
+  out[5] = ((P.Ia - P.It) * w1 * w3 + G2) / P.It;
+  out[6] = G3 / P.Ia;
+}
+function rk4(h) {
+  deriv(Y, K1);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(YT, K2);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(YT, K3);
+  for (let i = 0; i < 7; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(YT, K4);
+  for (let i = 0; i < 7; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[0], Y[1], Y[2], Y[3]);
+  Y[0] /= n; Y[1] /= n; Y[2] /= n; Y[3] /= n;
+}
+function setTorques(tm) {
+  G3 = S.spinup && tm < S.Tsu ? P.Ia * P.w3 / S.Tsu : 0;
+  const on = S.mode !== 'impulse' && tm >= P.tIgn && tm < P.tCut;
+  G1 = on && S.axis === 0 ? P.g : 0;
+  G2 = on && S.axis === 1 ? P.g : 0;
+}
+function phaseAt(t) {
+  if (S.spinup && t < S.Tsu) return 'spin';
+  if (S.mode !== 'impulse' && t >= P.tIgn && t < P.tCut) return 'burn';
+  return 'coast';
+}
+const q4 = () => [Y[0], Y[1], Y[2], Y[3]];
+function p3Of() { return qrot(q4(), [0, 0, 1]); }
+function hOf() { return qrot(q4(), [P.It * Y[4], P.It * Y[5], P.Ia * Y[6]]); }
+function captureCone() {
+  const p = p3Of(), h = hOf(), n = Math.hypot(h[0], h[1], h[2]);
+  return n > 0 ? { p, k: [h[0] / n, h[1] / n, h[2] / n] } : null;
+}
+
+/* history */
+const HCAP = 300000;
+const Ht = new Float64Array(HCAP);
+const HQ = { w1: new Float32Array(HCAP), w2: new Float32Array(HCAP), w3: new Float32Array(HCAP), wt: new Float32Array(HCAP), err: new Float32Array(HCAP), t1: new Float32Array(HCAP), t2: new Float32Array(HCAP) };
+let hN = 0, hLast = -Infinity, hDt = 0.01;
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-12) return;
+  if (hN >= HCAP) {
+    const half = HCAP >> 1;
+    Ht.copyWithin(0, half); Object.values(HQ).forEach((a) => a.copyWithin(0, half));
+    hN -= half;
+  }
+  const p = p3Of(), ang = anglesOf(p);
+  Ht[hN] = simT; HQ.w1[hN] = Y[4]; HQ.w2[hN] = Y[5]; HQ.w3[hN] = Y[6]; HQ.wt[hN] = Math.hypot(Y[4], Y[5]);
+  HQ.err[hN] = Math.acos(clamp(p[2], -1, 1)) * R2D; HQ.t1[hN] = ang[0] * R2D; HQ.t2[hN] = ang[1] * R2D;
+  hN++; hLast = simT;
+}
+/* 3D trace ring (raw p3 directions) */
+const TRAIL_MAX = 6000;
+const ring = { buf: new Float32Array(TRAIL_MAX * 3), n: 0, head: 0 };
+let ringThr = 1e-5;
+function ringPush(p) {
+  if (ring.n > 0) {
+    const j = ((ring.head - 1 + TRAIL_MAX) % TRAIL_MAX) * 3;
+    const d = Math.hypot(p[0] - ring.buf[j], p[1] - ring.buf[j + 1], p[2] - ring.buf[j + 2]);
+    if (d < ringThr) return;
+  }
+  const j = ring.head * 3; ring.buf[j] = p[0]; ring.buf[j + 1] = p[1]; ring.buf[j + 2] = p[2];
+  ring.head = (ring.head + 1) % TRAIL_MAX; if (ring.n < TRAIL_MAX) ring.n++;
+}
+let hStep = 0.005;
+function record(force) {
+  const p = p3Of();
+  ringPush(p);
+  const err = Math.acos(clamp(p[2], -1, 1));
+  if (err > maxErr) maxErr = err;
+  if (phaseAt(simT - 1e-12) === 'burn' || (S.mode === 'step' && Math.abs(simT - P.tCut) < 1e-9)) peakSim = Math.max(peakSim, Math.hypot(Y[4], Y[5]));
+  if (S.mode !== 'step' && simT >= P.tIgn) peakSim = Math.max(peakSim, Math.hypot(Y[4], Y[5]));
+  histPush(force);
+}
+function handleEvents() {
+  if (!ign && simT >= P.tIgn - 1e-12) {
+    ign = { wt: Math.hypot(Y[4], Y[5]), phi: 2 * Math.atan2(Y[3], Y[0]) };
+    if (S.mode === 'impulse' && !impulseDone) {
+      record(true);
+      Y[4 + S.axis] += S.H / P.It;
+      impulseDone = true; flashT = 0.5;
+      record(true);
+    }
+  }
+  if (!cut && simT >= P.tCut - 1e-12) cut = captureCone();
+}
+function advance(dt) {
+  let rem = dt;
+  let guard = 0;
+  while (rem > 1e-14 && guard++ < 20) {
+    const evs = [S.spinup ? S.Tsu : Infinity, P.tIgn, P.tCut].filter((e) => e > simT + 1e-12);
+    const te = evs.length ? Math.min(...evs) : Infinity;
+    const span = Math.min(rem, te - simT);
+    const n = Math.min(20000, Math.max(1, Math.ceil(span / hStep)));
+    const h = span / n;
+    for (let i = 0; i < n; i++) {
+      setTorques(simT + 0.5 * h);
+      rk4(h); simT += h;
+      record(false);
+    }
+    if (Math.abs(simT - te) < 1e-9) { simT = te; record(true); handleEvents(); }
+    rem -= span;
+  }
+}
+
+/* =========================================================
+   3D scene
+   ========================================================= */
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const FIT_R = 1.75, TRACE_R = 1.45;
+let exK = 1;
+
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 60;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); (parent || scene).add(g);
+    return { g, shaft, head };
+  }
+  const axisMat = new THREE.MeshBasicMaterial();
+  const axes = [0, 1, 2].map(() => makeArrow(axisMat));
+
+  // vehicle (body coordinates, p3 = +z)
+  const veh = new THREE.Group(); scene.add(veh);
+  const hullA = new THREE.MeshPhongMaterial({ shininess: 35 }), hullB = new THREE.MeshPhongMaterial({ shininess: 35 });
+  const metal = new THREE.MeshPhongMaterial({ shininess: 90 });
+  const hull = new THREE.Group(); veh.add(hull);
+  const NW = 8;
+  for (let i = 0; i < NW; i++) {
+    const geo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, false, TAU * i / NW, TAU / NW).rotateX(Math.PI / 2);
+    hull.add(new THREE.Mesh(geo, i % 2 ? hullB : hullA));
+  }
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 0.32, 28, 1, true).rotateX(Math.PI / 2), metal);
+  nozzle.material.side = THREE.DoubleSide;
+  veh.add(nozzle);
+  const plumeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false });
+  const plume = new THREE.Mesh(new THREE.ConeGeometry(0.19, 1, 28, 1, true).rotateX(-Math.PI / 2), plumeMat);
+  plume.renderOrder = 5; veh.add(plume);
+  // spin thrusters on +p1 and -p1, firing along -p2 and +p2
+  const thr = [], tPlumes = [];
+  for (const s of [1, -1]) {
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 16).rotateZ(s > 0 ? 0 : Math.PI), metal);
+    veh.add(t); thr.push({ m: t, s });
+    const pl = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.4, 16, 1, true).rotateZ(s > 0 ? Math.PI : 0), plumeMat);
+    pl.renderOrder = 5; veh.add(pl); tPlumes.push({ m: pl, s });
+  }
+  const bMats = [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()];
+  const baxes = bMats.map((m) => makeArrow(m, veh));
+
+  // vectors
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 40 }), tqMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const hArrow = makeArrow(hMat), tqArrow = makeArrow(tqMat);
+
+  // trace + formula curve
+  const traceGeo = new THREE.BufferGeometry();
+  traceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((TRAIL_MAX + 1) * 3), 3));
+  const traceMat = new THREE.LineBasicMaterial({ linewidth: 2 });
+  const trace = new THREE.Line(traceGeo, traceMat); trace.frustumCulled = false; scene.add(trace);
+  const epiGeo = new THREE.BufferGeometry();
+  epiGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(4001 * 3), 3));
+  const epiMat = new THREE.LineDashedMaterial({ dashSize: 0.02, gapSize: 0.018, transparent: true, opacity: 0.8 });
+  const epi = new THREE.Line(epiGeo, epiMat); epi.frustumCulled = false; scene.add(epi);
+  // target direction (initial p3)
+  const tgtGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.55), new THREE.Vector3(0, 0, TRACE_R + 0.1)]);
+  const tgtMat = new THREE.LineDashedMaterial({ dashSize: 0.04, gapSize: 0.03 });
+  const tgt = new THREE.Line(tgtGeo, tgtMat); tgt.computeLineDistances(); scene.add(tgt);
+
+  return { renderer, scene, cam, controls, hemi, sun, axes, axisMat, veh, hull, hullA, hullB, metal, nozzle, plume, plumeMat, thr, tPlumes, baxes, bMats, hArrow, hMat, tqArrow, tqMat, trace, traceMat, epi, epiMat, tgtMat };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+let HULL_H = 1, HULL_R = 0.42;
+function updateVehicleGeometry() {
+  const ratio = P.It / P.Ia;
+  HULL_H = clamp(HULL_R * Math.sqrt(Math.max(0, 6 * (ratio - 0.5))), 0.12, 1.3);
+  G.hull.scale.set(HULL_R, HULL_R, HULL_H);
+  const zb = -HULL_H / 2;
+  G.nozzle.position.set(0, 0, zb - 0.16);
+  G.plume.position.set(0, 0, zb - 0.32 - 0.5);
+  G.thr.forEach(({ m, s }) => { m.position.set(s * HULL_R, 0, 0); });
+  G.tPlumes.forEach(({ m, s }) => { m.position.set(s * HULL_R, -s * 0.26, 0); });
+  const o = new THREE.Vector3();
+  setArrow(G.baxes[0], new THREE.Vector3(HULL_R, 0, 0), new THREE.Vector3(0.38, 0, 0), 0.008, 0.026, 0.07);
+  setArrow(G.baxes[1], new THREE.Vector3(0, HULL_R, 0), new THREE.Vector3(0, 0.38, 0), 0.008, 0.026, 0.07);
+  setArrow(G.baxes[2], new THREE.Vector3(0, 0, HULL_H / 2), new THREE.Vector3(0, 0, 0.5), 0.008, 0.026, 0.07);
+  void o;
+}
+function updateAxes() {
+  for (let i = 0; i < 3; i++) {
+    const v = new THREE.Vector3(); v.setComponent(i, i === 2 ? 1.0 : 1.25);
+    const from = new THREE.Vector3(); if (i === 2) from.set(0, 0, 0);
+    setArrow(G.axes[i], from, v, 0.005, 0.022, 0.07);
+  }
+}
+/* exaggerate the tilt of a unit direction away from +Z by factor k */
+function exaggerate(d, k) {
+  const tilt = Math.acos(clamp(d[2], -1, 1));
+  const hz = Math.hypot(d[0], d[1]);
+  if (k === 1 || tilt < 1e-12 || hz < 1e-15) return d;
+  const t2 = Math.min(tilt * k, 175 * D2R);
+  return [Math.sin(t2) * d[0] / hz, Math.sin(t2) * d[1] / hz, Math.cos(t2)];
+}
+function renderQuat(k) {
+  const q = q4();
+  const p = qrot(q, [0, 0, 1]);
+  const tilt = Math.acos(clamp(p[2], -1, 1));
+  const hz = Math.hypot(p[0], p[1]);
+  if (k === 1 || tilt < 1e-12 || hz < 1e-15) return q;
+  const ax = -p[1] / hz, ay = p[0] / hz;
+  const qt = qaa(ax, ay, 0, tilt), qrest = qmul(qconj(qt), q);
+  return qmul(qaa(ax, ay, 0, Math.min(tilt * k, 175 * D2R)), qrest);
+}
+function updateEpi3D() {
+  const pos = G.epi.geometry.attributes.position.array;
+  if (!P.epiOK) { G.epi.visible = false; return; }
+  const N = 4000;
+  for (let i = 0; i <= N; i++) {
+    const a = epiAt(P.dur * i / N), d = exaggerate(dirOf(a[0], a[1]), exK);
+    pos[3 * i] = d[0] * TRACE_R; pos[3 * i + 1] = d[1] * TRACE_R; pos[3 * i + 2] = d[2] * TRACE_R;
+  }
+  G.epi.geometry.attributes.position.needsUpdate = true;
+  G.epi.geometry.setDrawRange(0, N + 1);
+  G.epi.computeLineDistances();
+  G.epi.visible = true;
+}
+let geoCache = {};
+function updateDynamic(dtReal) {
+  const qr = renderQuat(exK);
+  G.veh.quaternion.set(qr[1], qr[2], qr[3], qr[0]);
+  // trace
+  const pos = G.trace.geometry.attributes.position.array;
+  const n = Math.min(ring.n, S.trailLen);
+  let o = 0;
+  for (let kk = n; kk >= 1; kk--) {
+    const j = ((ring.head - kk + TRAIL_MAX) % TRAIL_MAX) * 3;
+    const d = exaggerate([ring.buf[j], ring.buf[j + 1], ring.buf[j + 2]], exK);
+    pos[o++] = d[0] * TRACE_R; pos[o++] = d[1] * TRACE_R; pos[o++] = d[2] * TRACE_R;
+  }
+  G.trace.geometry.attributes.position.needsUpdate = true;
+  G.trace.geometry.setDrawRange(0, n);
+  G.trace.visible = S.show.trace && n > 1;
+  G.epi.visible = S.show.trace && P.epiOK;
+  // h vector, direction exaggerated
+  const h = hOf(), hn = Math.hypot(h[0], h[1], h[2]);
+  if (S.show.h && hn > 0) {
+    const d = exaggerate([h[0] / hn, h[1] / hn, h[2] / hn], exK);
+    const v = new THREE.Vector3(d[0], d[1], d[2]).multiplyScalar(1.3);
+    setArrow(G.hArrow, new THREE.Vector3(), v, 0.013, 0.038, 0.1);
+    geoCache.h = v;
+  } else { G.hArrow.g.visible = false; geoCache.h = null; }
+  // torque vector (body-fixed transverse, or axial during spin-up)
+  const ph = phaseAt(simT - 1e-9);
+  if (flashT > 0) flashT -= dtReal;
+  const showTq = S.show.torque && (ph === 'burn' || flashT > 0 || ph === 'spin');
+  if (showTq) {
+    const bvec = ph === 'spin' ? [0, 0, 1] : (S.axis === 0 ? [1, 0, 0] : [0, 1, 0]);
+    const sgn = ph === 'spin' ? Math.sign(P.w3 || 1) : Math.sign((S.mode === 'step' ? S.c : S.H) || 1);
+    const d = qrot(qr, bvec);
+    const v = new THREE.Vector3(d[0], d[1], d[2]).multiplyScalar(0.95 * sgn);
+    setArrow(G.tqArrow, new THREE.Vector3(), v, 0.014, 0.04, 0.1);
+    geoCache.tq = v;
+  } else { G.tqArrow.g.visible = false; geoCache.tq = null; }
+  // plumes
+  const burning = ph === 'burn' || flashT > 0;
+  const flick = 0.85 + 0.15 * Math.sin(performance.now() / 37);
+  G.plume.visible = S.show.plume && burning;
+  G.plume.scale.set(flick, 1, flick);
+  G.tPlumes.forEach(({ m }) => { m.visible = S.show.plume && ph === 'spin'; });
+  G.baxes.forEach((a) => { a.g.visible = S.show.baxes; });
+  geoCache.p3 = qrot(qr, [0, 0, 1]);
+  geoCache.qr = qr;
+}
+
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; labelsEl.appendChild(d); return d;
+}
+const L = {
+  a1: mkLabel('<span class="sym">â</span><sub class="n">1</sub>', 'var(--axis)', 'small'),
+  a2: mkLabel('<span class="sym">â</span><sub class="n">2</sub>', 'var(--axis)', 'small'),
+  a3: mkLabel('<span class="sym">â</span><sub class="n">3</sub>', 'var(--axis)', 'small'),
+  p1: mkLabel('<span class="sym">p̂</span><sub class="n">1</sub>', 'var(--c1)', 'small'),
+  p2: mkLabel('<span class="sym">p̂</span><sub class="n">2</sub>', 'var(--c2)', 'small'),
+  p3: mkLabel('<span class="sym">p̂</span><sub class="n">3</sub>', 'var(--c3)', 'small'),
+  h: mkLabel('<span class="sym">h̄</span>', 'var(--hvec)'),
+  tq: mkLabel('<span class="sym">ḡ</span>', 'var(--torque)'),
+};
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.copy(v).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.15 || Math.abs(tmpV.y) > 1.15) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  if (!S.show.labels) { Object.values(L).forEach((l) => { l.hidden = true; }); return; }
+  placeLabel(L.a1, new THREE.Vector3(1.38, 0, 0));
+  placeLabel(L.a2, new THREE.Vector3(0, 1.38, 0));
+  placeLabel(L.a3, new THREE.Vector3(0, 0, TRACE_R + 0.2));
+  const qr = geoCache.qr;
+  const bl = (lab, v) => { const d = qrot(qr, v); placeLabel(lab, new THREE.Vector3(d[0], d[1], d[2])); };
+  if (S.show.baxes) { bl(L.p1, [HULL_R + 0.48, 0, 0]); bl(L.p2, [0, HULL_R + 0.48, 0]); bl(L.p3, [0, 0, HULL_H / 2 + 0.6]); }
+  else { L.p1.hidden = L.p2.hidden = L.p3.hidden = true; }
+  if (geoCache.h) placeLabel(L.h, geoCache.h.clone().multiplyScalar(1.08), 14, 0); else L.h.hidden = true;
+  if (geoCache.tq) placeLabel(L.tq, geoCache.tq.clone().multiplyScalar(1.15)); else L.tq.hidden = true;
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'c1', 'c2', 'c3', 'trace', 'fixed', 'roll', 'hvec', 'torque', 'plume', 'nospin', 'good', 'bad', 'axis', 'hull', 'hull-alt', 'metal', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]);
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G.axisMat.color = C('axis');
+    G.hullA.color = C('hull'); G.hullB.color = C('hull-alt'); G.metal.color = C('metal');
+    G.plumeMat.color = C('plume');
+    G.bMats[0].color = C('c1'); G.bMats[1].color = C('c2'); G.bMats[2].color = C('c3');
+    G.hMat.color = C('hvec'); G.hMat.emissive = C('hvec').multiplyScalar(0.25);
+    G.tqMat.color = C('torque'); G.tqMat.emissive = C('torque').multiplyScalar(0.25);
+    G.traceMat.color = C('trace'); G.epiMat.color = C('ink'); G.tgtMat.color = C('muted');
+  }
+  drawPlot(); drawPP();
+}
+
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_DIR = HAS3D ? new THREE.Vector3(1.0, 0.75, 0.55).normalize() : null;
+const VIEW_C = HAS3D ? new THREE.Vector3(0, 0, 0.3) : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) { dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize(); }
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = FIT_R / Math.sin(Math.min(vf, hf) / 2);
+  G.controls.target.copy(VIEW_C);
+  G.cam.position.copy(VIEW_C).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 30; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0, -1e-4, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(1, 0.0001, 0.06).normalize();
+  return ISO_DIR.clone();
+}
+
+/* =========================================================
+   Pointing plane (theta1 horizontal, theta2 vertical, degrees, equal aspect)
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+const PP = { cx: 0, cy: 0, half: 1, auto: true, W: 1, H: 1 };
+let cachedFormula = [], cachedCones = [];
+function rebuildPPCache() {
+  cachedFormula = [];
+  if (P.epiOK) {
+    const N = Math.min(20000, Math.max(1500, Math.ceil(P.dur * Math.max(P.wp, Math.abs(P.wn)) * 12)));
+    for (let i = 0; i <= N; i++) { const a = epiAt(P.dur * i / N); cachedFormula.push([a[0] * R2D, a[1] * R2D]); }
+  }
+  cachedCones = [];
+  if (S.mode !== 'step' && Math.abs(P.w3) + Math.abs(S.H) > 0) {
+    const c1 = impulseCone(1); if (c1) cachedCones.push({ pts: conePts(c1).map((a) => [a[0] * R2D, a[1] * R2D]), col: 'hvec', lab: 'impulse model' });
+    if (S.mode === 'impulse' && S.dbl) { const c2 = impulseCone(2); if (c2) cachedCones.push({ pts: conePts(c2).map((a) => [a[0] * R2D, a[1] * R2D]), col: 'muted', lab: 'double-counted' }); }
+  }
+}
+function ppBounds() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (x, y) => { if (!isFinite(x) || !isFinite(y)) return; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; };
+  add(0, 0);
+  cachedFormula.forEach((p) => add(p[0], p[1]));
+  cachedCones.forEach((c) => c.pts.forEach((p) => add(p[0], p[1])));
+  if (cut && S.pshow.cone) conePts(cut, 120).forEach((a) => add(a[0] * R2D, a[1] * R2D));
+  for (let i = 0; i < hN; i += Math.max(1, Math.floor(hN / 4000))) add(HQ.t1[i], HQ.t2[i]);
+  if (hN) add(HQ.t1[hN - 1], HQ.t2[hN - 1]);
+  if (!(x1 > x0) && !(y1 > y0)) { x0 = -1; x1 = 1; y0 = -1; y1 = 1; }
+  return { x0, x1, y0, y1 };
+}
+function ppFit() {
+  const b = ppBounds();
+  PP.cx = 0.5 * (b.x0 + b.x1); PP.cy = 0.5 * (b.y0 + b.y1);
+  const a = PP.W / Math.max(1, PP.H);
+  const hx = 0.5 * (b.x1 - b.x0) / a, hy = 0.5 * (b.y1 - b.y0);
+  PP.half = Math.max(hx, hy, 1e-4) * 1.18;
+  PP.auto = true;
+}
+function ppAutoExtend() {
+  if (!PP.auto || hN === 0) return;
+  const x = HQ.t1[hN - 1], y = HQ.t2[hN - 1], a = PP.W / Math.max(1, PP.H);
+  if (Math.abs(x - PP.cx) > 0.95 * PP.half * a || Math.abs(y - PP.cy) > 0.95 * PP.half) ppFit();
+}
+function drawPP() {
+  const rect = ppCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (ppCv.width !== Math.round(W * dpr) || ppCv.height !== Math.round(H * dpr)) { ppCv.width = Math.round(W * dpr); ppCv.height = Math.round(H * dpr); }
+  PP.W = W; PP.H = H;
+  const ctx = pctx2; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.view || '#fff'; ctx.fillRect(0, 0, W, H);
+  if (!COL.ink) return;
+  const s = (H / 2) / PP.half; // px per degree
+  const X = (v) => W / 2 + (v - PP.cx) * s, Yp = (v) => H / 2 - (v - PP.cy) * s;
+  const xmin = PP.cx - W / 2 / s, xmax = PP.cx + W / 2 / s, ymin = PP.cy - PP.half, ymax = PP.cy + PP.half;
+  const step = niceStep(2 * PP.half, H / 60);
+  const dec = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.7; ctx.beginPath();
+  ctx.moveTo(Math.round(X(0)) + 0.5, 0); ctx.lineTo(Math.round(X(0)) + 0.5, H); ctx.moveTo(0, Math.round(Yp(0)) + 0.5); ctx.lineTo(W, Math.round(Yp(0)) + 0.5);
+  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) { if (Math.abs(X(v) - W / 2) < 1e5) ctx.fillText(fx(v, dec), X(v), H - 10); }
+  ctx.textAlign = 'left';
+  const lg = el('ppLegend'), yTop = lg ? lg.offsetTop + lg.offsetHeight + 8 : 60;
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Yp(v); if (y > yTop && y < H - 22) ctx.fillText(fx(v, dec), 4, y); }
+  ctx.font = 'italic 14px "STIX Two Text", Cambria, "Times New Roman", serif'; ctx.fillStyle = COL.ink;
+  const x0p = X(0), y0p = Yp(0);
+  if (y0p > yTop && y0p < H - 30) { ctx.textAlign = 'right'; ctx.fillText('θ₁', W - 8, y0p - 10); }
+  if (x0p > 30 && x0p < W - 30) { ctx.textAlign = 'left'; ctx.fillText('θ₂', x0p + 7, Math.max(yTop, 40) + 4); }
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+
+  const poly = (pts, col, w, dash) => {
+    if (pts.length < 2) return;
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath();
+    ctx.moveTo(X(pts[0][0]), Yp(pts[0][1]));
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(X(pts[i][0]), Yp(pts[i][1]));
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  const circ = (cx, cy, r, col, w, dash) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.arc(X(cx), Yp(cy), Math.abs(r) * s, 0, TAU); ctx.stroke(); ctx.setLineDash([]); };
+
+  // predicted cones
+  if (S.pshow.cone) {
+    cachedCones.forEach((c) => poly(c.pts, COL[c.col], 1.5, [6, 4]));
+    if (cut) {
+      const pts = conePts(cut, 200).map((a) => [a[0] * R2D, a[1] * R2D]);
+      poly(pts, COL.hvec, 1.3, [2, 3]);
+      const ha = anglesOf(cut.k);
+      const hx = X(ha[0] * R2D), hy = Yp(ha[1] * R2D);
+      ctx.strokeStyle = COL.hvec; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx - 5, hy - 5); ctx.lineTo(hx + 5, hy + 5); ctx.moveTo(hx - 5, hy + 5); ctx.lineTo(hx + 5, hy - 5); ctx.stroke();
+      ctx.fillStyle = COL.hvec; ctx.textAlign = 'left'; ctx.fillText('h after cutoff', hx + 8, hy - 8);
+    }
+  }
+  // formula
+  if (S.pshow.formula && cachedFormula.length) poly(cachedFormula, COL.ink, 1.2, [5, 4]);
+  // construction at the current burn time
+  const tau = simT - P.tIgn;
+  if (S.pshow.construct && P.epiOK && tau >= 0) {
+    const tc = Math.min(tau, P.dur);
+    const { Ap, An, wp, wn } = P;
+    const c0 = [-Ap + An, 0];
+    const cr = [c0[0] + Ap * Math.cos(wp * tc), c0[1] + Ap * Math.sin(wp * tc)];
+    const pt = [cr[0] - An * Math.cos(wn * tc), cr[1] - An * Math.sin(wn * tc)];
+    const T = (q) => { const r = rotRef(q[0], q[1]); return [r[0] * R2D, r[1] * R2D]; };
+    const C0 = T(c0), CR = T(cr), PT = T(pt);
+    circ(C0[0], C0[1], (Ap - An) * R2D, COL.fixed, 1.6);
+    circ(C0[0], C0[1], Ap * R2D, COL.fixed, 0.8, [2, 4]);
+    circ(CR[0], CR[1], An * R2D, COL.roll, 1.6);
+    ctx.strokeStyle = COL.roll; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(X(CR[0]), Yp(CR[1])); ctx.lineTo(X(PT[0]), Yp(PT[1])); ctx.stroke();
+    ctx.fillStyle = COL.fixed; ctx.beginPath(); ctx.arc(X(C0[0]), Yp(C0[1]), 3, 0, TAU); ctx.fill();
+    ctx.fillStyle = COL.roll; ctx.beginPath(); ctx.arc(X(CR[0]), Yp(CR[1]), 2.6, 0, TAU); ctx.fill();
+    ctx.strokeStyle = COL.ink; ctx.fillStyle = COL.view; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X(PT[0]), Yp(PT[1]), 4, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COL.fixed; ctx.textAlign = 'left';
+    ctx.fillText('Ap', X(C0[0]) + 6, Yp(C0[1]) - 8);
+    ctx.fillStyle = COL.roll; ctx.fillText('An', X(CR[0]) + 6, Yp(CR[1]) + 10);
+  }
+  // simulated trace
+  if (S.pshow.sim && hN > 1) {
+    ctx.strokeStyle = COL.trace; ctx.lineWidth = 1.8; ctx.beginPath();
+    let lx = X(HQ.t1[0]), ly = Yp(HQ.t2[0]); ctx.moveTo(lx, ly);
+    for (let i = 1; i < hN; i++) {
+      const x = X(HQ.t1[i]), y = Yp(HQ.t2[i]);
+      if (Math.abs(x - lx) + Math.abs(y - ly) < 0.6 && i < hN - 1) continue;
+      ctx.lineTo(x, y); lx = x; ly = y;
+    }
+    ctx.stroke();
+    const xe = X(HQ.t1[hN - 1]), ye = Yp(HQ.t2[hN - 1]);
+    ctx.fillStyle = COL.trace; ctx.beginPath(); ctx.arc(xe, ye, 4.5, 0, TAU); ctx.fill();
+  }
+  // target marker at origin
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(0), Yp(0), 6, 0, TAU); ctx.stroke();
+}
+(function ppInteractions() {
+  const ptrs = new Map(); let drag = null, pinch = null;
+  ppCv.addEventListener('pointerdown', (e) => {
+    ppCv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (ptrs.size === 1) drag = { x: e.offsetX, y: e.offsetY, cx: PP.cx, cy: PP.cy };
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), half: PP.half }; drag = null; }
+  });
+  ppCv.addEventListener('pointermove', (e) => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; PP.half = pinch.half * pinch.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)); PP.auto = false; return; }
+    if (drag) { const s = (PP.H / 2) / PP.half; PP.cx = drag.cx - (e.offsetX - drag.x) / s; PP.cy = drag.cy + (e.offsetY - drag.y) / s; if (Math.abs(e.offsetX - drag.x) + Math.abs(e.offsetY - drag.y) > 3) PP.auto = false; }
+  });
+  const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) drag = null; };
+  ppCv.addEventListener('pointerup', end); ppCv.addEventListener('pointercancel', end);
+  ppCv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unit, -300, 300) * 0.0018);
+    const s = (PP.H / 2) / PP.half;
+    const mx = PP.cx + (e.offsetX - PP.W / 2) / s, my = PP.cy - (e.offsetY - PP.H / 2) / s;
+    PP.half *= f; PP.cx = mx + (PP.cx - mx) * f; PP.cy = my + (PP.cy - my) * f; PP.auto = false;
+  }, { passive: false });
+  ppCv.addEventListener('dblclick', () => ppFit());
+})();
+
+/* =========================================================
+   Time-history plot
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'rates', follow: true, win: 20, x0: 0, x1: 20, yAuto: true, y0: -1, y1: 1, hoverX: null, m: { l: 58, r: 92, t: 10, b: 24 }, W: 1, H: 1 };
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function lowerBound(tv) { let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; } return lo; }
+function seriesFor(q) {
+  if (q === 'rates') return [{ a: HQ.w1, col: 'c1', lab: 'ω1' }, { a: HQ.w2, col: 'c2', lab: 'ω2' }, { a: HQ.wt, col: 'ink', lab: '|ωt|', thin: true }];
+  if (q === 'err') return [{ a: HQ.err, col: 'trace', lab: 'error' }];
+  return [{ a: HQ.w3, col: 'c3', lab: 'ω3' }];
+}
+function noSpinRate(tau) { // magnitude of the transverse rate with w30 = 0
+  if (S.mode === 'impulse') return Math.abs(S.H) / P.It;
+  return Math.abs(P.g) * Math.min(tau, P.dur) / P.It;
+}
+function noSpinTilt(tau) { // rad, small-rotation estimate: integral of the rate
+  if (S.mode === 'impulse') return Math.abs(S.H) / P.It * tau;
+  const g = Math.abs(P.g) / P.It, d = P.dur;
+  return tau <= d ? 0.5 * g * tau * tau : 0.5 * g * d * d + g * d * (tau - d);
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  if (!COL.ink) return;
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  if (pw < 30 || ph < 30) return;
+  if (PL.follow) { PL.x1 = Math.max(simT, PL.win); PL.x0 = PL.x1 - PL.win; }
+  const ser = seriesFor(PL.q);
+  let i0 = 0, i1 = -1;
+  if (hN > 0) { i0 = Math.max(0, lowerBound(PL.x0) - 1); i1 = Math.min(hN - 1, lowerBound(PL.x1)); }
+  const band = PL.q === 'rates' && S.mode === 'step' && isFinite(P.scale) && Math.abs(P.Om) > 1e-12 ? 2 * Math.abs(P.scale) : NaN;
+  if (PL.yAuto) {
+    let mn = Infinity, mx = -Infinity;
+    ser.forEach((sr) => { for (let i = i0; i <= i1; i++) { const v = sr.a[i]; if (v < mn) mn = v; if (v > mx) mx = v; } });
+    if (PL.q === 'rates') {
+      if (isFinite(band)) { mn = Math.min(mn, -band); mx = Math.max(mx, band); }
+      if (S.mode !== 'step') { const j = Math.abs(S.H) / P.It * (S.dbl && S.mode === 'impulse' ? 2 : 1); mn = Math.min(mn, -j); mx = Math.max(mx, j); }
+    }
+    if (PL.q === 'err' && isFinite(epiMax)) { mx = Math.max(mx, epiMax * R2D); mn = Math.min(mn, 0); }
+    if (!isFinite(mn)) { mn = -1; mx = 1; }
+    let span = mx - mn; if (span < 1e-9) span = Math.max(Math.abs(mx) * 0.2, 1e-3);
+    PL.y0 = mn - 0.1 * span; PL.y1 = mx + 0.1 * span;
+    if (PL.q === 'err') PL.y0 = Math.min(0, PL.y0);
+  }
+  const sx = pw / (PL.x1 - PL.x0), sy = ph / (PL.y1 - PL.y0);
+  const X = (v) => l + (v - PL.x0) * sx, Yp = (v) => t + (PL.y1 - v) * sy;
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  // phase shading
+  const shade = (a, bb, col, alpha) => { const xa = clamp(X(a), l, l + pw), xb = clamp(X(bb), l, l + pw); if (xb > xa) { ctx.fillStyle = col; ctx.globalAlpha = alpha; ctx.fillRect(xa, t, xb - xa, ph); ctx.globalAlpha = 1; } };
+  if (S.spinup) shade(0, S.Tsu, COL.c3, 0.08);
+  if (S.mode !== 'impulse') shade(P.tIgn, P.tCut, COL.plume, 0.09);
+  const xt = ticksOf(PL.x0, PL.x1, pw / 90), yt = ticksOf(PL.y0, PL.y1, ph / 34);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yt.v.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), l - 6, Yp(v)));
+  if (PL.y0 < 0 && PL.y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(PL.q === 'err' ? 'deg' : 'rad/s', 6, t + 6); ctx.fillText('t, s', 6, t + ph + 12);
+  const rlab = (v, txt, col) => { if (v >= PL.y0 && v <= PL.y1) { ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.fillText(txt, l + pw + 6, Yp(v)); } };
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  // band
+  if (isFinite(band)) {
+    ctx.fillStyle = COL.good; ctx.globalAlpha = 0.07;
+    const xa = Math.max(l, X(P.tIgn)), xb = l + pw;
+    ctx.fillRect(xa, Yp(band), xb - xa, Yp(-band) - Yp(band)); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.good; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.2; ctx.beginPath();
+    ctx.moveTo(xa, Yp(band)); ctx.lineTo(xb, Yp(band)); ctx.moveTo(xa, Yp(-band)); ctx.lineTo(xb, Yp(-band)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // analytic overlays and no-spin comparison
+  const fnLine = (f, col, dash, w) => {
+    ctx.strokeStyle = col; ctx.lineWidth = w || 1.3; ctx.setLineDash(dash || []); ctx.beginPath();
+    const N = Math.max(200, Math.floor(pw)); let pen = false;
+    for (let i = 0; i <= N; i++) {
+      const tt = PL.x0 + (PL.x1 - PL.x0) * i / N; if (tt < 0) { pen = false; continue; }
+      const v = f(tt); if (!isFinite(v)) { pen = false; continue; }
+      const y = clamp(Yp(v), t - 1e4, t + ph + 1e4);
+      if (!pen) { ctx.moveTo(X(tt), y); pen = true; } else ctx.lineTo(X(tt), y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if (PL.q === 'rates') {
+    if (S.show.nospin && Math.abs(P.g) + Math.abs(S.H) > 0) fnLine((tt) => (tt < P.tIgn ? NaN : noSpinRate(tt - P.tIgn)), COL.nospin, [3, 3], 1.4);
+    if (S.mode === 'impulse' && S.dbl) { fnLine((tt) => anaW(tt, 2)[0], COL.muted, [8, 4], 1.2); fnLine((tt) => anaW(tt, 2)[1], COL.muted, [8, 4], 1.2); }
+  } else if (PL.q === 'err') {
+    if (S.show.nospin && Math.abs(P.g) + Math.abs(S.H) > 0) fnLine((tt) => (tt < P.tIgn ? NaN : noSpinTilt(tt - P.tIgn) * R2D), COL.nospin, [3, 3], 1.4);
+    if (P.epiOK) fnLine((tt) => { const tau = tt - P.tIgn; if (tau < 0 || tau > P.dur) return NaN; const a = epiAt(tau); return Math.acos(clamp(dirOf(a[0], a[1])[2], -1, 1)) * R2D; }, COL.ink, [5, 4], 1.2);
+  }
+  // data
+  ser.forEach((sr) => {
+    if (i1 < i0) return;
+    ctx.strokeStyle = COL[sr.col]; ctx.lineWidth = sr.thin ? 1.1 : 1.8; ctx.globalAlpha = sr.thin ? 0.7 : 1; ctx.beginPath();
+    const cnt = i1 - i0 + 1;
+    if (cnt <= pw * 2) { ctx.moveTo(X(Ht[i0]), Yp(sr.a[i0])); for (let i = i0 + 1; i <= i1; i++) ctx.lineTo(X(Ht[i]), Yp(sr.a[i])); }
+    else {
+      let px = null, mn = 0, mx = 0, ly = 0;
+      for (let i = i0; i <= i1; i++) {
+        const x = Math.floor(X(Ht[i])), y = Yp(sr.a[i]);
+        if (x !== px) { if (px === null) ctx.moveTo(x, y); else { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); } px = x; mn = mx = y; }
+        else { if (y < mn) mn = y; if (y > mx) mx = y; }
+        ly = y;
+      }
+      if (px !== null) { ctx.lineTo(px, mn); ctx.lineTo(px, mx); ctx.lineTo(px, ly); }
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  });
+  if (PL.q === 'rates') { // exact analytic rates drawn over the data
+    fnLine((tt) => anaW(tt)[0], COL.ink, [2, 5], 1.1);
+    fnLine((tt) => anaW(tt)[1], COL.ink, [2, 5], 1.1);
+  }
+  if (simT >= PL.x0 && simT <= PL.x1) { const x = Math.round(X(simT)) + 0.5; ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x, t); ctx.lineTo(x, t + ph); ctx.stroke(); ctx.setLineDash([]); }
+  // hover
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = PL.x0 + (PL.hoverX - l) / sx;
+    let i = lowerBound(tv); if (i >= hN) i = hN - 1; if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    if (x >= l && x <= l + pw) {
+      ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+      const lines = [[`t ${fx(Ht[i], 3)} s`, COL.ink]];
+      ser.forEach((sr) => { lines.push([`${sr.lab} ${fs(sr.a[i], PL.q === 'err' ? 4 : 5)}`, COL[sr.col]]); ctx.fillStyle = COL[sr.col]; ctx.beginPath(); ctx.arc(x, Yp(sr.a[i]), 3.2, 0, TAU); ctx.fill(); });
+      const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+      let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+      const by = t + 6;
+      ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+      ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+      ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, by + 12 + j * 15); });
+    }
+  }
+  ctx.restore();
+  // right-margin labels
+  if (isFinite(band)) { rlab(band, '+2|c/ItΩ|', COL.good); rlab(-band, '−2|c/ItΩ|', COL.good); }
+  if (PL.q === 'err' && isFinite(epiMax)) rlab(epiMax * R2D, 'formula max', COL.ink);
+  el('nsLeg').hidden = !(S.show.nospin && PL.q !== 'spin');
+}
+function setFollow(on) { PL.follow = on; el('liveBtn').setAttribute('aria-pressed', String(on)); }
+(function plotInteractions() {
+  const ptrs = new Map(); let drag = null;
+  const pw = () => PL.W - PL.m.l - PL.m.r, ph = () => PL.H - PL.m.t - PL.m.b;
+  plotCv.addEventListener('pointerdown', (e) => { plotCv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, 1); drag = { x: e.offsetX, y: e.offsetY, x0: PL.x0, x1: PL.x1, y0: PL.y0, y1: PL.y1, moved: false, ym: false }; });
+  plotCv.addEventListener('pointermove', (e) => {
+    if (drag) {
+      const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (!drag.moved) return;
+      setFollow(false);
+      const xs = (drag.x1 - drag.x0) / pw(); PL.x0 = drag.x0 - dx * xs; PL.x1 = drag.x1 - dx * xs;
+      if (drag.ym || Math.abs(dy) > 8) { drag.ym = true; PL.yAuto = false; const ys = (drag.y1 - drag.y0) / ph(); PL.y0 = drag.y0 + dy * ys; PL.y1 = drag.y1 + dy * ys; }
+      return;
+    }
+    PL.hoverX = e.offsetX;
+  });
+  const end = (e) => { ptrs.delete(e.pointerId); drag = null; };
+  plotCv.addEventListener('pointerup', end); plotCv.addEventListener('pointercancel', end);
+  plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+  plotCv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unit, -300, 300) * 0.0018);
+    if (e.shiftKey || e.altKey) { PL.yAuto = false; const yc = PL.y1 - (e.offsetY - PL.m.t) / ph() * (PL.y1 - PL.y0); PL.y0 = yc + (PL.y0 - yc) * f; PL.y1 = yc + (PL.y1 - yc) * f; }
+    else if (PL.follow) PL.win = clamp(PL.win * f, 0.05, 1e5);
+    else { const tc = PL.x0 + (e.offsetX - PL.m.l) / pw() * (PL.x1 - PL.x0); PL.x0 = tc + (PL.x0 - tc) * f; PL.x1 = tc + (PL.x1 - tc) * f; }
+  }, { passive: false });
+  plotCv.addEventListener('dblclick', () => resetPlotView());
+})();
+function defaultWindow() {
+  const per = Math.abs(P.Om) > 1e-9 ? TAU / Math.abs(P.Om) : Infinity;
+  const total = P.tCut + (isFinite(per) ? 2 * per : 10);
+  return clamp(Math.max(total, isFinite(per) ? 4 * per : 20), 5, 400);
+}
+function resetPlotView() { PL.yAuto = true; PL.win = defaultWindow(); setFollow(true); }
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function axisName() { return `${SYM('p̂')}<sub class="n">${S.axis + 1}</sub>`; }
+function phaseText() {
+  const ph = phaseAt(simT - 1e-9);
+  const wt = Math.hypot(Y[4], Y[5]);
+  if (ph === 'spin') return { p: 'spin', chip: 'Spin-up', t: 'Spin-up', s: `The spin thrusters apply ${SYM('g')}<sub class="n">3</sub> = ${SYM('I<sub>a</sub>ω')}<sub class="n">3<sub>0</sub></sub>/${SYM('T')}<sub class="n">su</sub> = ${fg(P.Ia * P.w3 / S.Tsu, 3)} N·m, so ${SYM('ω')}<sub class="n">3</sub> climbs linearly toward ${fg(P.w3, 3)} rad/s. With no transverse rate, nothing else moves.` };
+  if (ph === 'burn') {
+    if (Math.abs(P.w3) < 1e-12) return { p: 'burn', chip: 'Burn', t: 'Burning with no spin', s: `With ${SYM('ω')}<sub class="n">3<sub>0</sub></sub> = 0 there is no gyroscopic coupling. The torque about ${axisName()} accelerates the vehicle steadily: the rate grows as ${SYM('ct')}/${SYM('I<sub>t</sub>')} and the vehicle tumbles.` };
+    if (S.mode === 'pulse') return { p: 'burn', chip: 'Pulse', t: 'Thruster pulse', s: `A torque of ${fg(P.g, 3)} N·m about ${axisName()} acts for ${fg(S.dt, 3)} s, delivering the impulse ${SYM('H')} = ${fg(S.H, 3)} N·m·s.` };
+    return { p: 'burn', chip: 'Burn', t: 'Main engine burn', s: `A constant torque ${SYM('c')} = ${fg(S.c, 3)} N·m about ${axisName()}. The transverse rates oscillate at ${SYM('Ω')} = ${fg(P.Om, 4)} rad/s inside a band of ±${fg(2 * Math.abs(P.scale), 3)} rad/s, and ${SYM('p̂')}<sub class="n">3</sub> traces an epicycloid.` };
+  }
+  if (simT < P.tIgn) return { p: 'coast', chip: 'Coast', t: 'Before ignition', s: 'Waiting for ignition.' };
+  if (Math.abs(P.w3) < 1e-12 && wt > 0) return { p: 'coast', chip: 'Coast', t: 'Tumbling', s: `Without spin the vehicle keeps the rate it gained, ${fg(wt, 4)} rad/s, and its pointing drifts without limit.` };
+  const gam = cut ? Math.acos(clamp(cut.p[0] * cut.k[0] + cut.p[1] * cut.k[1] + cut.p[2] * cut.k[2], -1, 1)) * R2D : NaN;
+  if (S.mode === 'impulse') return { p: 'coast', chip: 'Coast', t: 'Torque-free after the impulse', s: `The impulse jumped the transverse rate by ${SYM('H')}/${SYM('I<sub>t</sub>')} = ${fg(S.H / P.It, 4)} rad/s. Since then the motion is torque-free: ${SYM('p̂')}<sub class="n">3</sub> cones about ${SYM('h̄')} at ${fg(gam, 3)}°.` };
+  return { p: 'coast', chip: 'Coast', t: 'Engine off: torque-free coning', s: `The dynamics revert to axisymmetric torque-free motion. ${SYM('p̂')}<sub class="n">3</sub> cones about the new ${SYM('h̄')} at a constant ${fg(gam, 3)}°, and the transverse rate stays at ${fg(wt, 4)} rad/s.` };
+}
+function setChecks() {
+  const items = [];
+  const shapeOK = P.shape === 'spherical' ? Math.abs(P.Om) < 1e-12 : (P.shape === 'prolate') === (P.Om > 0);
+  items.push({ s: Math.abs(P.w3) < 1e-12 ? 'na' : shapeOK ? 'ok' : 'bad', t: `Sign of ${SYM('Ω')} matches the shape`, sub: `Ω = ${fg(P.Om, 4)} rad/s, ${P.shape}` });
+  if (ign) items.push({ s: ign.wt < 1e-9 ? 'ok' : 'bad', t: 'Transverse rates are zero at ignition', sub: `|ωt| = ${fg(ign.wt, 3)} rad/s at t = ${fx(P.tIgn, 2)} s` });
+  else items.push({ s: 'na', t: 'Transverse rates are zero at ignition', sub: `ignition at t = ${fx(P.tIgn, 2)} s` });
+  if (S.mode === 'step' && Math.abs(P.Om) > 1e-12) {
+    const pf = 2 * Math.abs(P.scale), tpk = Math.PI / Math.abs(P.Om);
+    const reached = simT - P.tIgn >= Math.min(tpk, P.dur);
+    const okp = Math.abs(peakSim - pf) <= 2e-3 * pf;
+    items.push({ s: !reached ? 'na' : (P.dur >= tpk ? (okp ? 'ok' : 'bad') : 'na'), t: 'Peak transverse rate is 2|c/I<sub>t</sub>Ω|, whichever axis', sub: P.dur < tpk ? `burn ends before the first peak at ${fx(tpk, 2)} s` : reached ? `simulated ${fg(peakSim, 4)} vs ${fg(pf, 4)} rad/s` : `first peak at τ = ${fx(tpk, 2)} s` });
+    items.push({ s: 'ok', t: 'Doubling the spin halves the peak rate', sub: `at ω₃₀ = ${fg(2 * P.w3, 3)}: ${fg(pf / 2, 4)} rad/s` });
+  }
+  if (S.mode === 'pulse') {
+    const x = S.dt * Math.abs(P.Om);
+    items.push({ s: x < 0.3 ? 'ok' : 'bad', t: 'Impulse model is accurate: Δt ≪ 1/|Ω|', sub: `Δt·|Ω| = ${fg(x, 3)}` });
+  }
+  if (S.mode === 'impulse') items.push({ s: S.dbl ? 'bad' : 'ok', t: 'Impulse counted once', sub: S.dbl ? 'jump in the initial condition and Hδ(t) in the torque: doubled' : 'jump H/It in the initial condition, torque zero after' });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+function updateStatic() {
+  el('shapePill').textContent = P.shape;
+  el('o_Om').textContent = fg(P.Om, 4);
+  const isStep = S.mode === 'step';
+  el('o_scaleL').innerHTML = isStep ? `${SYM('c')}/${SYM('I<sub>t</sub>Ω')}` : `${SYM('H')}/${SYM('I<sub>t</sub>')}`;
+  el('o_scale').textContent = isStep ? fg(P.scale, 4) : fg(S.H / P.It, 4);
+  el('o_peakF').textContent = isStep ? (Math.abs(P.Om) > 1e-12 ? fg(2 * Math.abs(P.scale), 4) : '∞') : fg(Math.abs(S.H) / P.It, 4);
+  el('o_tpk').textContent = isStep && Math.abs(P.Om) > 1e-12 ? fg(Math.PI / Math.abs(P.Om) + P.tIgn, 4) : '—';
+  el('o_per').textContent = Math.abs(P.Om) > 1e-12 ? fg(TAU / Math.abs(P.Om), 4) : '∞';
+  // no spin
+  if (isStep) {
+    el('o_nsRateL').textContent = 'No spin, rate at cutoff';
+    el('o_nsTiltL').textContent = 'No spin, tilt at cutoff';
+    el('o_nsRate').textContent = fg(Math.abs(S.c) * S.Tb / P.It, 4);
+    el('o_nsTilt').textContent = fg(0.5 * Math.abs(S.c) * S.Tb * S.Tb / P.It * R2D, 4);
+    const ratio = Math.abs(P.Om) * S.Tb / 2;
+    el('o_ratio').innerHTML = Math.abs(P.w3) > 1e-12
+      ? (ratio >= 1 ? `Over this ${fg(S.Tb, 3)} s burn, spin keeps the rates <b>${fg(ratio, 3)}×</b> smaller, and the margin grows the longer the burn lasts.` : `This burn is shorter than half a period at ${SYM('Ω')}, so spin has not helped yet: the ratio is ${fg(ratio, 2)}×.`)
+      : 'This vehicle has no spin. The rate grows as <b>ct/I<sub>t</sub></b> for the whole burn.';
+  } else {
+    el('o_nsRateL').textContent = 'No spin, rate after impulse';
+    el('o_nsTiltL').textContent = 'No spin, drift after 60 s';
+    el('o_nsRate').textContent = fg(Math.abs(S.H) / P.It, 4);
+    el('o_nsTilt').textContent = fg(Math.abs(S.H) / P.It * 60 * R2D, 4);
+    el('o_ratio').innerHTML = Math.abs(P.w3) > 1e-12 ? `Spin does not shrink the rate jump, but it turns an endless drift into a cone of fixed half-angle <b>${fg(Math.atan(Math.abs(S.H) / (P.Ia * Math.abs(P.w3))) * R2D, 3)}°</b>.` : 'This vehicle has no spin, so the pointing drifts without limit.';
+  }
+  // epicycloid
+  el('secEpi').hidden = !isStep;
+  el('o_Ap').textContent = fg(P.Ap, 3); el('o_An').textContent = fg(P.An, 3);
+  el('o_wp').textContent = fg(P.wp, 4); el('o_wn').textContent = fg(P.wn, 4);
+  el('o_maxF').textContent = isFinite(epiMax) ? fg(epiMax * R2D, 4) : '—';
+  el('epiNote').innerHTML = !P.epiOK ? `The formula needs ${SYM('Ω')} ≠ 0 and ${SYM('ω')}<sub class="n">3<sub>0</sub></sub> ≠ 0.`
+    : `${P.shape === 'prolate' ? `Prolate: |${SYM('A<sub>p</sub>')}| &gt; |${SYM('A<sub>n</sub>')}|.` : `Oblate: |${SYM('A<sub>n</sub>')}| &gt; |${SYM('A<sub>p</sub>')}|, the reverse of the prolate case.`} ${S.axis === 1 ? `The torque is about ${SYM('p̂')}<sub class="n">2</sub>, so the curve is the ${SYM('p̂')}<sub class="n">1</sub> formula turned 90°.` : ''}${S.spinup ? ` The spin-up left the body turned ${fg((P.phiIgn * R2D) % 360, 4)}° at ignition, which turns the pattern too.` : ''}`;
+  // impulse
+  el('secImp').hidden = isStep;
+  if (!isStep) {
+    el('o_jump').textContent = fg(S.H / P.It, 4);
+    el('o_gam').textContent = Math.abs(P.w3) > 1e-12 ? fg(Math.atan(Math.abs(S.H) / (P.Ia * Math.abs(P.w3))) * R2D, 4) : '—';
+    const x = S.dt * P.Om, sinc = Math.abs(x) < 1e-9 ? 1 : Math.abs(Math.sin(x / 2) / (x / 2));
+    el('o_pulseL').style.visibility = el('o_pulse').style.visibility = S.mode === 'pulse' ? 'visible' : 'hidden';
+    el('o_pulse').textContent = fx(sinc * 100, 1) + '% of the jump';
+    el('o_dtOm').textContent = S.mode === 'pulse' ? fg(Math.abs(x), 3) : '0 (ideal)';
+    el('impNote').innerHTML = S.mode === 'impulse'
+      ? `Put the jump in the initial condition and set the torque to zero, or keep ${SYM('H')}δ(${SYM('t')}) and start from the rate just before the firing. Not both.`
+      : `A pulse of finite length leaves a transverse rate of (${SYM('H')}/${SYM('I<sub>t</sub>')})·|sin(${SYM('Ω')}Δ${SYM('t')}/2)/(${SYM('Ω')}Δ${SYM('t')}/2)|. The impulse model is good when Δ${SYM('t')}|${SYM('Ω')}| is small.`;
+  }
+  el('tbClock').style.visibility = 'visible';
+}
+let lastPhaseKey = '';
+function updateReadouts() {
+  el('tOut').textContent = simT.toFixed(2);
+  el('tauOut').textContent = (simT - P.tIgn).toFixed(2);
+  el('o_w1').textContent = fs(Y[4], 5); el('o_w2').textContent = fs(Y[5], 5); el('o_w3').textContent = fs(Y[6], 4);
+  el('o_wt').textContent = fs(Math.hypot(Y[4], Y[5]), 5);
+  const p = p3Of(), a = anglesOf(p);
+  el('o_th1').textContent = fs(a[0] * R2D, 4); el('o_th2').textContent = fs(a[1] * R2D, 4);
+  el('o_err').textContent = fs(Math.acos(clamp(p[2], -1, 1)) * R2D, 4);
+  const h = hOf(), hn = Math.hypot(h[0], h[1], h[2]);
+  el('o_htilt').textContent = hn > 0 ? fs(Math.acos(clamp(h[2] / hn, -1, 1)) * R2D, 4) : '—';
+  el('o_peakS').textContent = simT >= P.tIgn ? (peakSim < 1e-12 ? '0' : fg(peakSim, 4)) : '—';
+  el('o_maxS').textContent = maxErr * R2D < 1e-6 ? '0' : fg(maxErr * R2D, 4);
+  el('ppRead').innerHTML = `θ1 ${fs(a[0] * R2D, 3)}°<br>θ2 ${fs(a[1] * R2D, 3)}°`;
+  const pt = phaseText();
+  const key = pt.t + '|' + (cut ? 1 : 0) + '|' + (ign ? 1 : 0);
+  if (key !== lastPhaseKey || pt.p === 'coast') {
+    el('phTitle').innerHTML = pt.t; el('phSub').innerHTML = pt.s;
+    const chip = el('phaseChip'); chip.textContent = pt.chip; chip.dataset.p = pt.p;
+    lastPhaseKey = key;
+  }
+  setChecks();
+}
+
+/* =========================================================
+   Rebuild
+   ========================================================= */
+function niceK(maxTilt) {
+  if (S.exag === '1' || !(maxTilt > 0)) return 1;
+  const target = 35 * D2R;
+  const cands = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  let k = 1; for (const c of cands) if (c * maxTilt <= target) k = c;
+  return k;
+}
+function expectedTilt() {
+  if (Math.abs(P.w3) < 1e-12) return Infinity;
+  if (S.mode === 'step') {
+    if (!P.epiOK) return Infinity;
+    const wc = anaW(P.tCut), gam = Math.atan(P.It * Math.hypot(wc[0], wc[1]) / (P.Ia * Math.abs(P.w3)));
+    return epiMax + 2 * gam;
+  }
+  return 2 * Math.atan(Math.abs(S.H) * (S.dbl && S.mode === 'impulse' ? 2 : 1) / (P.Ia * Math.abs(P.w3)));
+}
+function autoSpeed() {
+  const per = Math.abs(P.Om) > 1e-9 ? TAU / Math.abs(P.Om) : Infinity;
+  let sp = isFinite(per) ? per / 4 : 2;
+  if (Math.abs(P.w3) > 0) sp = Math.min(sp, 6 / Math.abs(P.w3));
+  if (S.mode === 'pulse' || S.mode === 'impulse') sp = Math.min(sp, 2);
+  S.speed = clamp(sp, 0.1, 40);
+  syncSpeed();
+}
+function rebuild(opts = {}) {
+  derive();
+  computeEpiMax();
+  Y[0] = 1; Y[1] = Y[2] = Y[3] = 0; Y[4] = 0; Y[5] = 0; Y[6] = S.spinup ? 0 : S.w30;
+  simT = 0; impulseDone = false; ign = null; cut = null; peakSim = 0; maxErr = 0; flashT = 0;
+  const rate = Math.abs(P.w3) + Math.abs(P.Om) + Math.abs(P.wp) + 0.2;
+  hStep = Math.min(0.01, 0.02 / rate);
+  if (S.mode === 'pulse') hStep = Math.min(hStep, S.dt / 20);
+  hDt = clamp(Math.min(0.02, TAU / rate / 120), 0.002, 0.05);
+  hN = 0; hLast = -Infinity; ring.n = 0; ring.head = 0;
+  const tilt = expectedTilt();
+  exK = niceK(isFinite(tilt) ? tilt : 0);
+  ringThr = isFinite(tilt) && tilt > 0 ? tilt / 400 : 1e-4;
+  record(true);
+  handleEvents();
+  rebuildPPCache();
+  if (G) { updateVehicleGeometry(); updateEpi3D(); }
+  el('exagLbl').textContent = exK === 1 ? 'tilt at true scale' : `tilt shown ×${exK}`;
+  if (opts.autoSpeed) autoSpeed();
+  resetPlotView();
+  ppFit();
+  updateStatic(); lastPhaseKey = ''; updateReadouts();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (Number.isFinite(v) ? String(+v.toFixed(5)) : '');
+const PAIRS = [['ItR', 'ItN', 'It', 0.01], ['IaR', 'IaN', 'Ia', 0.01], ['wR', 'wN', 'w30', null], ['tsuR', 'tsuN', 'Tsu', 0.1], ['cR', 'cN', 'c', null], ['tbR', 'tbN', 'Tb', 0.01], ['hR', 'hN', 'H', null], ['dtR', 'dtN', 'dt', 0.001]];
+function syncInputs() {
+  PAIRS.forEach(([r, n, k]) => { el(r).value = S[k]; el(n).value = fmt(S[k]); });
+  el('chkSpinup').checked = S.spinup; el('chkDouble').checked = S.dbl;
+  el('chkNoSpin').checked = S.show.nospin; el('chkPlume').checked = S.show.plume; el('chkLabels').checked = S.show.labels;
+  el('trailR').value = S.trailLen; el('trailOut').textContent = S.trailLen;
+  $$('#modeSeg [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  $$('#axisSeg [data-axis]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.axis === S.axis)));
+  $$('#exSeg [data-ex]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ex === S.exag)));
+  el('cRow').hidden = el('tbRow').hidden = S.mode !== 'step';
+  el('hRow').hidden = S.mode === 'step';
+  el('dtRow').hidden = S.mode !== 'pulse';
+  el('dblRow').hidden = S.mode !== 'impulse';
+  el('tsuRow').hidden = !S.spinup;
+  el('spinupNote').innerHTML = S.spinup ? `Spin thrusters apply ${SYM('g')}<sub class="n">3</sub> = ${fg(S.Ia * S.w30 / S.Tsu, 3)} N·m for ${fg(S.Tsu, 3)} s, then shut off. Ignition follows immediately.` : 'The stage starts already spinning at ω₃₀, as in the notes.';
+  el('modeNote').innerHTML = S.mode === 'step' ? 'A constant torque fixed in the body for the whole burn, as from a misaligned main engine.'
+    : S.mode === 'impulse' ? `An instant angular impulse ${SYM('H')}δ(${SYM('t')}). The transverse rate jumps by ${SYM('H')}/${SYM('I<sub>t</sub>')}.`
+    : `The same impulse ${SYM('H')} spread over Δ${SYM('t')} as a torque ${SYM('H')}/Δ${SYM('t')}, to test the impulse model.`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return (s < 1 ? s.toFixed(2) : s < 10 ? s.toFixed(1) : s.toFixed(0)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, key, mn]) => {
+  const r = el(rid), n = el(nid);
+  const set = (v) => { S[key] = v; syncInputs(); rebuild(); };
+  r.addEventListener('input', () => { const v = +r.value; n.value = fmt(v); set(v); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(S[key]); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = v; set(v);
+  });
+});
+el('dblSpin').addEventListener('click', () => { S.w30 = +(S.w30 * 2).toFixed(6); syncInputs(); rebuild({ autoSpeed: true }); });
+el('halfSpin').addEventListener('click', () => { S.w30 = +(S.w30 / 2).toFixed(6); syncInputs(); rebuild({ autoSpeed: true }); });
+el('chkSpinup').addEventListener('change', (e) => { S.spinup = e.target.checked; syncInputs(); rebuild(); });
+el('chkDouble').addEventListener('change', (e) => { S.dbl = e.target.checked; syncInputs(); rebuild(); });
+el('chkNoSpin').addEventListener('change', (e) => { S.show.nospin = e.target.checked; });
+el('chkPlume').addEventListener('change', (e) => { S.show.plume = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+el('trailR').addEventListener('input', () => { S.trailLen = +el('trailR').value; el('trailOut').textContent = S.trailLen; });
+$$('#modeSeg [data-mode]').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; syncInputs(); rebuild({ autoSpeed: true }); }));
+$$('#axisSeg [data-axis]').forEach((b) => b.addEventListener('click', () => { S.axis = +b.dataset.axis; syncInputs(); rebuild(); }));
+$$('#exSeg [data-ex]').forEach((b) => b.addEventListener('click', () => {
+  S.exag = b.dataset.ex; syncInputs();
+  const tilt = expectedTilt(); exK = niceK(isFinite(tilt) ? tilt : 0);
+  el('exagLbl').textContent = exK === 1 ? 'tilt at true scale' : `tilt shown ×${exK}`;
+  if (G) updateEpi3D();
+}));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+$$('.legend [data-show]').forEach((b) => b.addEventListener('click', () => { const k = b.dataset.show; S.show[k] = !S.show[k]; b.setAttribute('aria-pressed', String(S.show[k])); }));
+$$('.legend [data-pshow]').forEach((b) => b.addEventListener('click', () => { const k = b.dataset.pshow; S.pshow[k] = !S.pshow[k]; b.setAttribute('aria-pressed', String(S.pshow[k])); }));
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => { PL.q = b.dataset.q; PL.yAuto = true; $$('#histTabs [data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+el('liveBtn').addEventListener('click', () => { if (!PL.follow) PL.win = PL.x1 - PL.x0; setFollow(true); });
+el('allBtn').addEventListener('click', () => { setFollow(false); PL.yAuto = true; PL.x0 = 0; PL.x1 = Math.max(simT, 1); });
+
+const PRESETS = {
+  appA: { It: 40, Ia: 60, w30: 2, spinup: false, mode: 'step', axis: 1, c: 0.5, Tb: 30 },
+  prolate: { It: 60, Ia: 40, w30: 2, spinup: false, mode: 'step', axis: 0, c: 0.5, Tb: 30 },
+  nospin: { It: 40, Ia: 60, w30: 0, spinup: false, mode: 'step', axis: 1, c: 0.5, Tb: 30 },
+  mission: { It: 60, Ia: 40, w30: 2, spinup: true, Tsu: 10, mode: 'step', axis: 0, c: 0.5, Tb: 40 },
+  impulse: { It: 40, Ia: 60, w30: 2, spinup: false, mode: 'impulse', axis: 1, H: 0.5, dbl: false },
+  pulse: { It: 40, Ia: 60, w30: 2, spinup: false, mode: 'pulse', axis: 1, H: 0.5, dt: 2.0, dbl: false },
+};
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+  Object.assign(S, PRESETS[b.dataset.preset]);
+  syncInputs(); rebuild({ autoSpeed: true }); setPlaying(true);
+}));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+el('playBtn').addEventListener('click', () => setPlaying(!S.playing));
+el('resetBtn').addEventListener('click', () => rebuild());
+el('fitBtn').addEventListener('click', () => fit());
+el('ppFit').addEventListener('click', () => ppFit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (p && p.catch) p.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); setPlaying(!S.playing); }
+  else if (k === 'r') rebuild();
+  else if (k === 'f') { fit(); ppFit(); }
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize(); updateAxes();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The pointing plane, plots and analysis still work.';
+  vp.appendChild(d);
+}
+COL = readColors();
+syncInputs(); setPlaying(S.playing);
+new ResizeObserver(() => { drawPP(); }).observe(el('ppwrap'));
+rebuild({ autoSpeed: true });
+applyTheme();
+if (G) fit(ISO_DIR.clone());
+requestAnimationFrame(() => { ppFit(); });
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPP(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) { advance(dtReal * S.speed); ppAutoExtend(); }
+  if (G) {
+    updateDynamic(dtReal);
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPP();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__burn = { S, Y, P: () => P, rebuild, advance, anaW, epiAt, epiMax: () => epiMax, peak: () => peakSim, maxErr: () => maxErr, t: () => simT, p3: p3Of, cut: () => cut, ign: () => ign, applyPreset: (k) => { Object.assign(S, PRESETS[k]); syncInputs(); rebuild({ autoSpeed: true }); } };
+})();
+</script>
+</body>
+</html>
