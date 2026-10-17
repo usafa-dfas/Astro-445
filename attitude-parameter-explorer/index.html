@@ -1359,7 +1359,7 @@ function prepSeries() {
 
 const plotCv = el('plot');
 const pctx = plotCv.getContext('2d');
-const PL = { q: 'quat', hoverX: null, m: { l: 50, r: 16, t: 12, b: 24 }, W: 1, H: 1 };
+const PL = { q: 'quat', hoverX: null, m: { l: 50, r: 16, t: 20, b: 24 }, W: 1, H: 1 };
 const TABS = {
   quat: { names: ['η', 'ε₁', 'ε₂', 'ε₃'], html: [SYM('η'), `${SYM('ε')}<sub class="n">1</sub>`, `${SYM('ε')}<sub class="n">2</sub>`, `${SYM('ε')}<sub class="n">3</sub>`], cols: ['accent', 'c1', 'c2', 'c3'], dash: [false, false, false, false], unit: '', y: [-1.08, 1.08] },
   euler: { names: ['ψ', 'θ', 'φ'], html: [SYM('ψ'), SYM('θ'), SYM('φ')], cols: ['e1', 'e2', 'e3'], dash: [false, false, false], unit: 'deg', y: null },
@@ -1422,7 +1422,7 @@ function drawPlot() {
   if (y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Y(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Y(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
   ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
   ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
-  if (T.unit) ctx.fillText(T.unit, 6, t + 4);
+  if (T.unit) ctx.fillText(T.unit, 6, 9);
   ctx.fillText('deg', 6, t + ph + 12);
   // markers: step boundaries, or the 360 degree point
   const marks = [];
