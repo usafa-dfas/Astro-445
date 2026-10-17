@@ -44,6 +44,20 @@ footer { color: var(--muted); font-size: 14px; }
 
   <section class="grid" aria-label="Lessons">
     <!-- Add a new lesson: copy this whole <a> block, change href, topic, title and text. -->
+    <a class="card" href="attitude-parameter-explorer/">
+      <span class="topic">Attitude representation · Lessons 3–5</span>
+      <h2>Attitude Parameter Explorer</h2>
+      <p>One orientation written four ways: DCM, axis and angle, Euler angles in any of the 12 sequences, and a quaternion. Set any one and the others follow, with the Euler sequence, the single rotation about ê, and the quaternion double cover animated.</p>
+      <span class="eqn">C = (η² − εᵀε)I + 2εεᵀ − 2η[ε×]</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="gimbal-lock-explorer/">
+      <span class="topic">Attitude representation · Lesson 4</span>
+      <h2>Gimbal Lock Explorer</h2>
+      <p>Three nested gimbals whose angles are a set of Euler angles. Slew the payload past the singular attitude and watch the gimbal rates blow up, the motors saturate, and one direction of rotation disappear while the quaternion stays smooth.</p>
+      <span class="eqn">ω = S(θ, φ) ȧ, &nbsp;det S = sin θ</span>
+      <span class="go">Open →</span>
+    </a>
     <a class="card" href="polhode-explorer/">
       <span class="topic">Spacecraft attitude dynamics</span>
       <h2>Polhode Explorer</h2>

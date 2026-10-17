@@ -5,6 +5,8 @@ Self-contained interactive HTML apps for lecture. Hosted with GitHub Pages; the 
 ## Apps
 | Folder | App |
 |---|---|
+| `attitude-parameter-explorer/` | Lessons 3–5 attitude parameters: DCM, axis/angle, Euler angles, quaternion, linked |
+| `gimbal-lock-explorer/` | Lesson 4 Euler-angle singularities: three-gimbal mechanism, slews past gimbal lock |
 | `polhode-explorer/` | Torque-free rigid body: energy/momentum ellipsoids, angular velocity, polhode |
 | `spinning-top-explorer/` | Lesson 23 spinning top: precession, nutation, turning points, Appendix A gyroscope |
 | `misaligned-burn-simulator/` | Lesson 24 misaligned burn: bounded rates, epicycloid, impulse and pulse torques |
