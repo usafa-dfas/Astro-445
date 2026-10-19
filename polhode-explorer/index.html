@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
 <style>
-/* Layout: instrument console. Control rail | omega-space viewport over omega(t) strip | analysis rail */
+/* Layout: instrument console. Control rail | omega-space and inertial viewports over omega(t) strip | analysis rail */
 :root {
   --scheme: light;
   --paper: #eaedf0;
@@ -28,6 +28,8 @@
   --c1: #1b8655;
   --c2: #7340c2;
   --c3: #08808f;
+  --hull: #c5ccd4;
+  --hull-edge: #39424d;
   --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
   --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
   --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -40,6 +42,7 @@
     --energy: #ff5d51; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
     --family: #545e6a; --sep: #9ba5b1; --hvec: #b8c0ca;
     --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+    --hull: #4a5561; --hull-edge: #d5dbe2;
     color-scheme: dark;
   }
 }
@@ -50,6 +53,7 @@
   --energy: #ff5d51; --momentum: #5b96ff; --omega: #ffb01f; --on-omega: #1a1305;
   --family: #545e6a; --sep: #9ba5b1; --hvec: #b8c0ca;
   --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+  --hull: #4a5561; --hull-edge: #d5dbe2;
   color-scheme: dark;
 }
 
@@ -153,8 +157,11 @@ a.btn { text-decoration: none; display: inline-block; }
   display: grid; grid-template-rows: minmax(0, 1fr) auto 216px;
   background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
 }
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.views[data-layout="omega"], .views[data-layout="inertial"] { grid-template-columns: minmax(0, 1fr); }
+.views[data-layout="omega"] #viewportI, .views[data-layout="inertial"] #viewport { display: none; }
 .viewport { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
-#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#gl, #glI { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
 .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .vlabel {
   position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
@@ -168,7 +175,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .vlabel[hidden] { display: none !important; }
 
 .overlay { position: absolute; display: flex; gap: 6px; }
-.legend { left: 10px; top: 10px; flex-direction: column; align-items: flex-start; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-size: 13.5px; font-weight: 500; padding: 4px 10px 4px 7px; border-radius: 999px;
@@ -192,6 +200,8 @@ a.btn { text-decoration: none; display: inline-block; }
   font-size: 14px; font-weight: 600; line-height: 1.25;
 }
 .hint { right: 10px; bottom: 10px; font-size: 12.5px; color: var(--muted); text-align: right; max-width: 34%; }
+.views[data-layout="both"] .hint { display: none; }
+.bodycap { display: block; left: 10px; bottom: 10px; max-width: calc(100% - 20px); font-size: 12.5px; color: var(--muted); }
 .glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
 
 .transport {
@@ -202,6 +212,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .transport .speed label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
 .tclock { margin-left: auto; font-size: 15px; }
+.transport .seg .btn { padding: 4px 9px; }
 .tclock .sym { font-size: 17px; }
 
 .history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
@@ -242,6 +253,7 @@ table.axes th.e { color: var(--energy); } table.axes th.m { color: var(--momentu
 table.axes td { font-family: var(--f-num); font-size: 13px; text-align: right; padding: 4px 0; border-top: 1px solid var(--rule); }
 table.axes td:first-child { font-family: var(--f-ui); font-weight: 600; font-size: 14px; }
 table.axes tr.r1 td:first-child { color: var(--c1); } table.axes tr.r2 td:first-child { color: var(--c2); } table.axes tr.r3 td:first-child { color: var(--c3); }
+table.axes td.role { font-family: var(--f-ui); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: left; padding-left: 8px; }
 
 .eqs { display: grid; gap: 8px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
 .eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -280,7 +292,9 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
 @media (max-width: 760px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
   h1 { font-size: 26px; }
-  .stage { grid-template-rows: min(64vh, 520px) auto 210px; }
+  .stage { grid-template-rows: auto auto 210px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 380px 380px; }
+  .views[data-layout="omega"], .views[data-layout="inertial"] { grid-template-rows: min(64vh, 520px); }
   .hint, .hist-head .hint2 { display: none; }
   .viewbar { max-width: 58%; }
   .legend .chip { font-size: 12.5px; padding: 3px 8px 3px 6px; }
@@ -300,7 +314,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <div class="eyebrow">Spacecraft attitude dynamics · torque-free rigid body</div>
       <h1>Polhode Explorer</h1>
     </div>
-    <p class="lede">Angular velocity space in the principal-axis frame. With no external torque, <span class="sym">T</span> and <span class="sym">H</span> are constant, so the tip of <span class="sym">ω</span> must lie on both the energy ellipsoid and the momentum ellipsoid. It travels along their intersection: the polhode.</p>
+    <p class="lede">With no external torque, <span class="sym">T</span> and <span class="sym">H</span> are constant, so in the principal-axis frame the tip of <span class="sym">ω</span> must lie on both the energy and the momentum ellipsoid, and it travels along their intersection: the polhode. Beside it, the same motion seen from inertial space, where <span class="sym">H</span> stays fixed and the body turns around it.</p>
     <div class="top-actions">
       <a class="btn" href="../">All lessons</a>
       <details class="keys" id="keys">
@@ -313,6 +327,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
             <dt><kbd>0</kbd></dt><dd>Isometric view</dd>
             <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Look down a principal axis</dd>
             <dt><kbd>O</kbd></dt><dd>Perspective / orthographic</dd>
+            <dt><kbd>V</kbd></dt><dd>Both views, ω space, or inertial</dd>
             <dt>Mouse</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
           </dl>
         </div>
@@ -408,6 +423,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
         <label class="check"><input type="checkbox" id="chkFamily"> Polhode family on energy ellipsoid</label>
         <label class="check"><input type="checkbox" id="chkH"> <span><span class="sym">Ĥ</span> direction and invariable plane</span></label>
         <label class="check"><input type="checkbox" id="chkLabels"> Axis labels</label>
+        <label class="check"><input type="checkbox" id="chkSpinTrace"> <span>Inertial view: trace the tip of the spin axis <span class="sym">b̂</span><sub class="n" id="spinAxN">3</sub></span></label>
       </div>
       <div class="slider">
         <label for="opR" class="tag">Opac.</label>
@@ -435,9 +451,11 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
 
   <!-- ================= stage ================= -->
   <main class="stage">
+    <div class="views" id="views" data-layout="both">
     <div class="viewport" id="viewport">
       <canvas id="gl" aria-label="3D view of angular velocity space"></canvas>
       <div class="labels" id="labels"></div>
+      <div class="overlay vtitle">Body frame · <span class="sym" style="text-transform:none">ω</span> space</div>
       <div class="overlay legend" role="group" aria-label="Show or hide">
         <button class="chip" type="button" data-show="energy" style="--sw:var(--energy)" aria-pressed="true"><span class="sw"></span>Energy ellipsoid</button>
         <button class="chip" type="button" data-show="momentum" style="--sw:var(--momentum)" aria-pressed="true"><span class="sw"></span>Momentum ellipsoid</button>
@@ -460,6 +478,27 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <div class="overlay regime-pill" id="regPill">—</div>
       <div class="overlay hint" id="hint">Drag to rotate · Right-drag or Shift-drag to pan · Scroll to zoom · Double-click to fit</div>
     </div>
+    <div class="viewport" id="viewportI">
+      <canvas id="glI" aria-label="3D view of the spacecraft in the inertial frame"></canvas>
+      <div class="labels" id="labelsI"></div>
+      <div class="overlay vtitle">Inertial frame</div>
+      <div class="overlay legend" role="group" aria-label="Show or hide in the inertial view">
+        <button class="chip" type="button" data-ishow="body" style="--sw:var(--hull)" aria-pressed="true"><span class="sw"></span>Body</button>
+        <button class="chip" type="button" data-ishow="baxes" style="--sw:var(--c1)" aria-pressed="true"><span class="sw"></span>Principal axes</button>
+        <button class="chip" type="button" data-ishow="h" style="--sw:var(--momentum)" aria-pressed="true"><span class="sw"></span><span class="sym">H</span></button>
+        <button class="chip" type="button" data-ishow="omega" style="--sw:var(--omega)" aria-pressed="true"><span class="sw"></span><span><span class="sym">ω</span> and herpolhode</span></button>
+      </div>
+      <div class="overlay viewbar">
+        <div class="seg" role="group" aria-label="Inertial view direction">
+          <button class="btn" type="button" data-iview="iso" title="Isometric view">Iso</button>
+          <button class="btn" type="button" data-iview="top" title="Look down H">Down <span class="sym">H</span></button>
+          <button class="btn" type="button" data-iview="side" title="Look across H">Side</button>
+        </div>
+        <button class="btn" type="button" id="fitBtnI" title="Fit the inertial view">Fit</button>
+      </div>
+      <div class="overlay bodycap" id="bodyCap">Uniform box with the same principal moments. <span class="sym">H</span> is fixed along <span class="sym">â</span><sub class="n">3</sub>.</div>
+    </div>
+    </div>
 
     <div class="transport">
       <button class="btn play" type="button" id="playBtn"></button>
@@ -468,6 +507,11 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
         <label for="speedR">Speed</label>
         <input type="range" id="speedR" min="-1" max="1" step="0.01" aria-label="Simulation speed">
         <output id="speedOut"></output>
+      </div>
+      <div class="seg" role="group" aria-label="Views shown" id="layoutSeg">
+        <button class="btn" type="button" data-layout="both">Both views</button>
+        <button class="btn" type="button" data-layout="omega"><span class="sym">ω</span> space</button>
+        <button class="btn" type="button" data-layout="inertial">Inertial</button>
       </div>
       <div class="tclock"><span class="sym">t</span> = <span id="tOut">0.00</span> s</div>
     </div>
@@ -536,6 +580,15 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
     </section>
 
     <section class="group">
+      <h2>Body <span class="unit">uniform box</span></h2>
+      <table class="axes">
+        <thead><tr><th>Axis</th><th style="text-align:left;padding-left:8px">Role</th><th><span class="sym" style="text-transform:none">I</span></th><th>Side</th><th>Angle<br>to <span class="sym" style="text-transform:none">H</span></th></tr></thead>
+        <tbody id="bodyTable"></tbody>
+      </table>
+      <p class="note">A uniform box has <span class="sym">I</span><sub class="n">1</sub> = <span class="sym">m</span>(<span class="sym">d</span><sub class="n">2</sub>² + <span class="sym">d</span><sub class="n">3</sub>²)/12, so its sides go as √(<span class="sym">I</span><sub class="n">2</sub> + <span class="sym">I</span><sub class="n">3</sub> − <span class="sym">I</span><sub class="n">1</sub>) and so on, shown here relative to the longest. The major axis runs through the shortest side: the mass lies farthest from it.</p>
+    </section>
+
+    <section class="group">
       <h2>Periods</h2>
       <dl class="kv">
         <dt>Polhode period</dt><dd><span id="o_P"></span><span class="u">s</span></dd>
@@ -563,6 +616,11 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
           <div><i>I</i><sub>1</sub><sup>2</sup><i>ω</i><sub>1</sub><sup>2</sup> + <i>I</i><sub>2</sub><sup>2</sup><i>ω</i><sub>2</sub><sup>2</sup> + <i>I</i><sub>3</sub><sup>2</sup><i>ω</i><sub>3</sub><sup>2</sup> = <i>H</i><sup>2</sup></div>
         </div>
         <p class="note" style="font-family:var(--f-ui)">Integrated with fixed-step RK4. The full polhode curve is drawn from the closed-form intersection of the two ellipsoids; the period uses the complete elliptic integral <span class="sym">K</span>(<span class="sym">k</span>). The <span class="sym">Ĥ</span> arrow has length 2<span class="sym">T</span>/<span class="sym">H</span>, the distance from the origin to the invariable plane in Poinsot's construction.</p>
+        <div>
+          <div class="lab">Attitude, inertial view</div>
+          <div>d<i>q̄</i>/d<i>t</i> = ½ <i>q̄</i> ⊗ (0, <i>ω</i>), &nbsp; <i>H</i> along <i>â</i><sub>3</sub> at <i>t</i> = 0</div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">The attitude quaternion is integrated in the same RK4 step as <span class="sym">ω</span>. In inertial space the tip of <span class="sym">ω</span> stays on the invariable plane, a distance 2<span class="sym">T</span>/<span class="sym">H</span> along <span class="sym">H</span>, and traces the herpolhode. With dissipation the energy sink acts as a small internal torque normal to <span class="sym">H</span>; the attitude takes an equal and opposite extra turn so that <span class="sym">H</span> stays fixed in space, as total angular momentum does for a body with an internal damper.</p>
       </div>
     </section>
   </aside>
@@ -579,6 +637,7 @@ if (!window.THREE || !THREE.OrbitControls) {
   d.className = 'glfail';
   d.textContent = 'The 3D library did not load. Check the network connection and reload the page.';
   vpEl.appendChild(d);
+  document.getElementById('viewportI').appendChild(d.cloneNode(true));
   return;
 }
 
@@ -751,6 +810,32 @@ function linearAbout(I, w) {
   return { k, ang, s2 };
 }
 
+/* Attitude: unit quaternion q = [q0, q1, q2, q3], scalar first, taking body components to inertial ones */
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+/* the attitude at t = 0: the smallest rotation that puts H along a3 */
+function initialQuat(I, w) {
+  const h = [I[0] * w[0], I[1] * w[1], I[2] * w[2]], n = norm3(h);
+  if (!(n > 0)) return [1, 0, 0, 0];
+  const u = [h[0] / n, h[1] / n, h[2] / n], c = u[2];
+  if (c < -1 + 1e-12) return [0, 1, 0, 0];                   // H points down a3: half turn about a1
+  const s = Math.sqrt(2 * (1 + c));                          // axis u x a3 = (u2, -u1, 0), half-angle form
+  return [s / 2, u[1] / s, -u[0] / s, 0];
+}
+/* a uniform box with the same principal moments: I1 = m(d2^2 + d3^2)/12, so d1^2 goes as I2 + I3 - I1.
+   Sides are relative to the longest; a set that breaks the triangle inequality gets a 2% sliver */
+function boxDims(I) {
+  const s = [I[1] + I[2] - I[0], I[2] + I[0] - I[1], I[0] + I[1] - I[2]];
+  const mx = Math.max(s[0], s[1], s[2]);
+  if (!(mx > 0)) return [1, 1, 1];
+  const d = s.map((v) => Math.sqrt(Math.max(v, 4e-4 * mx)));
+  const m = Math.max(d[0], d[1], d[2]);
+  return d.map((v) => v / m);
+}
+
 /* =========================================================
    State
    ========================================================= */
@@ -763,39 +848,62 @@ const S = {
   playing: !reduceMotion,
   speed: 1, spin: 1.0, eps: 0.1, nu: 0,
   opacity: 0.22, trailLen: 700,
-  show: { energy: true, momentum: true, polhode: true, omega: true, grat: true, family: false, hplane: false, labels: true },
+  show: { energy: true, momentum: true, polhode: true, omega: true, grat: true, family: false, hplane: false, labels: true, spinTrace: true },
+  ishow: { body: true, baxes: true, h: true, omega: true },
+  layout: 'both',
+  q: [1, 0, 0, 0],
   ortho: false,
   tt0: 0, h20: 0,
 };
 let inf = inertiaInfo(S.I);
 let R = 1, fitR = 0, Ibar = 1, kappa = 1;
 let lastPolhodeTT = 0, lastFamilyTT = 0;
+let sW = 1, spinAx = 2;   // inertial view: scene units per rad/s for omega, and the body axis whose tip is traced
+const BODY_L = 1.5, AXIS_OUT = 0.34;   // inertial view: longest side of the box, and how far past it the principal axes reach
+const LB = BODY_L / 2 + AXIS_OUT;      // half-length of each principal axis line
+let BODY_HALF = [0.75, 0.75, 0.75];
 
-/* RK4 on Euler's equations, with an optional internal energy sink */
-const k1 = [0, 0, 0], k2 = [0, 0, 0], k3 = [0, 0, 0], k4 = [0, 0, 0], wt = [0, 0, 0];
-function deriv(w, out) {
-  const I = S.I, w1 = w[0], w2 = w[1], w3 = w[2];
+/* RK4 on Euler's equations, with an optional internal energy sink, and the attitude quaternion.
+   State y = [w1, w2, w3, q0, q1, q2, q3]. */
+const k1 = new Float64Array(7), k2 = new Float64Array(7), k3 = new Float64Array(7), k4 = new Float64Array(7);
+const Y = new Float64Array(7), yt = new Float64Array(7);
+function deriv(y, out) {
+  const I = S.I, w1 = y[0], w2 = y[1], w3 = y[2];
   let d1 = (I[1] - I[2]) * w2 * w3 / I[0];
   let d2 = (I[2] - I[0]) * w3 * w1 / I[1];
   let d3 = (I[0] - I[1]) * w1 * w2 / I[2];
+  let a1 = w1, a2 = w2, a3 = w3;   // the rate that turns the attitude
   if (S.nu > 0) {
     const h1 = I[0] * w1, h2 = I[1] * w2, h3 = I[2] * w3, hh = h1 * h1 + h2 * h2 + h3 * h3;
     if (hh > 0) {
       const s = (w1 * h1 + w2 * h2 + w3 * h3) / hh, g = S.nu * Ibar;
-      d1 -= g * (w1 - s * h1) / I[0]; d2 -= g * (w2 - s * h2) / I[1]; d3 -= g * (w3 - s * h3) / I[2];
+      const u1 = w1 - s * h1, u2 = w2 - s * h2, u3 = w3 - s * h3;
+      d1 -= g * u1 / I[0]; d2 -= g * u2 / I[1]; d3 -= g * u3 / I[2];
+      // the sink acts like a torque -g u normal to h; an extra turn g (h x u)/|h|^2 keeps H fixed in inertial space
+      a1 += g * (h2 * u3 - h3 * u2) / hh; a2 += g * (h3 * u1 - h1 * u3) / hh; a3 += g * (h1 * u2 - h2 * u1) / hh;
     }
   }
   out[0] = d1; out[1] = d2; out[2] = d3;
+  const q0 = y[3], q1 = y[4], q2 = y[5], q3 = y[6];
+  out[3] = 0.5 * (-q1 * a1 - q2 * a2 - q3 * a3);
+  out[4] = 0.5 * (q0 * a1 + q2 * a3 - q3 * a2);
+  out[5] = 0.5 * (q0 * a2 - q1 * a3 + q3 * a1);
+  out[6] = 0.5 * (q0 * a3 + q1 * a2 - q2 * a1);
 }
-function rk4(w, h) {
-  deriv(w, k1);
-  for (let i = 0; i < 3; i++) wt[i] = w[i] + 0.5 * h * k1[i];
-  deriv(wt, k2);
-  for (let i = 0; i < 3; i++) wt[i] = w[i] + 0.5 * h * k2[i];
-  deriv(wt, k3);
-  for (let i = 0; i < 3; i++) wt[i] = w[i] + h * k3[i];
-  deriv(wt, k4);
-  for (let i = 0; i < 3; i++) w[i] += h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+function rk4(h) {
+  const w = S.w, q = S.q;
+  Y[0] = w[0]; Y[1] = w[1]; Y[2] = w[2]; Y[3] = q[0]; Y[4] = q[1]; Y[5] = q[2]; Y[6] = q[3];
+  deriv(Y, k1);
+  for (let i = 0; i < 7; i++) yt[i] = Y[i] + 0.5 * h * k1[i];
+  deriv(yt, k2);
+  for (let i = 0; i < 7; i++) yt[i] = Y[i] + 0.5 * h * k2[i];
+  deriv(yt, k3);
+  for (let i = 0; i < 7; i++) yt[i] = Y[i] + h * k3[i];
+  deriv(yt, k4);
+  for (let i = 0; i < 7; i++) Y[i] += h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  w[0] = Y[0]; w[1] = Y[1]; w[2] = Y[2];
+  const n = Math.hypot(Y[3], Y[4], Y[5], Y[6]);
+  q[0] = Y[3] / n; q[1] = Y[4] / n; q[2] = Y[5] / n; q[3] = Y[6] / n;
 }
 
 /* Trail ring buffer (positions of the omega tip) */
@@ -815,6 +923,24 @@ function trailPush(w) {
   trailHead = (trailHead + 1) % TRAIL_MAX;
   if (trailN < TRAIL_MAX) trailN++;
 }
+
+/* Inertial-view trails: the omega tip (the herpolhode) and the spin-axis tip, in scene units */
+const itrails = [0, 1].map(() => ({ buf: new Float32Array(TRAIL_MAX * 3), n: 0, head: 0 }));
+function itrailClear() { itrails.forEach((tr) => { tr.n = 0; tr.head = 0; }); }
+function itrailAdd(tr, p) {
+  if (tr.n > 0) {
+    const j = ((tr.head - 1 + TRAIL_MAX) % TRAIL_MAX) * 3;
+    const dx = p[0] - tr.buf[j], dy = p[1] - tr.buf[j + 1], dz = p[2] - tr.buf[j + 2];
+    if (dx * dx + dy * dy + dz * dz < 0.004 * 0.004) return;
+  }
+  const j = tr.head * 3;
+  tr.buf[j] = p[0]; tr.buf[j + 1] = p[1]; tr.buf[j + 2] = p[2];
+  tr.head = (tr.head + 1) % TRAIL_MAX;
+  if (tr.n < TRAIL_MAX) tr.n++;
+}
+const omegaTipI = () => qrot(S.q, S.w).map((c) => c * sW);
+const spinTipI = () => { const e = [0, 0, 0]; e[spinAx] = LB; return qrot(S.q, e); };
+function itrailPush() { itrailAdd(itrails[0], omegaTipI()); itrailAdd(itrails[1], spinTipI()); }
 
 /* Time-history buffer */
 const HCAP = 400000;
@@ -839,9 +965,10 @@ function advance(dt) {
   const n = Math.min(5000, Math.max(1, Math.ceil(dt / hmax)));
   const h = dt / n;
   for (let s = 0; s < n; s++) {
-    rk4(w, h);
+    rk4(h);
     S.t += h;
     trailPush(w);
+    itrailPush();
     if (S.t - hLastT >= 0.01 - 1e-12) histPush(S.t, w);
   }
 }
@@ -1042,6 +1169,59 @@ function initGL() {
   return { renderer, scene, persp, ortho, controls, cam: persp, hemi, sun, E, M, axes, axisMats, originDot, omegaMat, omegaArrow, trailMat, trail, polMat, pol, famMat, sepMat, fam, hMat, hArrow, planeMat, ringMat, planeGroup };
 }
 
+/* the inertial view: its own renderer, scene and camera */
+function initGLI() {
+  const canvas = $('#glI');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.zoomSpeed = 1.1;
+  controls.minDistance = 0.6; controls.maxDistance = 40;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.62);
+  scene.add(hemi, sun, sun.target);
+
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); (parent || scene).add(g);
+    return { g, shaft, head };
+  }
+  // inertial axes
+  const axisMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.75 });
+  const aAxes = [0, 1, 2].map(() => makeArrow(axisMat));
+  // the body: a box whose faces are tinted by the axis they face, with its edges drawn
+  const body = new THREE.Group(); scene.add(body);
+  const faceMats = [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const box = new THREE.Mesh(boxGeo, [faceMats[0], faceMats[0], faceMats[1], faceMats[1], faceMats[2], faceMats[2]]);
+  const edgeMat = new THREE.LineBasicMaterial();
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), edgeMat);
+  body.add(box, edges);
+  const bMats = [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ shininess: 40 }));
+  const bAxes = [0, 1, 2].map((i) => makeArrow(bMats[i], body));
+  // H, omega, the invariable plane, and the trails
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const hArrow = makeArrow(hMat);
+  const wMat = new THREE.MeshPhongMaterial({ shininess: 70 });
+  const wArrow = makeArrow(wMat);
+  const planeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const plane = new THREE.Mesh(new THREE.CircleGeometry(1, 96), planeMat);
+  plane.renderOrder = 4; scene.add(plane);
+  const herpMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const herp = new Tube(TRAIL_MAX + 1, 6, herpMat); scene.add(herp.mesh);
+  const spinMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const spinTr = new Tube(TRAIL_MAX + 1, 6, spinMat); scene.add(spinTr.mesh);
+  return { renderer, scene, cam, controls, hemi, sun, cylGeo, axisMat, aAxes, body, box, faceMats, edges, edgeMat, bMats, bAxes, hMat, hArrow, wMat, wArrow, plane, planeMat, herpMat, herp, spinMat, spinTr };
+}
+
 const qTmp = new THREE.Quaternion();
 function setArrow(A, origin, vec, shaftR, headR, headL) {
   const len = vec.length();
@@ -1071,6 +1251,20 @@ const hLabel = document.createElement('div');
 hLabel.className = 'vlabel hl'; hLabel.innerHTML = '<span class="sym">Ĥ</span>';
 labelsEl.appendChild(hLabel);
 
+const labelsI = $('#labelsI');
+function mkLabelI(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsI.appendChild(d); return d;
+}
+const LI = {
+  a: [1, 2, 3].map((n) => mkLabelI(`<span class="sym">â</span><sub class="n">${n}</sub>`, 'var(--sep)')),
+  b: [1, 2, 3].map((n) => mkLabelI(`<span class="sym">b̂</span><sub class="n">${n}</sub><span class="role"></span>`, `var(--c${n})`)),
+  h: mkLabelI('<span class="sym">H</span>', 'var(--momentum)'),
+  w: mkLabelI('<span class="sym">ω</span>', 'var(--omega)'),
+};
+
 function placeLabel(el, v, dx = 0, dy = 0) {
   tmpV.copy(v).project(G.cam);
   if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.2 || Math.abs(tmpV.y) > 1.2) { el.hidden = true; return; }
@@ -1082,7 +1276,7 @@ function placeLabel(el, v, dx = 0, dy = 0) {
 /* ---------- theme ---------- */
 let COL = {};
 function readColors() {
-  const names = ['paper', 'panel', 'sunken', 'view', 'ink', 'muted', 'rule', 'energy', 'momentum', 'omega', 'family', 'sep', 'hvec', 'c1', 'c2', 'c3'];
+  const names = ['paper', 'panel', 'sunken', 'view', 'ink', 'muted', 'rule', 'energy', 'momentum', 'omega', 'family', 'sep', 'hvec', 'c1', 'c2', 'c3', 'hull', 'hull-edge'];
   const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
   o.dark = css('--scheme') === 'dark';
   return o;
@@ -1090,8 +1284,23 @@ function readColors() {
 function applyTheme() {
   COL = readColors();
   $('#themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
-  if (!G) { drawPlot(); return; }
   const C = (n) => new THREE.Color(COL[n]);
+  if (G2) {
+    const glow = (m, n, k) => { m.color = C(n); m.emissive = C(n).multiplyScalar(k); };
+    G2.renderer.setClearColor(C('view'), 1);
+    G2.hemi.intensity = COL.dark ? 0.5 : 0.62; G2.sun.intensity = COL.dark ? 0.72 : 0.62;
+    G2.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G2.axisMat.color = C('sep');
+    for (let i = 0; i < 3; i++) {
+      G2.faceMats[i].color = C('hull').lerp(C('c' + (i + 1)), COL.dark ? 0.32 : 0.26);
+      glow(G2.bMats[i], 'c' + (i + 1), 0.25);
+    }
+    G2.edgeMat.color = C('hull-edge');
+    glow(G2.hMat, 'momentum', 0.25); glow(G2.wMat, 'omega', 0.3); glow(G2.herpMat, 'omega', 0.3);
+    G2.planeMat.color = C('hvec'); G2.planeMat.opacity = COL.dark ? 0.14 : 0.1;
+    colorSpinTrace();
+  }
+  if (!G) { drawPlot(); return; }
   G.renderer.setClearColor(C('view'), 1);
   G.hemi.intensity = COL.dark ? 0.5 : 0.62;
   G.sun.intensity = COL.dark ? 0.72 : 0.62;
@@ -1303,6 +1512,104 @@ function updateLabels() {
   if (S.show.hplane && G.hArrow.g.visible) {
     placeLabel(hLabel, new THREE.Vector3(+hLabel.dataset.x, +hLabel.dataset.y, +hLabel.dataset.z), -14, -12);
   } else hLabel.hidden = true;
+}
+
+/* ---------- inertial view ---------- */
+const vpI = $('#viewportI');
+let G2 = null;
+let vpIW = 1, vpIH = 1;
+const FIT_RI = 1.95;
+const ISO_DIR_I = new THREE.Vector3(1.0, 0.72, 0.5).normalize();
+function resizeI() {
+  if (!G2) return;
+  const r = vpI.getBoundingClientRect();
+  vpIW = Math.max(1, Math.round(r.width)); vpIH = Math.max(1, Math.round(r.height));
+  G2.renderer.setSize(vpIW, vpIH, false);
+  G2.cam.aspect = vpIW / vpIH; G2.cam.updateProjectionMatrix();
+}
+function fitI(dir) {
+  if (!G2) return;
+  if (!dir) { dir = new THREE.Vector3().subVectors(G2.cam.position, G2.controls.target); if (dir.lengthSq() === 0) dir = ISO_DIR_I.clone(); }
+  dir = dir.clone().normalize();
+  const a = vpIW / vpIH, vf = G2.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = FIT_RI / Math.sin(Math.min(vf, hf) / 2);
+  G2.controls.target.set(0, 0, 0.1);
+  G2.cam.position.copy(G2.controls.target).addScaledVector(dir, d);
+  G2.cam.near = d * 0.01; G2.cam.far = d * 30; G2.cam.updateProjectionMatrix();
+  G2.controls.update();
+}
+function viewDirI(which) {
+  if (which === 'top') return new THREE.Vector3(0, -1e-4, 1).normalize();
+  if (which === 'side') return new THREE.Vector3(1, 0.0001, 0.12).normalize();
+  return ISO_DIR_I.clone();
+}
+function placeLabelI(el, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G2.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.2 || Math.abs(tmpV.y) > 1.2) { el.hidden = true; return; }
+  el.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpIW + dx, y = (1 - tmpV.y) * 0.5 * vpIH + dy;
+  el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+/* the box and its principal axes, in body coordinates; called when the inertias change */
+function updateBodyGeometry() {
+  if (!G2) return;
+  const d = BODY_HALF.map((v) => 2 * v);
+  G2.box.scale.set(d[0], d[1], d[2]); G2.edges.scale.set(d[0], d[1], d[2]);
+  for (let i = 0; i < 3; i++) {
+    const e = new THREE.Vector3(); e.setComponent(i, 1);
+    setArrow(G2.bAxes[i], e.clone().multiplyScalar(-LB), e.clone().multiplyScalar(2 * LB), 0.011, 0.034, 0.1);
+  }
+  for (let i = 0; i < 3; i++) {
+    const e = new THREE.Vector3(); e.setComponent(i, 1.85);
+    setArrow(G2.aAxes[i], ORIGIN, e, 0.005, 0.022, 0.075);
+  }
+}
+function colorSpinTrace() {
+  if (!G2 || !COL.c1) return;
+  const c = new THREE.Color(COL['c' + (spinAx + 1)]);
+  G2.spinMat.color = c; G2.spinMat.emissive = c.clone().multiplyScalar(0.3);
+}
+const itrailScratch = new Float32Array((TRAIL_MAX + 1) * 3);
+function ringToScratch(tr, n, last) {
+  let o = 0;
+  for (let k = n; k >= 1; k--) {
+    const j = ((tr.head - k + TRAIL_MAX) % TRAIL_MAX) * 3;
+    itrailScratch[o++] = tr.buf[j]; itrailScratch[o++] = tr.buf[j + 1]; itrailScratch[o++] = tr.buf[j + 2];
+  }
+  itrailScratch[o++] = last[0]; itrailScratch[o++] = last[1]; itrailScratch[o++] = last[2];
+  return n + 1;
+}
+function updateI() {
+  const sh = S.ishow, q = S.q, w = S.w;
+  G2.body.quaternion.set(q[1], q[2], q[3], q[0]);
+  G2.box.visible = G2.edges.visible = sh.body;
+  G2.bAxes.forEach((A) => { A.g.visible = sh.baxes; });
+  const tt = twoTof(S.I, w), H = Math.sqrt(H2of(S.I, w)), moving = H > 0;
+  G2.hArrow.g.visible = sh.h && moving;
+  if (G2.hArrow.g.visible) setArrow(G2.hArrow, ORIGIN, new THREE.Vector3(0, 0, 1.75), 0.017, 0.052, 0.13);
+  const wI = omegaTipI();
+  const showW = sh.omega && norm3(w) > 0;
+  if (showW) setArrow(G2.wArrow, ORIGIN, new THREE.Vector3(wI[0], wI[1], wI[2]), 0.014, 0.043, 0.12); else G2.wArrow.g.visible = false;
+  const n = Math.min(itrails[0].n, S.trailLen);
+  if (showW && n >= 2) G2.herp.set(itrailScratch, ringToScratch(itrails[0], n, wI), 0.008, false); else G2.herp.hide();
+  const ns = Math.min(itrails[1].n, S.trailLen);
+  if (S.show.spinTrace && ns >= 2) G2.spinTr.set(itrailScratch, ringToScratch(itrails[1], ns, spinTipI()), 0.007, false); else G2.spinTr.hide();
+  // the invariable plane: omega's tip stays 2T/H along H
+  const showP = sh.omega && S.show.hplane && moving && tt > 0;
+  G2.plane.visible = showP;
+  if (showP) { G2.plane.position.set(0, 0, tt / H * sW); G2.plane.scale.setScalar(1.05 * R * sW); }
+  return wI;
+}
+function updateLabelsI(wI) {
+  const on = S.show.labels, q = S.q;
+  for (let i = 0; i < 3; i++) {
+    const e = [0, 0, 0]; e[i] = 1.98;
+    if (on) placeLabelI(LI.a[i], e); else LI.a[i].hidden = true;
+    const b = [0, 0, 0]; b[i] = LB + 0.12;
+    if (on && S.ishow.baxes) placeLabelI(LI.b[i], qrot(q, b)); else LI.b[i].hidden = true;
+  }
+  if (on && G2.hArrow.g.visible) placeLabelI(LI.h, [0, 0, 1.5], 16, 0); else LI.h.hidden = true;
+  if (on && G2.wArrow.g.visible) placeLabelI(LI.w, wI, 14, -12); else LI.w.hidden = true;
 }
 
 /* =========================================================
@@ -1600,6 +1907,15 @@ function updateReadouts() {
   }
   const tb = el('axTable'); if (tb.innerHTML !== rows) tb.innerHTML = rows;
 
+  // body: box sides and the angle from each principal axis to H
+  const dims = boxDims(I);
+  let brows = '';
+  for (let i = 0; i < 3; i++) {
+    const ang = H > 0 ? Math.acos(clamp(I[i] * w[i] / H, -1, 1)) * 180 / Math.PI : NaN;
+    brows += `<tr class="r${i + 1}"><td><span class="sym">b̂</span>${SUBD[i]}</td><td class="role">${inf.roleS[i]}</td><td>${fg(I[i], 3)}</td><td>${fx(dims[i], 2)}</td><td>${isFinite(ang) ? fx(ang, 1) + '°' : '—'}</td></tr>`;
+  }
+  el('bodyTable').innerHTML = brows;
+
   // periods
   const pr = polhodePeriod(inf, cl);
   el('o_P').textContent = cl.kind === 'sep' ? '∞' : (isFinite(pr.P) ? fg(pr.P, 4) : '—');
@@ -1621,6 +1937,7 @@ function updateRolesUI() {
   for (let i = 0; i < 3; i++) {
     el('role' + i).textContent = inf.roleS[i];
     axLabels[i].querySelector('.role').textContent = inf.roleS[i];
+    LI.b[i].querySelector('.role').textContent = inf.roleS[i];
   }
   const { a, b, c } = inf;
   el('axMax').textContent = ' ω' + SUBD[c];
@@ -1633,6 +1950,9 @@ function updateRolesUI() {
     warn.hidden = false;
     warn.innerHTML = `Not a physical rigid body: <span class="sym">I</span><sub class="n">${j + 1}</sub> + <span class="sym">I</span><sub class="n">${k + 1}</sub> &lt; <span class="sym">I</span><sub class="n">${i + 1}</sub> (triangle inequality). The math still runs.`;
   } else warn.hidden = true;
+  el('bodyCap').innerHTML = inf.viol.length
+    ? 'No uniform box has these moments, so one side is drawn as a thin sliver.'
+    : `Uniform box with the same principal moments. <span class="sym">H</span> is fixed along <span class="sym">â</span><sub class="n">3</sub>.`;
 }
 
 /* =========================================================
@@ -1646,6 +1966,14 @@ function rebuild(opts = {}) {
   S.tt0 = twoTof(S.I, S.w); S.h20 = H2of(S.I, S.w);
   R = S.h20 > 0 ? Math.sqrt(S.h20) / inf.Ia : 1;
   trailClear(); trailPush(S.w);
+  // inertial view: start with H along a3, scale omega so its largest possible length fits, size the box
+  S.q = initialQuat(S.I, S.w);
+  sW = 1.35 / R;
+  spinAx = 0; for (let i = 1; i < 3; i++) if (Math.abs(S.w[i]) > Math.abs(S.w[spinAx])) spinAx = i;
+  BODY_HALF = boxDims(S.I).map((v) => v * BODY_L / 2);
+  itrailClear(); itrailPush();
+  el('spinAxN').textContent = spinAx + 1;
+  if (G2) { updateBodyGeometry(); colorSpinTrace(); }
   histClear(); histPush(0, S.w);
   updateRolesUI();
   if (G) {
@@ -1674,6 +2002,8 @@ function syncInputs() {
   el('trailR').value = S.trailLen; el('trailOut').textContent = S.trailLen === 0 ? 'off' : S.trailLen;
   const sv = Math.log10(S.speed); el('speedR').value = sv; el('speedOut').textContent = speedText();
   el('chkGrat').checked = S.show.grat; el('chkFamily').checked = S.show.family; el('chkH').checked = S.show.hplane; el('chkLabels').checked = S.show.labels;
+  el('chkSpinTrace').checked = S.show.spinTrace;
+  $$('#layoutSeg [data-layout]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.layout === S.layout)));
 }
 function speedText() { return (S.speed < 1 ? S.speed.toFixed(2) : S.speed.toFixed(1)) + '×'; }
 function bindPair(rid, nid, o) {
@@ -1700,8 +2030,23 @@ el('chkGrat').addEventListener('change', (e) => { S.show.grat = e.target.checked
 el('chkFamily').addEventListener('change', (e) => { S.show.family = e.target.checked; if (G) updateFamily(); });
 el('chkH').addEventListener('change', (e) => { S.show.hplane = e.target.checked; });
 el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+el('chkSpinTrace').addEventListener('change', (e) => { S.show.spinTrace = e.target.checked; });
+$$('.legend [data-ishow]').forEach((btn) => btn.addEventListener('click', () => {
+  const key = btn.dataset.ishow;
+  S.ishow[key] = !S.ishow[key];
+  btn.setAttribute('aria-pressed', String(S.ishow[key]));
+}));
+const LAYOUTS = ['both', 'omega', 'inertial'];
+function setLayout(v) {
+  S.layout = v;
+  el('views').dataset.layout = v;
+  $$('#layoutSeg [data-layout]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.layout === v)));
+}
+$$('#layoutSeg [data-layout]').forEach((btn) => btn.addEventListener('click', () => setLayout(btn.dataset.layout)));
+$$('.viewbar [data-iview]').forEach((btn) => btn.addEventListener('click', () => fitI(viewDirI(btn.dataset.iview))));
+el('fitBtnI').addEventListener('click', () => fitI());
 
-$$('.legend .chip').forEach((btn) => btn.addEventListener('click', () => {
+$$('.legend [data-show]').forEach((btn) => btn.addEventListener('click', () => {
   const key = btn.dataset.show;
   S.show[key] = !S.show[key];
   btn.setAttribute('aria-pressed', String(S.show[key]));
@@ -1774,6 +2119,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === '0') fit(viewDir('iso'));
   else if (k === '1' || k === '2' || k === '3') fit(viewDir(String(+k - 1)));
   else if (k === 'o') setOrtho(!S.ortho);
+  else if (k === 'v') setLayout(LAYOUTS[(LAYOUTS.indexOf(S.layout) + 1) % LAYOUTS.length]);
 });
 document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
 
@@ -1792,12 +2138,25 @@ try {
   d.textContent = 'The 3D view could not start (' + (err && err.message ? err.message : 'WebGL unavailable') + '). The time history and analysis still work.';
   vp.appendChild(d);
 }
+try {
+  G2 = initGLI();
+  new ResizeObserver(() => resizeI()).observe(vpI);
+  resizeI();
+  $('#glI').addEventListener('dblclick', () => fitI());
+} catch (err) {
+  G2 = null;
+  const d = document.createElement('div');
+  d.className = 'glfail';
+  d.textContent = 'The inertial view could not start (' + (err && err.message ? err.message : 'WebGL unavailable') + ').';
+  vpI.appendChild(d);
+}
 COL = readColors();
 syncInputs();
 setPlaying(S.playing);
 applyTheme();
 rebuild({ refit: true });
 if (G) fit(ISO_DIR.clone());
+if (G2) fitI(ISO_DIR_I.clone());
 if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawPlot());
@@ -1823,6 +2182,14 @@ function frame(now) {
     G.renderer.render(G.scene, G.cam);
     updateLabels();
   }
+  if (G2 && S.layout !== 'omega') {
+    const wI = updateI();
+    G2.sun.position.copy(G2.cam.position);
+    G2.sun.target.position.copy(G2.controls.target);
+    G2.controls.update();
+    G2.renderer.render(G2.scene, G2.cam);
+    updateLabelsI(wI);
+  }
   drawPlot();
   roAcc += dtReal;
   if (roAcc > 0.1) { roAcc = 0; updateReadouts(); }
@@ -1831,7 +2198,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 /* test hook (harmless in production) */
-window.__polhode = { S, rebuild, fit, setOrtho, classify: () => classify(S.I, S.w, inf), period: () => polhodePeriod(inf, classify(S.I, S.w, inf)) };
+window.__polhode = { S, rebuild, fit, setOrtho, advance, setLayout, boxDims, qrot, classify: () => classify(S.I, S.w, inf), period: () => polhodePeriod(inf, classify(S.I, S.w, inf)), G2: () => G2, sW: () => sW };
 })();
 </script>
 </body>
