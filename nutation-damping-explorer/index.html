@@ -397,7 +397,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
         <input type="range" id="cdR" min="-2" max="2" step="0.01" aria-label="Rotor friction slider, logarithmic">
         <input type="number" id="cdN" min="0.001" step="any" aria-label="Rotor friction cd, N·m·s">
       </div>
-      <div class="row"><button class="btn" type="button" id="tuneBtn">Tune: <span class="sym">c<sub>d</sub></span> = <span class="sym">I<sub>d</sub></span>|<span class="sym">k</span>|</button></div>
+      <div class="row"><button class="btn" type="button" id="tuneBtn">Tune: <span class="sym">c<sub>d</sub></span> = <span class="sym">I<sub>d</sub></span>|<span class="sym">Ω</span>|</button></div>
       <p class="note">Two small rotors along <span class="sym">p̂</span><sub class="n">1</sub> and <span class="sym">p̂</span><sub class="n">2</sub>, coupled to the body by viscous friction. The friction acts only between rotor and body, so the total angular momentum is conserved.</p>
     </section>
 
@@ -503,14 +503,14 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
     <section class="group">
       <h2><span><span class="sw" style="--sw:var(--run1)"></span>−<span class="sym nt">bω</span> model</span> <span class="unit">Laplace</span></h2>
       <dl class="kv">
-        <dt><span class="sym">k</span> = <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub>(<span class="sym">I<sub>t</sub></span> − <span class="sym">I<sub>a</sub></span>)/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_k"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">Ω</span> = <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub>(<span class="sym">I<sub>t</sub></span> − <span class="sym">I<sub>a</sub></span>)/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_Om"></span><span class="u">rad/s</span></dd>
         <dt><span class="sym">β</span> = <span class="sym">b</span>/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_beta"></span><span class="u">s⁻¹</span></dd>
-        <dt>Poles −<span class="sym">β</span> ± <span class="sym">jk</span></dt><dd id="o_poles"></dd>
+        <dt>Poles −<span class="sym">β</span> ± <span class="sym">j</span><span class="sym">Ω</span></dt><dd id="o_poles"></dd>
         <dt>Time constant 1/<span class="sym">β</span></dt><dd><span id="o_tau"></span><span class="u">s</span></dd>
-        <dt id="o_w1L"><span class="sym">ω</span><sub class="n">1</sub>(∞) = <span class="sym">βc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">k</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w1"></span><span class="u">rad/s</span></dd>
-        <dt><span class="sym">ω</span><sub class="n">2</sub>(∞) = −<span class="sym">kc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">k</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w2"></span><span class="u">rad/s</span></dd>
+        <dt id="o_w1L"><span class="sym">ω</span><sub class="n">1</sub>(∞) = <span class="sym">βc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">Ω</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w1"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">2</sub>(∞) = −<span class="sym">Ωc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">Ω</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w2"></span><span class="u">rad/s</span></dd>
         <dt>Cone half-angle <span class="sym">ω<sub>t</sub></span>/<span class="sym">ω</span><sub class="n">3<sub>0</sub></sub></dt><dd class="em"><span id="o_cone"></span><span class="u">deg</span></dd>
-        <dt>Undamped peak 2|<span class="sym">c</span>/<span class="sym">I<sub>t</sub>k</span>|</dt><dd><span id="o_und"></span><span class="u">rad/s</span></dd>
+        <dt>Undamped peak 2|<span class="sym">c</span>/<span class="sym">I<sub>t</sub>Ω</span>|</dt><dd><span id="o_und"></span><span class="u">rad/s</span></dd>
       </dl>
       <p class="note" id="bwNote"></p>
     </section>
@@ -522,7 +522,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
         <dt>Rotor poles</dt><dd id="o_rp2"></dd>
         <dt id="o_rtL">Time constant</dt><dd id="o_rt"></dd>
         <dt>Rotor relaxation <span class="sym">c<sub>d</sub></span>/<span class="sym">I<sub>d</sub></span></dt><dd><span id="o_gam"></span><span class="u">s⁻¹</span></dd>
-        <dt>Tuned <span class="sym">c<sub>d</sub></span> ≈ <span class="sym">I<sub>d</sub></span>|<span class="sym">k</span>|</dt><dd><span id="o_best"></span><span class="u">N·m·s</span></dd>
+        <dt>Tuned <span class="sym">c<sub>d</sub></span> ≈ <span class="sym">I<sub>d</sub></span>|<span class="sym">Ω</span>|</dt><dd><span id="o_best"></span><span class="u">N·m·s</span></dd>
         <dt>Power to heat, <span class="sym">P</span></dt><dd><span id="o_P"></span><span class="u">W</span></dd>
       </dl>
       <p class="note" id="rotNote"></p>
@@ -550,7 +550,7 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
           <div class="lab">Lesson body: damper as a torque</div>
           <div><i>I<sub>t</sub></i><span class="ac"><i>ω</i></span><sub>1</sub> = (<i>I<sub>t</sub></i> − <i>I<sub>a</sub></i>)<i>ω</i><sub>2</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>1</sub> − <i>bω</i><sub>1</sub></div>
           <div><i>I<sub>t</sub></i><span class="ac"><i>ω</i></span><sub>2</sub> = (<i>I<sub>a</sub></i> − <i>I<sub>t</sub></i>)<i>ω</i><sub>1</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>2</sub> − <i>bω</i><sub>2</sub></div>
-          <div class="box">poles <i>s</i> = −<i>β</i> ± <i>jk</i>, &nbsp; <i>ω<sub>t</sub></i>(∞) = <i>c</i>/<i>I<sub>t</sub></i>√(<i>k</i>² + <i>β</i>²)</div>
+          <div class="box">poles <i>s</i> = −<i>β</i> ± <i>j</i>Ω, &nbsp; <i>ω<sub>t</sub></i>(∞) = <i>c</i>/<i>I<sub>t</sub></i>√(<i>Ω</i>² + <i>β</i>²)</div>
         </div>
         <div>
           <div class="lab">Appendix B: energy sink at fixed <i>h</i></div>
@@ -688,17 +688,17 @@ let P = {};
 function derive() {
   const It = S.It, Ia = S.Ia, w30 = S.w30;
   const Id = Math.min(S.Id, 0.25 * It), cd = S.cd;
-  const k = w30 * (It - Ia) / It, beta = S.b / It;
-  const cIt = S.c / It, den = k * k + beta * beta;
-  const w1inf = den > 0 ? beta * cIt / den : NaN, w2inf = den > 0 ? -k * cIt / den : NaN;
+  const Om = w30 * (It - Ia) / It, beta = S.b / It;
+  const cIt = S.c / It, den = Om * Om + beta * beta;
+  const w1inf = den > 0 ? beta * cIt / den : NaN, w2inf = den > 0 ? -Om * cIt / den : NaN;
   const wtInf = den > 0 ? Math.abs(cIt) / Math.sqrt(den) : NaN;
   const rr = rotorRoots(It, Ia, w30, Id, cd);
   const burn = S.c !== 0 && S.Tb > 0;
   P = {
-    It, Ia, w30, Id, cd, k, beta, cIt, w1inf, w2inf, wtInf, burn,
+    It, Ia, w30, Id, cd, Om, beta, cIt, w1inf, w2inf, wtInf, burn,
     cone: Math.abs(w30) > 0 ? wtInf / Math.abs(w30) : NaN,
-    undPeak: Math.abs(k) > 0 ? 2 * Math.abs(cIt / k) : Infinity,
-    shape: shapeOf(It, Ia), rr, gamma: cd / Id, best: Id * Math.abs(k),
+    undPeak: Math.abs(Om) > 0 ? 2 * Math.abs(cIt / Om) : Infinity,
+    shape: shapeOf(It, Ia), rr, gamma: cd / Id, best: Id * Math.abs(Om),
     sf: 1 / It - 1 / Ia,
   };
 }
@@ -839,7 +839,7 @@ function advance(dt) {
     rem -= span;
   }
   thdBuf.push([simT, nutation(2)]);
-  while (thdBuf.length > 2 && thdBuf[thdBuf.length - 1][0] - thdBuf[0][0] > Math.max(2, 2 * TAU / Math.max(Math.abs(P.k), 0.05))) thdBuf.shift();
+  while (thdBuf.length > 2 && thdBuf[thdBuf.length - 1][0] - thdBuf[0][0] > Math.max(2, 2 * TAU / Math.max(Math.abs(P.Om), 0.05))) thdBuf.shift();
 }
 function thetaDotSim() {
   if (thdBuf.length < 2) return NaN;
@@ -1408,7 +1408,7 @@ function drawTune(ctx, W, H) {
   // tuned value, and the current setting
   const xb = X(clamp(P.best, 0.01, 100));
   ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xb, t); ctx.lineTo(xb, t + ph); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.fillText('Id|k|', xb + 4, t + 9);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.fillText('Id|Ω|', xb + 4, t + 9);
   if (P.cd >= 0.01 && P.cd <= 100) {
     const re = P.rr.nut.re, x = X(P.cd), y = Yp(re);
     ctx.fillStyle = COL.run2; ctx.strokeStyle = COL.panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, TAU); ctx.fill(); ctx.stroke();
@@ -1428,27 +1428,27 @@ function verdict() {
   const p = P, rot = S.runs[2], bw = S.runs[1];
   const prolWarn = p.shape === 'prolate' && rot ? ` The rotor-damper run is the honest one for this prolate stage: its nutation grows, doubling about every ${fg(Math.LN2 / Math.max(p.rr.nut.re, 1e-12), 3)} s.` : '';
   if (p.burn && simT < S.Tb) {
-    if (S.b > 0 && bw) return { t: 'Burning: damping turns the epicycloid into a cone', s: `The −${SYM('bω')} run's transverse rate settles to ${SYM('c')}/${SYM('I<sub>t</sub>')}√(${SYM('k')}² + ${SYM('β')}²) = ${fg(p.wtInf, 3)} rad/s, so ${SYM('p̂')}<sub class="n">3</sub> cones at ${fg(p.cone * R2D, 3)}° about a fixed direction (dashed circle). The undamped run keeps swinging between 0 and ${fg(p.undPeak, 3)} rad/s.${prolWarn}` };
-    return { t: 'Burning with no damping', s: `This is Lesson 24's motion: the transverse rate swings between 0 and 2|${SYM('c')}/${SYM('I<sub>t</sub>k')}| = ${fg(p.undPeak, 3)} rad/s and ${SYM('p̂')}<sub class="n">3</sub> traces an epicycloid. Add a damper to settle it.${prolWarn}` };
+    if (S.b > 0 && bw) return { t: 'Burning: damping turns the epicycloid into a cone', s: `The −${SYM('bω')} run's transverse rate settles to ${SYM('c')}/${SYM('I<sub>t</sub>')}√(${SYM('Ω')}² + ${SYM('β')}²) = ${fg(p.wtInf, 3)} rad/s, so ${SYM('p̂')}<sub class="n">3</sub> cones at ${fg(p.cone * R2D, 3)}° about a fixed direction (dashed circle). The undamped run keeps swinging between 0 and ${fg(p.undPeak, 3)} rad/s.${prolWarn}` };
+    return { t: 'Burning with no damping', s: `This is Lesson 24's motion: the transverse rate swings between 0 and 2|${SYM('c')}/${SYM('I<sub>t</sub>Ω')}| = ${fg(p.undPeak, 3)} rad/s and ${SYM('p̂')}<sub class="n">3</sub> traces an epicycloid. Add a damper to settle it.${prolWarn}` };
   }
   if (p.burn) {
     const err = Math.acos(clamp(p3Of(1)[2], -1, 1)) * R2D;
     return { t: 'Engine off: the wobble decays, the pointing error stays', s: `The rates decay with time constant 1/${SYM('β')} = ${fg(1 / p.beta, 3)} s, but the −${SYM('bω')} run's axis now points ${fg(err, 3)}° from where it started. Whatever the burn did to ${SYM('h')} stays, and must be corrected another way.${prolWarn}` };
   }
   if (p.shape === 'oblate') return { t: 'Oblate: both damped models settle', s: `Internal dissipation pushes an oblate body downhill to ${SYM('θ')} = 0, and the −${SYM('bω')} model agrees. The two dampers differ only in pace: 1/${SYM('β')} = ${fg(1 / p.beta, 3)} s for −${SYM('bω')}, ${p.rr.nut.re < 0 ? fg(-1 / p.rr.nut.re, 3) + ' s' : '—'} for the rotors.` };
-  if (p.shape === 'prolate') return { t: 'Prolate: the models disagree', s: `−${SYM('bω')} says the nutation decays (poles −${SYM('β')} ± ${SYM('jk')}). The rotor damper holds ${SYM('h')} fixed and drains energy, which for a prolate body drives ${SYM('θ')} toward 90°: a flat spin about a transverse axis, as Explorer 1 did. A better damper only makes it tumble sooner.` };
+  if (p.shape === 'prolate') return { t: 'Prolate: the models disagree', s: `−${SYM('bω')} says the nutation decays (poles −${SYM('β')} ± ${SYM('j')}${SYM('Ω')}). The rotor damper holds ${SYM('h')} fixed and drains energy, which for a prolate body drives ${SYM('θ')} toward 90°: a flat spin about a transverse axis, as Explorer 1 did. A better damper only makes it tumble sooner.` };
   return { t: 'Nearly spherical', s: `With ${SYM('I<sub>t</sub>')} ≈ ${SYM('I<sub>a</sub>')} there is no preferred spin axis and little gyroscopic stiffness.` };
 }
 function checks() {
   const items = [], p = P;
-  const kOK = p.shape === 'spherical' ? Math.abs(p.k) < 1e-12 : (p.shape === 'prolate') === (p.k > 0);
-  items.push({ s: kOK ? 'ok' : 'bad', t: `Sign of ${SYM('k')} matches the shape`, sub: `k = ${fg(p.k, 4)} rad/s, ${p.shape}` });
+  const omOK = p.shape === 'spherical' ? Math.abs(p.Om) < 1e-12 : (p.shape === 'prolate') === (p.Om > 0);
+  items.push({ s: omOK ? 'ok' : 'bad', t: `Sign of ${SYM('Ω')} matches the shape`, sub: `Ω = ${fg(p.Om, 4)} rad/s, ${p.shape}` });
   if (p.burn && S.b > 0) {
     const settled = Math.min(simT, S.Tb) > 6 / p.beta;
     let sim = NaN;
     if (settled) { let lo = 0, hi = hN; const tv = Math.min(simT, S.Tb) - 1e-6; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; } sim = HQ.wt[1][Math.max(0, lo - 1)]; }
     items.push({ s: !settled ? 'na' : Math.abs(sim - p.wtInf) <= 2e-3 * p.wtInf ? 'ok' : 'bad', t: 'Steady rate matches the final value theorem', sub: settled ? `simulated ${fg(sim, 4)} vs ${fg(p.wtInf, 4)} rad/s` : `settles after about 5/β = ${fg(5 / p.beta, 3)} s` });
-    items.push({ s: 'ok', t: `${SYM('β')} = 0 gives back the undamped amplitude`, sub: `|c/I_t k| = ${fg(p.undPeak / 2, 4)} rad/s` });
+    items.push({ s: 'ok', t: `${SYM('β')} = 0 gives back the undamped amplitude`, sub: `|c/I_t Ω| = ${fg(p.undPeak / 2, 4)} rad/s` });
   }
   const hRot = hN ? HQ.hn[2][hN - 1] : 1, hBw = hN ? HQ.hn[1][hN - 1] : 1;
   if (P.burn) items.push({ s: 'na', t: 'The rotor damper conserves |h|', sub: 'the engine torque changes h; try a preset with no burn' });
@@ -1477,8 +1477,8 @@ function updateReadouts() {
     return `<tr style="--c:var(--run${r})"><td>${RUN_SHORT[r]}</td><td>${fx(th, th < 1 ? 3 : 2)}</td><td${!P.burn && Math.abs(hn - 1) > 1e-6 ? ' class="bad"' : ''}>${fx(hn, 5)}</td><td>${fx(tn, 4)}</td><td>${fx(err, err < 1 ? 3 : 2)}</td></tr>`;
   }).join('');
   // -b omega analysis
-  el('o_k').textContent = fs(P.k, 4); el('o_beta').textContent = fx(P.beta, 4);
-  el('o_poles').textContent = `${fx(-P.beta, 3)} ± ${fx(Math.abs(P.k), 3)}j`;
+  el('o_Om').textContent = fs(P.Om, 4); el('o_beta').textContent = fx(P.beta, 4);
+  el('o_poles').textContent = `${fx(-P.beta, 3)} ± ${fx(Math.abs(P.Om), 3)}j`;
   el('o_tau').textContent = P.beta > 0 ? fg(1 / P.beta, 4) : '∞';
   const fv = P.burn && S.b > 0;
   el('o_w1').textContent = fv ? fs(P.w1inf, 5) : '—'; el('o_w2').textContent = fv ? fs(P.w2inf, 5) : '—';
@@ -1492,7 +1492,7 @@ function updateReadouts() {
   el('o_rt').innerHTML = rn.re < 0 ? `${fg(-1 / rn.re, 3)}<span class="u">s</span>` : `${fg(Math.LN2 / rn.re, 3)}<span class="u">s</span>`;
   el('o_gam').textContent = fg(P.gamma, 3); el('o_best').textContent = fg(P.best, 3);
   el('o_P').textContent = fg(powerToHeat(), 3);
-  el('rotNote').innerHTML = rn.re > 0 ? `A positive real part: the nutation grows. Tuning the friction near ${SYM('I<sub>d</sub>')}|${SYM('k')}| only makes it grow fastest.` : `Friction near ${SYM('I<sub>d</sub>')}|${SYM('k')}| = ${fg(P.best, 3)} N·m·s dissipates fastest. Far below it the rotors barely couple; far above, they lock to the body.`;
+  el('rotNote').innerHTML = rn.re > 0 ? `A positive real part: the nutation grows. Tuning the friction near ${SYM('I<sub>d</sub>')}|${SYM('Ω')}| only makes it grow fastest.` : `Friction near ${SYM('I<sub>d</sub>')}|${SYM('Ω')}| = ${fg(P.best, 3)} N·m·s dissipates fastest. Far below it the rotors barely couple; far above, they lock to the body.`;
   // energy sink
   el('o_sf').innerHTML = `${fs(P.sf, 5)} <span class="st" data-s="${P.sf > 0 ? 'ok' : P.sf < 0 ? 'bad' : 'warn'}">${P.sf > 0 ? 'θ shrinks' : P.sf < 0 ? 'θ grows' : 'neutral'}</span>`;
   el('o_thdF').textContent = fs(thetaDotFormula() * R2D, 5); el('o_thdS').textContent = fs(thetaDotSim() * R2D, 5);
@@ -1513,8 +1513,8 @@ function expectedTilt() {
   const p = P;
   if (p.shape === 'prolate' && S.runs[2] && (S.th0 > 0 || p.burn)) return Math.PI / 2;
   let t = S.th0 * D2R * (1 + p.It / p.Ia);
-  if (p.burn && Math.abs(p.k) > 1e-9 && Math.abs(p.w30) > 1e-9) {
-    const Om = p.k, w3 = p.w30, Ap = Math.abs(S.c / (p.Ia * Om * w3)), An = Math.abs(S.c / (p.It * Om * w3));
+  if (p.burn && Math.abs(p.Om) > 1e-9 && Math.abs(p.w30) > 1e-9) {
+    const Om = p.Om, w3 = p.w30, Ap = Math.abs(S.c / (p.Ia * Om * w3)), An = Math.abs(S.c / (p.It * Om * w3));
     t = Math.max(t, 2 * (Ap + An));
   }
   return t;
@@ -1532,7 +1532,7 @@ function resetRuns() {
   }
   rotAng[0] = rotAng[1] = 0;
   simT = 0;
-  const rate = Math.abs(P.w30) + Math.abs(P.k) + P.beta + P.gamma + 0.1;
+  const rate = Math.abs(P.w30) + Math.abs(P.Om) + P.beta + P.gamma + 0.1;
   hStep = Math.min(0.02, 0.3 / rate);
   hN = 0; hLast = -Infinity; hDt = 0.05;
   rings.forEach((rg) => { rg.n = 0; rg.head = 0; });
@@ -1563,8 +1563,8 @@ function syncInputs() {
   PAIRS.forEach(([r, n, k]) => { el(r).value = S[k]; el(n).value = fmt(S[k]); });
   el('cdR').value = Math.log10(S.cd); el('cdN').value = fmt(S.cd);
   const pill = el('shapePill'); pill.textContent = P.shape; pill.dataset.s = P.shape;
-  el('shapeNote').innerHTML = P.shape === 'oblate' ? `${SYM('I<sub>a</sub>')} &gt; ${SYM('I<sub>t</sub>')}: spinning about the major axis. ${SYM('k')} &lt; 0.`
-    : P.shape === 'prolate' ? `${SYM('I<sub>a</sub>')} &lt; ${SYM('I<sub>t</sub>')}: spinning about the minor axis. ${SYM('k')} &gt; 0. Internal dissipation makes this spin unstable.`
+  el('shapeNote').innerHTML = P.shape === 'oblate' ? `${SYM('I<sub>a</sub>')} &gt; ${SYM('I<sub>t</sub>')}: spinning about the major axis. ${SYM('Ω')} &lt; 0.`
+    : P.shape === 'prolate' ? `${SYM('I<sub>a</sub>')} &lt; ${SYM('I<sub>t</sub>')}: spinning about the minor axis. ${SYM('Ω')} &gt; 0. Internal dissipation makes this spin unstable.`
     : 'Equal moments: no preferred axis.';
   el('bNote').innerHTML = `${SYM('β')} = ${SYM('b')}/${SYM('I<sub>t</sub>')} = ${fg(P.beta, 3)} s⁻¹.`;
   el('chkTrace').checked = S.show.trace; el('chkH').checked = S.show.h; el('chkLabels').checked = S.show.labels;
@@ -1597,7 +1597,7 @@ el('cdR').addEventListener('input', () => { S.cd = +Math.pow(10, +el('cdR').valu
 el('cdN').addEventListener('change', () => { let v = parseFloat(el('cdN').value); if (!Number.isFinite(v)) { el('cdN').value = fmt(S.cd); return; } S.cd = Math.max(0.001, v); rebuild(); });
 el('swapBtn').addEventListener('click', () => { const t = S.It; S.It = S.Ia; S.Ia = t; if (S.b > 0) S.b = +(S.b / S.Ia * S.It).toFixed(4); rebuild(); });
 el('matchBtn').addEventListener('click', () => { const bm = matchedBeta(); if (isFinite(bm)) { S.b = +(bm * S.It).toFixed(4); rebuild(); } });
-el('tuneBtn').addEventListener('click', () => { derive(); S.cd = +Math.max(0.001, P.Id * Math.abs(P.k)).toPrecision(3); rebuild(); });
+el('tuneBtn').addEventListener('click', () => { derive(); S.cd = +Math.max(0.001, P.Id * Math.abs(P.Om)).toPrecision(3); rebuild(); });
 el('chkTrace').addEventListener('change', (e) => { S.show.trace = e.target.checked; });
 el('chkH').addEventListener('change', (e) => { S.show.h = e.target.checked; });
 el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
