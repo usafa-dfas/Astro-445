@@ -232,6 +232,21 @@ a.btn { text-decoration: none; display: inline-block; }
 .state-card { display: grid; gap: 5px; }
 .state-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .state-card .rs { font-size: 14px; color: var(--muted); }
+.state-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -503,6 +518,29 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <h2>What you are seeing</h2>
       <div class="rt" id="stTitle">—</div>
       <div class="rs" id="stSub"></div>
+      <ul class="vruns" id="stList"></ul>
+      <p class="vwatch" id="stWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Reference frame A and body frame B</dt>
+          <dd>Three perpendicular axes each. A stays put (the faint axes); B is fixed to the spacecraft and turns with it (the bold axes).</dd>
+          <dt>Attitude</dt>
+          <dd>Which way the spacecraft is turned: how frame B sits relative to frame A. It takes exactly three numbers to pin down, however you write it.</dd>
+          <dt>Direction cosine matrix (DCM) <span class="sym">C</span></dt>
+          <dd>A 3 × 3 table. Each entry is the cosine of the angle between one body axis and one reference axis. It never breaks down, but uses nine numbers for three pieces of information.</dd>
+          <dt>Axis and angle (Euler's theorem)</dt>
+          <dd>Any attitude can be reached by one single turn, by an angle <span class="sym">φ</span><sub class="n">B/A</sub> about one fixed axis <span class="sym">ê</span>.</dd>
+          <dt>Euler angles</dt>
+          <dd>Three turns in a row about body axes, for example 3-1-3: about axis 3, then the new axis 1, then the newest axis 3. Easy to picture, and the usual way to command a slew.</dd>
+          <dt>Gimbal lock (singularity)</dt>
+          <dd>For some attitudes the first and third Euler turns are about the same line, so the three angles are no longer unique. The attitude is fine; only its description breaks.</dd>
+          <dt>Quaternion <span class="sym">q̄</span></dt>
+          <dd>Four numbers: <span class="sym">η</span> = cos(<span class="sym">φ</span>/2) and <span class="sym">ε</span> = <span class="sym">ê</span> sin(<span class="sym">φ</span>/2). Never breaks down, which is why flight software uses it.</dd>
+          <dt>Double cover</dt>
+          <dd><span class="sym">q̄</span> and −<span class="sym">q̄</span> are the same attitude. A body turned 360° is back where it started, but its quaternion has changed sign; it takes 720° to bring <span class="sym">q̄</span> back.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -1508,44 +1546,57 @@ function stepText(x) {
   const plain = [`â${SUBD[sq.i - 1]}`, `â′${SUBD[sq.j - 1]}`, `â″${SUBD[sq.k - 1]}`];
   return { step, chip: `Step ${step + 1} of 3 · ${ANG[step]} about ${plain[step]}`, axis: axes[step], ang: a[step] };
 }
+/* the "What you are seeing" card, in plain words: the idea, the four descriptions or the steps, and where to look */
+const LI = (name, txt, now, sw = 'var(--muted)') => `<span class="sw" style="--sw:${sw}"></span><span><span class="nm">${name}:</span> ${txt}${now ? `<span class="now">${now}</span>` : ''}</span>`;
+const FRAMES = `The faint axes are the reference frame A, which stays put. The bold axes are the body frame B, fixed to the spacecraft.`;
 function animStatus() {
   const sq = SQ();
   if (S.anim === 'euler') {
-    const st = stepText(S.x);
-    const subs = [
-      `The first rotation is about an axis of frame A itself. The result is the intermediate frame A′.`,
-      `The second rotation is about the ${sq.j}-axis of A′, carried along by the first rotation, not about ${axName('â', sq.j)}.`,
-      `The last rotation is about ${axName('â', sq.k, '″')}, which is the body's own ${axName('b̂', sq.k)}. Multiplying right to left gives ${SYM('C')}<sub class="n">B/A</sub> = ${SYM('ROT')}${sq.k}(${SYM('φ')}) ${SYM('ROT')}${sq.j}(${SYM('θ')}) ${SYM('ROT')}${sq.i}(${SYM('ψ')}).${endFlip ? ` This product of quaternions ends at −${SYM('q̄')} of the target, the same attitude.` : ''}`,
-    ];
-    return { t: `Step ${st.step + 1} of 3: ${SYM(ANG[st.step])} = ${fx(st.ang, 1)}° about ${st.axis}`, s: subs[st.step] };
+    const st = stepText(S.x), a = S.eul;
+    const axes = [`${axName('â', sq.i)}, an axis of frame A`, `the new ${axName('â', sq.j, '′')}, where the first turn left axis ${sq.j}`, `the newest ${axName('â', sq.k, '″')}, which is the body's own ${axName('b̂', sq.k)}`];
+    const state = (n) => (n < st.step ? 'done' : n === st.step ? 'turning now' : 'next');
+    return {
+      t: `Euler angles, one turn at a time: step ${st.step + 1} of 3`,
+      s: `Euler angles reach an attitude in three simple turns, one after another, each about a single axis. The ${sq.name} sequence turns about axis ${sq.i}, then ${sq.j}, then ${sq.k}, and each turn is about an axis that the previous turns have already moved. That is why the order matters.`,
+      list: [0, 1, 2].map((n) => LI(`Turn ${n + 1}`, `${SYM(ANG[n])} = ${fx(a[n], 1)}° about ${axes[n]}.`, state(n), n === st.step ? 'var(--accent)' : 'var(--muted)')),
+      watch: `The 3D view: the body turns about one axis at a time, and its axes leave traces. Tick "Euler construction" under Display to see all three turning axes at once.${endFlip ? ` The quaternion ends at −${SYM('q̄')}: the same attitude, written with the other sign.` : ''}`,
+    };
   }
   if (S.anim === 'single') {
-    return { t: `One rotation of ${fx(S.X, 1)}° about ${SYM('ê')}`, s: `Euler's theorem: the same end attitude in a single turn. ${SYM('ê')} is the one direction with the same components in A and B, so it does not move while everything else turns about it.${S.X > 180 + 1e-9 ? ` This turn is longer than 180° because ${SYM('η')} &lt; 0. −${SYM('q̄')} reaches the same attitude in ${fx(360 - S.X, 1)}° about −${SYM('ê')}.` : ''}` };
+    return {
+      t: `The same attitude in one single turn`,
+      s: `Euler's theorem says any attitude can be reached by one turn about one fixed axis. That axis, ${SYM('ê')}, is the arrow in the 3D view: the only direction that ends up where it started, so it stays still while everything else turns around it.`,
+      list: [LI('Turned so far', `${fx(S.x, 1)}° of ${fx(S.X, 1)}°.`, '', 'var(--accent)')].concat(S.X > 180 + 1e-9 ? [LI('Why more than 180°', `This quaternion has ${SYM('η')} &lt; 0, which describes the long way round. Turning ${fx(360 - S.X, 1)}° the other way about −${SYM('ê')} reaches the same attitude.`, '')] : []),
+      watch: `Compare with the Euler sequence animation: same end, very different path. The traces show each body axis sweeping a cone around ${SYM('ê')}.`,
+    };
   }
   return S.x < 360
-    ? { t: 'First full turn about ê', s: `Watch ${SYM('η')} in the strip below. It runs from its starting value to the negative of it, so at 360° the body is back where it started but the quaternion has become −${SYM('q̄')}.` }
-    : { t: 'Second turn: q̄ comes back', s: `${SYM('q̄')} and −${SYM('q̄')} give the same DCM, because every term of ${SYM('C')} is quadratic in the components. Only after 720° does ${SYM('q̄')} itself return. This is the double cover of Lessons 4 and 5.` };
+    ? { t: 'A full turn brings the body back, but not the quaternion', s: `The body turns 360° about ${SYM('ê')}. At the end it looks exactly as it did at the start, and the DCM is back to its starting values.`, list: [LI('Turned so far', `${fx(S.x, 0)}°.`, `η now ${fs(DD.q[0], 3)}`, 'var(--accent)')], watch: `The quaternion plot below: ${SYM('η')} = cos(angle/2) runs from its starting value to its negative. At 360° the quaternion is −${SYM('q̄')}, the same attitude written with the opposite sign.` }
+    : { t: 'Second turn: the quaternion comes back', s: `${SYM('q̄')} and −${SYM('q̄')} describe the same attitude, because the DCM is built from products of pairs of quaternion components, and the signs cancel. Only after 720° does ${SYM('q̄')} itself return. This is the "double cover" of Lessons 4 and 5.`, list: [LI('Turned so far', `${fx(S.x, 0)}°.`, `η now ${fs(DD.q[0], 3)}`, 'var(--accent)')], watch: `The quaternion plot: each component traces one full cosine or sine wave over 720°, while the DCM diagonal repeats every 360°.` };
 }
 function restStatus(D) {
-  const sq = D.sq, mDeg = singMarginDeg(sq, D.ex.a[1] * R2D);
+  const sq = D.sq, mDeg = singMarginDeg(sq, D.ex.a[1] * R2D), a = D.ex.a.map((r) => r * R2D);
   const singName = sq.sym ? '0° or 180°' : '±90°';
-  if (D.en < 1e-9) {
-    return { t: 'No rotation: B coincides with A', s: `The axis is undefined, since any axis will do. ${sq.sym ? `The ${sq.name} angles are singular here too, so only ${SYM('ψ')} + ${SYM('φ')} is known. Simulations usually start in this attitude (Lesson 4).` : `The ${sq.name} angles are all zero and well defined.`}` };
-  }
-  if (Math.abs(D.q[0]) < 1e-9) {
-    return { t: 'A half turn: φB/A = 180°'.replace('φB/A', `${SYM('φ')}<sub class="n">B/A</sub>`), s: `${SYM('C')} is symmetric here, so the direct axis formula and the Lesson 4 quaternion formula both divide zero by zero. The eigenvector of ${SYM('C')} for ${SYM('λ')} = 1 still gives ${SYM('ê')}, and Shepperd's method still gives ${SYM('q̄')}. The sign of ${SYM('ê')} is a free choice.` };
-  }
-  if (D.ex.sing) {
-    const comb = combText(sq, D.ex.a.map((r) => r * R2D));
-    return { t: `Gimbal lock in the ${sq.name} set`, s: `${SYM('θ')} = ${fx(D.ex.a[1] * R2D, 1)}°: the first and third rotations are about the same line in space, so only ${comb.html} = ${fx(comb.val, 2)}° is determined. The attitude itself is ordinary, and the DCM, axis and angle, and quaternion are all fine. <a class="inl" href="../gimbal-lock-explorer/">Gimbal Lock Explorer</a>` };
-  }
-  if (D.ex.m < 0.1) {
-    return { t: `Close to the ${sq.name} singularity`, s: `${SYM('θ')} is ${fx(mDeg, 2)}° from ${singName}. Small changes in attitude now cause large changes in ${SYM('ψ')} and ${SYM('φ')}. <a class="inl" href="../gimbal-lock-explorer/">Gimbal Lock Explorer</a>` };
-  }
-  if (D.q[0] < 0) {
-    return { t: 'Same attitude, other sign: η < 0'.replace('η', SYM('η')), s: `This quaternion describes a turn of ${fx(D.phiQ * R2D, 2)}° about the ${SYM('ê')} drawn in 3D, more than 180°. The DCM formulas return the principal rotation instead, ${fx(D.phiP * R2D, 2)}° about −${SYM('ê')}, which is what −${SYM('q̄')} describes. Both give the identical DCM.` };
-  }
-  return { t: 'A general attitude', s: `Every representation is well defined here: ${fx(D.phiP * R2D, 2)}° about ${SYM('ê')}, or the ${sq.name} angles (${fx(D.ex.a[0] * R2D, 2)}°, ${fx(D.ex.a[1] * R2D, 2)}°, ${fx(D.ex.a[2] * R2D, 2)}°). Play an animation to see how each one gets there.` };
+  const phi = D.phiP * R2D, e = D.ePrin;
+  const eTxt = e ? `(${fs(e[0], 3)}, ${fs(e[1], 3)}, ${fs(e[2], 3)})` : '';
+  const comb = combText(sq, a);
+  // the four ways of writing the attitude on screen
+  const dcm = LI('Rotation matrix (DCM)', `Nine numbers. Row 1 is where the body's ${axName('b̂', 1)} axis points, measured along ${axName('â', 1)}, ${axName('â', 2)}, ${axName('â', 3)}; each entry is a cosine of an angle between two axes. Always works, but it uses nine numbers to carry three pieces of information.`, `trace ${fs(D.tr, 4)}`, 'var(--c1)');
+  const one = D.en < 1e-9
+    ? LI('One turn', `Zero degrees, so there is no axis: any axis will do.`, '', 'var(--eaxis)')
+    : LI('One turn', `Turn frame A by ${fx(phi, 2)}° about the axis ${SYM('ê')} (the arrow) and it lands exactly on the body.${Math.abs(D.q[0]) < 1e-9 ? ' At exactly 180° the usual formula for the axis divides 0 by 0, so the axis must be found another way (an eigenvector of C).' : ''}`, `ê = ${eTxt}`, 'var(--eaxis)');
+  const eul = D.ex.sing
+    ? LI(`Euler angles ${sq.name}`, `<b>Broken here</b>: the first and third turns are about the same line, so only their combination ${comb.html} = ${fx(comb.val, 2)}° is known. Infinitely many sets of angles describe this one attitude.`, `θ = ${fx(a[1], 1)}°, singular at ${singName}`, 'var(--bad)')
+    : LI(`Euler angles ${sq.name}`, `Three turns in a row: ${fx(a[0], 2)}° about axis ${sq.i}, then ${fx(a[1], 2)}° about the new axis ${sq.j}, then ${fx(a[2], 2)}° about the newest axis ${sq.k}.${D.ex.m < 0.1 ? ` <b>Close to breaking down</b>: a tiny change in attitude now swings the first and last angles a lot.` : ''}`, `θ is ${fx(mDeg, 1)}° from the breakdown at ${singName}`, D.ex.m < 0.1 ? 'var(--warn)' : 'var(--c2)');
+  const quat = LI('Quaternion', `Four numbers that pack the axis and the angle together: ${SYM('η')} = cos(${fx(phi, 1)}°/2) and ${SYM('ε')} = ${SYM('ê')} sin(${fx(phi, 1)}°/2). Never breaks down.${D.q[0] < 0 ? ` Here ${SYM('η')} is negative: this is the same attitude as −${SYM('q̄')}, written the long way round.` : ''}`, `q̄ = (${fs(D.q[0], 3)}, ${fs(D.q[1], 3)}, ${fs(D.q[2], 3)}, ${fs(D.q[3], 3)})`, 'var(--c3)');
+  const list = [dcm, one, eul, quat];
+  const base = `${FRAMES} The panels on the right describe how B is turned relative to A in four different ways, all of them for this same attitude.`;
+  if (D.en < 1e-9) return { t: 'No rotation: the body lines up with the reference frame', s: `${base} With nothing turned, the DCM is the identity matrix and the quaternion is (1, 0, 0, 0).${sq.sym ? ` Even here the ${sq.name} Euler angles break down, and spacecraft simulations often start in exactly this attitude (Lesson 4).` : ''}`, list, watch: `Pick another preset or drag the sliders on the left: every panel updates together.` };
+  if (Math.abs(D.q[0]) < 1e-9) return { t: 'A half turn: some formulas break, the attitude does not', s: `${base} At exactly 180° two textbook formulas divide zero by zero: the one for the axis ${SYM('ê')} and the Lesson 4 one for the quaternion. The attitude itself is perfectly ordinary, and other methods still work.`, list, watch: `The ok / poor / fails tags in the axis-and-angle and quaternion panels show which formulas still work.` };
+  if (D.ex.sing) return { t: `Gimbal lock: the Euler angles break down here`, s: `${base} For the ${sq.name} sequence this attitude is a <b>singularity</b>: the middle angle ${SYM('θ')} = ${fx(a[1], 1)}° lines up the first and third turning axes. Nothing is wrong with the spacecraft; only this way of describing it fails.`, list, watch: `Try the same attitude in another Euler sequence (the menu on the left): it is fine there. The <a class="inl" href="../gimbal-lock-explorer/">Gimbal Lock Explorer</a> shows what this does to real gimbals.` };
+  if (D.ex.m < 0.1) return { t: `Close to gimbal lock for these Euler angles`, s: `${base} The ${sq.name} Euler angles stop working when ${SYM('θ')} reaches ${singName}, and ${SYM('θ')} is only ${fx(mDeg, 2)}° away. Near there, a tiny turn of the spacecraft makes the first and last angles jump.`, list, watch: `Nudge ${SYM('θ')} toward ${singName} and watch ${SYM('ψ')} and ${SYM('φ')} race, while the quaternion barely moves. More in the <a class="inl" href="../gimbal-lock-explorer/">Gimbal Lock Explorer</a>.` };
+  if (D.q[0] < 0) return { t: 'The quaternion\'s other sign: same attitude', s: `${base} This quaternion has a negative first number ${SYM('η')}, so it describes turning more than 180° one way. Turning less than 180° the other way, which is −${SYM('q̄')}, reaches the identical attitude, and both give exactly the same DCM.`, list, watch: `Press "Flip the sign" in the quaternion panel: the body does not move at all, but every quaternion number changes sign.` };
+  return { t: 'One attitude, four descriptions', s: `${base} Each has its own strengths: the DCM turns vectors from one frame into the other, the single turn is easy to picture, Euler angles match how slews are commanded, and the quaternion is compact and never breaks down.`, list, watch: `Press Play: the Euler sequence animation shows three separate turns, then try "One rotation about ${SYM('ê')}" to reach the same attitude in one.` };
 }
 function singMarginDeg(sq, thDeg) { return sq.sym ? Math.min(Math.abs(thDeg), Math.abs(180 - thDeg)) : 90 - Math.abs(thDeg); }
 const ST_TEXT = { ok: 'ok', warn: 'poor', bad: 'fails' };
@@ -1591,7 +1642,8 @@ function updateReadouts() {
   // status
   const st = animating() ? animStatus() : restStatus(D);
   const key = st.t + st.s;
-  if (key !== lastStKey) { el('stTitle').innerHTML = st.t; el('stSub').innerHTML = st.s; lastStKey = key; }
+  const key2 = key + (st.list || []).join('') + (st.watch || '');
+  if (key2 !== lastStKey) { el('stTitle').innerHTML = st.t; el('stSub').innerHTML = st.s; el('stList').innerHTML = (st.list || []).map((x) => `<li>${x}</li>`).join(''); el('stList').hidden = !(st.list || []).length; el('stWatch').innerHTML = st.watch ? `<span class="lbl">Watch</span>${st.watch}` : ''; el('stWatch').hidden = !st.watch; lastStKey = key2; }
   // DCM
   for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) el(`c${r}${c}`).textContent = fs(D.C[r][c], 4);
   el('o_det').textContent = fs(D.det, 6);
