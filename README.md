@@ -11,6 +11,7 @@ Self-contained interactive HTML apps for lecture. Hosted with GitHub Pages; the 
 | `spinning-top-explorer/` | Lesson 23 spinning top: precession, nutation, turning points, Appendix A gyroscope |
 | `misaligned-burn-simulator/` | Lesson 24 misaligned burn: bounded rates, epicycloid, impulse and pulse torques |
 | `nutation-damping-explorer/` | Lesson 25 damping: no damper, −bω torque and App. B rotor damper side by side; oblate vs prolate |
+| `gyrostat-explorer/` | Lesson 26 gyrostats: wheel momentum and the unstable band, effective major axis with a damper, momentum bias, wheel spin-up |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
