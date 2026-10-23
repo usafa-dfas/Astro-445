@@ -226,6 +226,21 @@ a.btn { text-decoration: none; display: inline-block; }
 .verdict { display: grid; gap: 5px; }
 .verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -490,6 +505,29 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <h2>What is happening</h2>
       <div class="rt" id="vTitle">—</div>
       <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Nutation (wobble)</dt>
+          <dd>The spin axis circling around the angular momentum <span class="sym">h̄</span> instead of lining up with it. The nutation angle <span class="sym">θ</span> measures how far apart they are.</dd>
+          <dt>Nutation damper</dt>
+          <dd>A device that turns wobble into heat, so the wobble dies away. Real ones use friction, fluid sloshing in a ring, or small rotors.</dd>
+          <dt>−<span class="sym">bω</span> model</dt>
+          <dd>The lesson's simple model of a damper: a torque from outside that pushes back against any sideways turning. Easy to analyze, but it also drains <span class="sym">h̄</span>, which no real on-board damper can.</dd>
+          <dt>Rotor damper</dt>
+          <dd>Appendix B's model: small wheels inside the stage, dragged along by friction. Everything happens inside, so <span class="sym">h̄</span> stays fixed and only energy is lost.</dd>
+          <dt>Angular momentum <span class="sym">h̄</span></dt>
+          <dd>The stage's "amount of spin". Only an outside torque, such as the engine, can change it. Internal parts can only pass it back and forth.</dd>
+          <dt>Oblate and prolate</dt>
+          <dd>Oblate: squat, spinning about the axis with the largest inertia (<span class="sym">I<sub>a</sub></span> &gt; <span class="sym">I<sub>t</sub></span>). Prolate: tall, spinning about the axis with the smallest (<span class="sym">I<sub>a</sub></span> &lt; <span class="sym">I<sub>t</sub></span>).</dd>
+          <dt>Energy sink</dt>
+          <dd>With <span class="sym">h̄</span> fixed, losing energy always pushes a spin toward the axis with the largest inertia. Oblate: toward <span class="sym">θ</span> = 0, the wobble dies. Prolate: toward <span class="sym">θ</span> = 90°, a flat spin.</dd>
+          <dt>Flat spin</dt>
+          <dd>Tumbling end over end about a sideways axis. It is where a prolate stage with a real damper ends up, as the Explorer 1 satellite did in 1958.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -1433,20 +1471,59 @@ plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
 /* =========================================================
    Readouts
    ========================================================= */
+/* the "What is happening" card, in plain words: the idea, one line per run, and where to look */
 function verdict() {
-  const p = P, rot = S.runs[2], bw = S.runs[1];
-  const prolWarn = p.shape === 'prolate' && rot ? ` The rotor-damper run is the honest one for this prolate stage: its nutation grows, doubling about every ${fg(Math.LN2 / Math.max(p.rr.nut.re, 1e-12), 3)} s.` : '';
-  if (p.burn && simT < S.Tb) {
-    if (S.b > 0 && bw) return { t: 'Burning: damping turns the epicycloid into a cone', s: `The −${SYM('bω')} run's transverse rate settles to ${SYM('c')}/${SYM('I<sub>t</sub>')}√(${SYM('Ω')}² + ${SYM('β')}²) = ${fg(p.wtInf, 3)} rad/s, so ${SYM('p̂')}<sub class="n">3</sub> cones at ${fg(p.cone * R2D, 3)}° about a fixed direction (dashed circle). The undamped run keeps swinging between 0 and ${fg(p.undPeak, 3)} rad/s.${prolWarn}` };
-    return { t: 'Burning with no damping', s: `This is Lesson 24's motion: the transverse rate swings between 0 and 2|${SYM('c')}/${SYM('I<sub>t</sub>Ω')}| = ${fg(p.undPeak, 3)} rad/s and ${SYM('p̂')}<sub class="n">3</sub> traces an epicycloid. Add a damper to settle it.${prolWarn}` };
+  const p = P, burning = p.burn && simT < S.Tb, after = p.burn && simT >= S.Tb;
+  const shape = p.shape === 'oblate'
+    ? `This stage is <b>oblate</b>: squat, spinning about its axis of largest inertia (${SYM('I<sub>a</sub>')} = ${fg(p.Ia, 3)} &gt; ${SYM('I<sub>t</sub>')} = ${fg(p.It, 3)}).`
+    : p.shape === 'prolate'
+      ? `This stage is <b>prolate</b>: tall, spinning about its axis of smallest inertia (${SYM('I<sub>a</sub>')} = ${fg(p.Ia, 3)} &lt; ${SYM('I<sub>t</sub>')} = ${fg(p.It, 3)}).`
+      : 'This stage has nearly equal inertias, so no spin axis is preferred.';
+  const intro = `A spinning stage that has been disturbed keeps wobbling (nutating) forever unless something removes the wobble's energy. A nutation damper does that. The same stage runs here three times from the same start: with no damper, with the lesson's simple damper model (a torque −${SYM('bω')}), and with a realistic damper made of small rotors inside (Appendix B). ${shape}`;
+  const rule = p.shape === 'prolate'
+    ? ` Losing energy always pushes a spin toward the axis with the largest inertia. For a prolate stage that is a sideways axis, so a real damper makes the wobble <b>grow</b> until the stage tumbles end over end (a flat spin), as Explorer 1 did. The simple −${SYM('bω')} model misses this.`
+    : p.shape === 'oblate' ? ` Losing energy always pushes a spin toward the axis with the largest inertia, which here is the spin axis itself, so any damper makes the wobble die away.` : '';
+  // one line per run, with its live wobble and how much of h it still has
+  const what = [
+    'Nothing removes the wobble, so it keeps whatever size it has.',
+    `A torque from outside that pushes back on any sideways turning. It always shrinks the wobble${p.shape === 'prolate' ? ', even here, where a real damper would not' : ''}, but it also drains angular momentum, which an on-board damper cannot do.`,
+    p.shape === 'prolate' ? `Two small rotors inside, dragged by friction. They keep ${SYM('h̄')} fixed and only remove energy, and for this prolate stage <b>that makes the wobble grow</b>.` : `Two small rotors inside, dragged by friction. They keep ${SYM('h̄')} fixed and only remove energy, which makes the wobble die away.`,
+  ];
+  const list = [0, 1, 2].filter((r) => S.runs[r]).map((r) => {
+    const th = nutation(r) * R2D, hb = hBody(r), hn = Math.hypot(hb[0], hb[1], hb[2]) / H0[r];
+    const status = th > 80 ? `has tipped into a flat spin: θ = ${fx(th, 1)}°` : th > 30 ? `is tipping over: θ = ${fx(th, 1)}°` : `wobble now θ = ${fx(th, th < 1 ? 3 : 2)}°`;
+    return `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${RUN_HTML[r]}:</span> ${what[r]}<span class="now">${status} · |h| at ${fx(hn * 100, 2)}% of its start</span></span>`;
+  });
+  if (burning) {
+    return {
+      t: S.b > 0 ? 'Engine burning: damping turns the looping wobble into a steady cone' : 'Engine burning, no damping',
+      s: `${intro} Right now the engine is firing with a slightly misaligned thrust, which twists the stage (Lesson 24). With no damper the axis traces loops; with damping the loops die out and the axis settles into a steady cone, tilted ${fg(p.cone * R2D, 3)}° for the −${SYM('bω')} run.`,
+      list,
+      watch: `The pointing plane: the undamped run keeps looping while the damped ones spiral onto the dashed circle.`,
+    };
   }
-  if (p.burn) {
+  if (after) {
     const err = Math.acos(clamp(p3Of(1)[2], -1, 1)) * R2D;
-    return { t: 'Engine off: the wobble decays, the pointing error stays', s: `The rates decay with time constant 1/${SYM('β')} = ${fg(1 / p.beta, 3)} s, but the −${SYM('bω')} run's axis now points ${fg(err, 3)}° from where it started. Whatever the burn did to ${SYM('h')} stays, and must be corrected another way.${prolWarn}` };
+    return {
+      t: p.shape === 'prolate' && S.runs[2] ? 'Engine off: the real damper now tips the stage over' : 'Engine off: the wobble fades, but the pointing error stays',
+      s: `${intro}${rule} The burn is over. ${p.shape === 'prolate' ? 'The −' + SYM('bω') + ' model removes the wobble, but' : 'Damping removes the wobble, but'} it cannot undo the burn: the stage's spin axis now points ${fg(err, 3)}° from where it started (−${SYM('bω')} run), and that has to be corrected some other way, for example with thrusters.`,
+      list,
+      watch: p.shape === 'prolate' ? `The Nutation θ history: the −${SYM('bω')} run falls toward zero while the rotor run climbs toward 90°. The Pointing tab shows the offset the burn left behind.` : `The Nutation θ history: the damped runs fall toward zero. The Pointing tab keeps a constant offset: the error the burn left behind.`,
+    };
   }
-  if (p.shape === 'oblate') return { t: 'Oblate: both damped models settle', s: `Internal dissipation pushes an oblate body downhill to ${SYM('θ')} = 0, and the −${SYM('bω')} model agrees. The two dampers differ only in pace: 1/${SYM('β')} = ${fg(1 / p.beta, 3)} s for −${SYM('bω')}, ${p.rr.nut.re < 0 ? fg(-1 / p.rr.nut.re, 3) + ' s' : '—'} for the rotors.` };
-  if (p.shape === 'prolate') return { t: 'Prolate: the models disagree', s: `−${SYM('bω')} says the nutation decays (poles −${SYM('β')} ± ${SYM('j')}${SYM('Ω')}). The rotor damper holds ${SYM('h')} fixed and drains energy, which for a prolate body drives ${SYM('θ')} toward 90°: a flat spin about a transverse axis, as Explorer 1 did. A better damper only makes it tumble sooner.` };
-  return { t: 'Nearly spherical', s: `With ${SYM('I<sub>t</sub>')} ≈ ${SYM('I<sub>a</sub>')} there is no preferred spin axis and little gyroscopic stiffness.` };
+  if (p.shape === 'oblate') return {
+    t: 'Oblate stage: both dampers settle the wobble',
+    s: `${intro}${rule} The two damper models agree here; they differ only in how fast, about ${fg(1 / p.beta, 3)} s for −${SYM('bω')} and ${p.rr.nut.re < 0 ? fg(-1 / p.rr.nut.re, 3) + ' s' : '—'} for the rotors.`,
+    list,
+    watch: `The "Energy at fixed h" pane: each damped dot slides downhill to θ = 0. The undamped dot stays put.`,
+  };
+  if (p.shape === 'prolate') return {
+    t: 'Prolate stage: the two damper models disagree',
+    s: `${intro}${rule}`,
+    list,
+    watch: `The "Energy at fixed h" pane: the rotor dot slides downhill toward 90°, while the −${SYM('bω')} dot climbs back up to 0, which is only possible because that model drains ${SYM('h̄')}. The |h| history tab shows the drain.`,
+  };
+  return { t: 'Nearly equal inertias', s: `${intro} With ${SYM('I<sub>t</sub>')} ≈ ${SYM('I<sub>a</sub>')} there is no preferred spin axis and little gyroscopic stiffness.`, list, watch: '' };
 }
 function checks() {
   const items = [], p = P;
@@ -1477,8 +1554,8 @@ function updateReadouts() {
   el('tOut').textContent = simT.toFixed(1);
   const burning = P.burn && simT < S.Tb;
   const chip = el('phaseChip'); chip.dataset.p = burning ? 'burn' : 'free'; chip.textContent = burning ? 'Burn' : P.burn ? 'Engine off' : 'Free';
-  const v = verdict(), key = v.t + v.s;
-  if (key !== lastV) { el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; lastV = key; }
+  const v = verdict(), key = v.t + v.s + v.list.join('') + v.watch;
+  if (key !== lastV) { el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; el('vRuns').innerHTML = (v.list || []).map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !(v.list || []).length; el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch; lastV = key; }
   // the three runs
   el('runTable').innerHTML = [0, 1, 2].map((r) => {
     const th = nutation(r) * R2D, hb = hBody(r), hn = Math.hypot(hb[0], hb[1], hb[2]) / H0[r], tn = energy(r) / T0[r];
