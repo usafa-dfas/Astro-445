@@ -1,0 +1,2166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gyrostat Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 25 apps). Control rail | three vehicles beside a pointing-plane or stability-map pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --hvec: #c97a00;
+  --axis: #6a7582;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --rotor: #08808f;
+  --rotor-alt: #2c3540;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --hvec: #ffb01f; --axis: #7f8a97;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf; --rotor: #35c3cc; --rotor-alt: #d5dbe2;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --hvec: #ffb01f; --axis: #7f8a97;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf; --rotor: #35c3cc; --rotor-alt: #d5dbe2;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 332px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.nt { text-transform: none; letter-spacing: 0; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.note.warnv { color: var(--bad); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+.ac { position: relative; display: inline-block; }
+.ac::after { content: ""; position: absolute; left: 52%; top: .06em; width: .18em; height: .18em; border-radius: 50%; transform: translateX(-50%); background: currentColor; pointer-events: none; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 50px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.slider .sw { width: 9px; height: 9px; margin-right: 4px; }
+.subnote { margin: -6px 0 0 58px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 44px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.pill[data-s="major"] { color: var(--good); border-color: var(--good); }
+.pill[data-s="intermediate"] { color: var(--bad); border-color: var(--bad); }
+.pill[data-s="minor"] { color: var(--warn); border-color: var(--warn); }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+#pp[data-pane="pp"] { cursor: grab; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel.lane .sym { font-size: 15px; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 64%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 230px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.phase-chip[data-p="spin"] { color: var(--rotor); border-color: var(--rotor); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* lanes as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 34%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+ul.zones { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+ul.zones li { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline; font-size: 13.5px; padding-left: 10px; border-left: 4px solid var(--zc); }
+ul.zones li .r { font-family: var(--f-num); font-size: 12.5px; white-space: nowrap; }
+ul.zones li .d { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; margin-top: -3px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 360px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 26 · Multispin vehicles</div>
+      <h1>Gyrostat Explorer</h1>
+    </div>
+    <p class="lede">A rigid platform with one wheel along a principal axis, run three times side by side with different wheel momentum <span class="sym">h<sub>s</sub></span>. Stored wheel momentum moves the spin out of the unstable band, a damper decides which of two equally good rigid designs really settles, and with no spin at all the wheel alone holds the platform still.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit both views</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side 3D view</dd>
+            <dt><kbd>M</kbd></dt><dd>Pointing plane or stability map</dd>
+            <dt>3D view</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+            <dt>Pointing plane</dt><dd>Drag pan, scroll zoom, double-click fit</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="appA">Intermediate spin<small>App. A, rigid</small></button>
+        <button class="btn" type="button" data-preset="appAd">Add a damper<small>App. A, ±75</small></button>
+        <button class="btn" type="button" data-preset="neg">Wheel beats spin<small>Iₐ′ &lt; 0</small></button>
+        <button class="btn" type="button" data-preset="appB">Momentum bias<small>App. B</small></button>
+        <button class="btn" type="button" data-preset="spinup">Wheel spin-up<small>platform at rest</small></button>
+        <button class="btn" type="button" data-preset="spinup2">Spin up a spinner<small>through the band</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Vehicle <span class="pill" id="rolePill">intermediate</span></h2>
+      <div class="slider">
+        <label for="I0R"><span class="sym">I</span><sub class="n">1</sub><span class="u">kg·m²</span></label>
+        <input type="range" id="I0R" min="50" max="800" step="5" aria-label="Principal moment of inertia 1 slider">
+        <input type="number" id="I0N" min="1" step="any" aria-label="Principal moment of inertia 1, kg·m²">
+      </div>
+      <div class="slider">
+        <label for="I1R"><span class="sym">I</span><sub class="n">2</sub><span class="u">kg·m²</span></label>
+        <input type="range" id="I1R" min="50" max="800" step="5" aria-label="Principal moment of inertia 2 slider">
+        <input type="number" id="I1N" min="1" step="any" aria-label="Principal moment of inertia 2, kg·m²">
+      </div>
+      <div class="slider">
+        <label for="I2R"><span class="sym">I</span><sub class="n">3</sub><span class="u">kg·m²</span></label>
+        <input type="range" id="I2R" min="50" max="800" step="5" aria-label="Principal moment of inertia 3 slider">
+        <input type="number" id="I2N" min="1" step="any" aria-label="Principal moment of inertia 3, kg·m²">
+      </div>
+      <p class="note" id="vehNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Spin and wheel</h2>
+      <div class="row"><span class="lbl">Wheel on</span>
+        <div class="seg" role="group" aria-label="Wheel and spin axis" id="axSeg">
+          <button class="btn" type="button" data-ax="0"><span class="sym">p̂</span><sub class="n">1</sub></button>
+          <button class="btn" type="button" data-ax="1"><span class="sym">p̂</span><sub class="n">2</sub></button>
+          <button class="btn" type="button" data-ax="2"><span class="sym">p̂</span><sub class="n">3</sub></button>
+        </div>
+      </div>
+      <div class="slider">
+        <label for="waR"><span class="sym">ω<sub>a</sub></span><span class="u">rad/s</span></label>
+        <input type="range" id="waR" min="-1" max="1" step="0.01" aria-label="Platform spin rate about the wheel axis slider">
+        <input type="number" id="waN" step="any" aria-label="Platform spin rate about the wheel axis, rad/s">
+      </div>
+      <div class="slider">
+        <label for="IsR"><span class="sym">I<sub>s</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="IsR" min="0.05" max="5" step="0.05" aria-label="Wheel axial inertia slider">
+        <input type="number" id="IsN" min="0.01" step="any" aria-label="Wheel axial inertia, kg·m²">
+      </div>
+      <div class="slider">
+        <label for="w0R" id="w0Lab"><span class="sym">ω</span><sub class="n">2<sub>0</sub></sub><span class="u">rad/s</span></label>
+        <input type="range" id="w0R" min="0" max="0.02" step="0.0005" aria-label="Initial transverse rate slider">
+        <input type="number" id="w0N" min="0" step="any" aria-label="Initial transverse rate, rad/s">
+      </div>
+      <p class="note" id="spinNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Wheel momentum <span class="unit">N·m·s</span></h2>
+      <div class="slider">
+        <label for="h0R"><span class="sw" style="--sw:var(--run0)"></span><span class="sym">h<sub>s</sub></span></label>
+        <input type="range" id="h0R" min="-400" max="400" step="1" aria-label="Wheel momentum, run 1, slider">
+        <input type="number" id="h0N" step="any" aria-label="Wheel momentum, run 1, N·m·s">
+      </div>
+      <p class="subnote" id="h0Note"></p>
+      <div class="slider">
+        <label for="h1R"><span class="sw" style="--sw:var(--run1)"></span><span class="sym">h<sub>s</sub></span></label>
+        <input type="range" id="h1R" min="-400" max="400" step="1" aria-label="Wheel momentum, run 2, slider">
+        <input type="number" id="h1N" step="any" aria-label="Wheel momentum, run 2, N·m·s">
+      </div>
+      <p class="subnote" id="h1Note"></p>
+      <div class="slider">
+        <label for="h2R"><span class="sw" style="--sw:var(--run2)"></span><span class="sym">h<sub>s</sub></span></label>
+        <input type="range" id="h2R" min="-400" max="400" step="1" aria-label="Wheel momentum, run 3, slider">
+        <input type="number" id="h2N" step="any" aria-label="Wheel momentum, run 3, N·m·s">
+      </div>
+      <p class="subnote" id="h2Note"></p>
+      <div class="row"><span class="lbl">Start</span>
+        <div class="seg" role="group" aria-label="Wheel start" id="startSeg">
+          <button class="btn" type="button" data-start="speed">At speed</button>
+          <button class="btn" type="button" data-start="spinup">Spin up from rest</button>
+        </div>
+      </div>
+      <div class="slider" id="gsRow">
+        <label for="gsR"><span class="sym">g<sub>s</sub></span><span class="u">N·m</span></label>
+        <input type="range" id="gsR" min="0.1" max="10" step="0.05" aria-label="Motor torque for spin-up slider">
+        <input type="number" id="gsN" min="0.01" step="any" aria-label="Motor torque for spin-up, N·m">
+      </div>
+      <p class="note" id="wheelNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Platform damper <span class="unit">L25 App. B rotors</span></h2>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Platform damper" id="dampSeg">
+          <button class="btn" type="button" data-damp="0">Rigid, no damper</button>
+          <button class="btn" type="button" data-damp="1">Damper on</button>
+        </div>
+      </div>
+      <div class="slider">
+        <label for="idR"><span class="sym">I<sub>d</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="idR" min="0.5" max="20" step="0.5" aria-label="Damper rotor inertia slider">
+        <input type="number" id="idN" min="0.01" step="any" aria-label="Damper rotor inertia, kg·m²">
+      </div>
+      <div class="slider">
+        <label for="cdR"><span class="sym">c<sub>d</sub></span><span class="u">N·m·s</span></label>
+        <input type="range" id="cdR" min="-2" max="1" step="0.01" aria-label="Damper friction slider, logarithmic">
+        <input type="number" id="cdN" min="0.001" step="any" aria-label="Damper friction, N·m·s">
+      </div>
+      <div class="row"><button class="btn" type="button" id="tuneBtn">Tune: <span class="sym">c<sub>d</sub></span> = <span class="sym">I<sub>d</sub></span>|<span class="sym">s</span>|</button></div>
+      <p class="note" id="dampNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="row"><span class="lbl">3D tilt</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">Exaggerated</button>
+          <button class="btn" type="button" data-ex="1">True scale</button>
+        </div>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkTrace"> Traces of the wheel axis <span class="sym">ŝ</span></label>
+        <label class="check"><input type="checkbox" id="chkH"> Angular momentum <span class="sym">h̄</span>, to scale</label>
+        <label class="check"><input type="checkbox" id="chkAxes"> Principal axes</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <p class="note">Small wobbles are magnified in the 3D view so you can see them, by a factor shown under each vehicle. The wheels are drawn slowed down; their direction is true. The pointing plane, the map and the plots are always at true scale.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three runs side by side"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Inertial frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl">wheel axis ŝ up · wheels drawn slowed</div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Pointing plane or stability map"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Degrees</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="pp">Pointing</button>
+            <button class="btn" type="button" data-pane="map">Stability map</button>
+          </div>
+          <button class="btn" type="button" id="ppFit">Fit</button>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="2.3" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip" data-p="free">Wheels at speed</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0.0</span> s</div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="th">Nutation <span class="sym">θ</span></button>
+          <button class="btn" type="button" data-q="pt">Pointing</button>
+          <button class="btn" type="button" data-q="wt">|<span class="sym">ω<sub>t</sub></span>|</button>
+          <button class="btn" type="button" data-q="wa"><span class="sym">ω<sub>a</sub></span></button>
+          <button class="btn" type="button" data-q="hs"><span class="sym">h<sub>s</sub></span></button>
+          <button class="btn" type="button" data-q="gs"><span class="sym">g<sub>s</sub></span></button>
+          <button class="btn" type="button" data-q="hn">|<span class="sym">h</span>|</button>
+        </div>
+        <button class="btn" type="button" id="logBtn" aria-pressed="false">Log scale</button>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+    </section>
+
+    <section class="group">
+      <h2>The three runs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead id="laneHead"></thead>
+        <tbody id="laneBody"></tbody>
+      </table>
+      <p class="note" id="laneNote"></p>
+    </section>
+
+    <section class="group" id="bandGrp">
+      <h2>Stability band <span class="unit" id="bandUnit"></span></h2>
+      <ul class="zones" id="zoneList"></ul>
+      <p class="note" id="bandNote"></p>
+    </section>
+
+    <section class="group" id="biasGrp">
+      <h2>Momentum bias <span class="unit">App. B</span></h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead id="biasHead"></thead>
+        <tbody id="biasBody"></tbody>
+      </table>
+      <p class="note" id="biasNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Euler's equations, term by term <span class="unit">N·m</span></h2>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Run to break down" id="termSeg">
+          <button class="btn" type="button" data-tl="0"></button>
+          <button class="btn" type="button" data-tl="1"></button>
+          <button class="btn" type="button" data-tl="2"></button>
+        </div>
+      </div>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Term</th><th><span class="sym nt">p̂</span>₁</th><th><span class="sym nt">p̂</span>₂</th><th><span class="sym nt">p̂</span>₃</th></tr></thead>
+        <tbody id="termBody"></tbody>
+      </table>
+      <p class="note" id="termNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Wheel</div>
+          <div><i>h<sub>s</sub></i> = <i>I<sub>s</sub>ω<sub>s</sub></i> + <i>I<sub>s</sub></i> <i>s</i> · <i>ω</i>, &nbsp; <span class="ac"><i>h</i></span><sub><i>s</i></sub> = <i>g<sub>s</sub></i></div>
+        </div>
+        <div>
+          <div class="lab">Body (J includes the wheel, locked)</div>
+          <div><i>J</i> · <span class="ac"><i>ω</i></span> + <i>I<sub>s</sub></i><span class="ac"><i>ω</i></span><sub><i>s</i></sub> <i>s</i> + <i>ω</i> × (<i>J</i> · <i>ω</i> + <i>I<sub>s</sub>ω<sub>s</sub> s</i>) = <i>g</i></div>
+          <div><i>I</i><sub>1</sub><span class="ac"><i>ω</i></span><sub>1</sub> = (<i>I</i><sub>2</sub> − <i>I</i><sub>3</sub>)<i>ω</i><sub>2</sub><i>ω</i><sub>3</sub> − <i>I<sub>s</sub>s</i><sub>1</sub><span class="ac"><i>ω</i></span><sub><i>s</i></sub> + <i>I<sub>s</sub>ω<sub>s</sub></i>(<i>s</i><sub>2</sub><i>ω</i><sub>3</sub> − <i>s</i><sub>3</sub><i>ω</i><sub>2</sub>) + <i>g</i><sub>1</sub></div>
+        </div>
+        <div>
+          <div class="lab">Wheel at constant speed along <i>p</i><sub><i>a</i></sub></div>
+          <div><i>I<sub>a</sub></i>′ = <i>I<sub>a</sub></i> + <i>h<sub>s</sub></i>/<i>ω<sub>a</sub></i>, &nbsp; <i>s</i> = ±<i>ω<sub>a</sub></i>√[(<i>I<sub>a</sub></i>′ − <i>I<sub>c</sub></i>)(<i>I<sub>b</sub></i> − <i>I<sub>a</sub></i>′)/<i>I<sub>b</sub>I<sub>c</sub></i>]</div>
+          <div class="box">stable when (<i>h<sub>s</sub></i> + (<i>I<sub>a</sub></i> − <i>I<sub>b</sub></i>)<i>ω<sub>a</sub></i>)(<i>h<sub>s</sub></i> + (<i>I<sub>a</sub></i> − <i>I<sub>c</sub></i>)<i>ω<sub>a</sub></i>) &gt; 0</div>
+          <div>with dissipation in the platform: settles when <i>I<sub>a</sub></i>′ &gt; <i>I<sub>b</sub></i>, <i>I<sub>c</sub></i></div>
+        </div>
+        <div>
+          <div class="lab">Momentum bias, <i>ω<sub>a</sub></i> = 0</div>
+          <div><i>s</i> = ±<i>j h<sub>s</sub></i>/√(<i>I<sub>b</sub>I<sub>c</sub></i>)</div>
+        </div>
+        <div>
+          <div class="lab">Damper rotors on <i>p</i><sub><i>b</i></sub>, <i>p</i><sub><i>c</i></sub></div>
+          <div><i>I<sub>d</sub></i>(<span class="ac"><i>σ</i></span><sub><i>k</i></sub> + <span class="ac"><i>ω</i></span><sub><i>k</i></sub>) = −<i>c<sub>d</sub>σ<sub>k</sub></i></div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">All three runs integrate the full nonlinear equations and the attitude quaternion with fixed-step RK4. The motor either holds the wheel's speed relative to the platform, or applies a constant torque <i>g<sub>s</sub></i> until the wheel reaches its <i>h<sub>s</sub></i>, splitting the step at that instant. The damper is Lesson 25's Appendix B rotor pair, mounted on the two transverse axes; <i>I</i><sub>1</sub>, <i>I</i><sub>2</sub>, <i>I</i><sub>3</sub> include the wheel and the rotors as if locked. With the damper on, the "with damper" rows come from the four-state linear model about the steady spin. The inertial frame is the starting body frame.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const SUBD = ['₁', '₂', '₃'];
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-4) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* compact form for narrow table cells: no spaces around the times sign */
+function fc(x, sig = 3) {
+  if (!isFinite(x)) return '—';
+  if (Math.abs(x) < 1e-12) return '0';
+  if (Math.abs(x) < 1e-3 || Math.abs(x) >= 1e5) return sci(x, 0).replace(' × ', '×');
+  return fg(x, sig);
+}
+/* signed wheel momentum, integers without decimals */
+const fh = (v) => (v > 0 ? '+' : v < 0 ? MINUS : '') + String(+Math.abs(v).toFixed(2));
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const DOT = (s) => `<span class="sym"><span class="ac">${s}</span></span>`;
+const HS = SYM('h<sub>s</sub>'), IAP = `${SYM('I<sub>a</sub>')}′`;
+
+/* complex numbers, for the four-state damper poles */
+const cx = (re, im = 0) => ({ re, im });
+const cadd = (a, b) => cx(a.re + b.re, a.im + b.im);
+const csub = (a, b) => cx(a.re - b.re, a.im - b.im);
+const cmul = (a, b) => cx(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return cx((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+
+/* quaternion helpers, [w, x, y, z], active rotation body -> inertial */
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (a) => [a[0], -a[1], -a[2], -a[3]];
+const qaa = (ax, ay, az, ang) => { const s = Math.sin(ang / 2); return [Math.cos(ang / 2), ax * s, ay * s, az * s]; };
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+/* pointing plane: azimuthal-equidistant about +z, in degrees; for small angles these are the rotations about x and y */
+function ppXY(p) {
+  const r = Math.acos(clamp(p[2], -1, 1)) * R2D, hz = Math.hypot(p[0], p[1]);
+  return hz < 1e-15 ? [0, 0] : [r * -p[1] / hz, r * p[0] / hz];
+}
+/* a uniform box with the same principal moments, as in the Polhode Explorer: d1^2 goes as I2 + I3 - I1 */
+function boxDims(I) {
+  const s = [I[1] + I[2] - I[0], I[2] + I[0] - I[1], I[0] + I[1] - I[2]];
+  const mx = Math.max(s[0], s[1], s[2]);
+  if (!(mx > 0)) return [1, 1, 1];
+  const d = s.map((v) => Math.sqrt(Math.max(v, 4e-4 * mx)));
+  const m = Math.max(d[0], d[1], d[2]);
+  return d.map((v) => v / m);
+}
+
+/* =========================================================
+   Physics
+   ========================================================= */
+/* eigenvalues of a small real matrix: characteristic polynomial by Faddeev-LeVerrier, roots by Durand-Kerner */
+function charPoly(A) {
+  const n = A.length, c = new Array(n + 1).fill(0);
+  c[n] = 1;
+  let M = A.map((r) => r.map(() => 0));
+  const mm = (X, Y) => X.map((r) => Y[0].map((_, j) => r.reduce((s, v, l) => s + v * Y[l][j], 0)));
+  for (let k = 1; k <= n; k++) {
+    M = mm(A, M).map((r, i) => r.map((v, j) => v + (i === j ? c[n - k + 1] : 0)));
+    const AM = mm(A, M);
+    c[n - k] = -AM.reduce((s, r, i) => s + r[i], 0) / k;
+  }
+  return c;
+}
+function polyRoots(c) {
+  const n = c.length - 1, R = 1 + Math.max(...c.slice(0, n).map(Math.abs));
+  let z = [];
+  for (let k = 0; k < n; k++) z.push(cx(0.9 * R * Math.cos(TAU * k / n + 0.4), 0.9 * R * Math.sin(TAU * k / n + 0.4)));
+  const ev = (x) => { let p = cx(c[n]); for (let i = n - 1; i >= 0; i--) p = cadd(cmul(p, x), cx(c[i])); return p; };
+  for (let it = 0; it < 800; it++) {
+    let mv = 0;
+    z = z.map((zi, i) => {
+      let d = cx(1);
+      z.forEach((zj, j) => { if (j !== i) d = cmul(d, csub(zi, zj)); });
+      const st = cdiv(ev(zi), d);
+      mv = Math.max(mv, Math.hypot(st.re, st.im));
+      return csub(zi, st);
+    });
+    if (mv < 1e-15) break;
+  }
+  return z;
+}
+
+const S = {
+  I: [400, 300, 500], ax: 0, wa: 0.5, Is: 0.5, w0: 0.005,
+  hs: [0, 75, -75], start: 'speed', gs: 1.25,
+  damp: false, Id: 4, cd: 0.6,
+  runs: [true, true, true],
+  speed: 10, playing: !reduceMotion, tEnd: 600,
+  exag: 'auto', pane: 'map', termLane: 1, logY: false,
+  show: { trace: true, h: true, axes: true, labels: true },
+};
+let P = {};
+const roleOf = (I, i) => {
+  const o = [0, 1, 2].filter((j) => j !== i).map((j) => I[j]), lo = Math.min(...o), hi = Math.max(...o);
+  return I[i] > hi ? 'major' : I[i] < lo ? 'minor' : (I[i] === lo || I[i] === hi) ? 'equal' : 'intermediate';
+};
+/* where a wheel momentum puts the spin: the effective inertia I_a' = I_a + h_s/w_a against the transverse ones */
+function zoneOf(hw, w) {
+  if (w === 0) return hw === 0 ? 'none' : 'bias';
+  const Iap = P.Ia + hw / w;
+  if (Iap < 0) return 'neg';
+  if (Iap > Math.max(P.Ib, P.Ic)) return 'major';
+  if (Iap < Math.min(P.Ib, P.Ic)) return 'minor';
+  return 'band';
+}
+const ZONE = {
+  major: { name: 'effective major', short: 'major', rule: 'settles', s: 'ok' },
+  neg: { name: 'Iₐ′ < 0', short: 'Iₐ′ < 0', rule: 'settles', s: 'ok' },
+  minor: { name: 'effective minor', short: 'minor', rule: 'grows', s: 'warn' },
+  band: { name: 'unstable band', short: 'band', rule: 'unstable', s: 'bad' },
+  bias: { name: 'momentum bias', short: 'bias', rule: 'settles', s: 'ok' },
+  none: { name: 'no stiffness', short: 'none', rule: 'drifts', s: 'bad' },
+  rest: { name: 'h̄ = 0', short: 'h̄ = 0', rule: '—', s: 'na' },
+};
+/* rigid poles from the momentum form: s^2 = -(hs + (Ia - Ib)wa)(hs + (Ia - Ic)wa)/(Ib Ic) */
+function rigidPoles(hw, w) {
+  const prod = (hw + (P.Ia - P.Ib) * w) * (hw + (P.Ia - P.Ic) * w), p2 = -prod / (P.Ib * P.Ic);
+  return { prod, p2, freq: p2 < 0 ? Math.sqrt(-p2) : 0, grow: p2 > 0 ? Math.sqrt(p2) : 0 };
+}
+/* the four-state linear model with the damper rotors on b and c: x = [wb, wc, sb, sc] */
+function dampedPoles(hw, w, Id, cd) {
+  const Ib = P.Ib, Ic = P.Ic, Ha = P.Ia * w + hw, Mb = Ib - Id, Mc = Ic - Id, g = cd / Id;
+  const rb = [0, -(Ha - Ic * w) / Mb, cd / Mb, w * Id / Mb];
+  const rc = [-(Ib * w - Ha) / Mc, 0, -w * Id / Mc, cd / Mc];
+  const A = [rb, rc, [-rb[0], -rb[1], -g - rb[2], -rb[3]], [-rc[0], -rc[1], -rc[2], -g - rc[3]]];
+  const z = polyRoots(charPoly(A));
+  let best = z[0];
+  z.forEach((r) => { if (r.re > best.re) best = r; });
+  return { roots: z, lead: best, maxRe: best.re };
+}
+/* the operating point a lane ends at: in spin-up, Ia wa + hs is conserved, so wa falls as the wheel speeds up */
+const waAfter = (target) => (S.start === 'spinup' ? S.wa - target / P.Ia : S.wa);
+function analyzeAt(hw, w) {
+  const rp = rigidPoles(hw, w), zone = zoneOf(hw, w);
+  const rigid = zone === 'none' ? 'drifts' : rp.p2 > 1e-14 ? 'unstable' : 'marginal';
+  const out = { hw, w, Iap: w !== 0 ? P.Ia + hw / w : NaN, zone, rigid, ...rp };
+  if (P.Id > 0) {
+    const dp = dampedPoles(hw, w, P.Id, P.cd), tol = 1e-7;
+    out.damped = dp;
+    out.dverd = dp.maxRe < -tol ? 'settles' : dp.maxRe > tol ? (rp.p2 > 1e-14 ? 'unstable' : 'grows') : 'drifts';
+  }
+  return out;
+}
+function derive() {
+  const I = S.I.slice(), a = S.ax, b = (a + 1) % 3, c = (a + 2) % 3;
+  P = { I, a, b, c, Ia: I[a], Ib: I[b], Ic: I[c] };
+  P.Is = Math.min(S.Is, 0.5 * P.Ia);
+  P.IdMax = 0.2 * Math.min(P.Ib, P.Ic);
+  P.Id = S.damp ? Math.min(S.Id, P.IdMax) : 0;
+  P.cd = S.damp ? S.cd : 0;
+  P.spin = S.start === 'spinup';
+  P.role = roleOf(I, a);
+  // a wheel spun up on a platform at rest leaves h = 0: there is nothing to nutate about
+  P.atRest = P.spin && S.wa === 0 && S.w0 === 0;
+  P.L = [0, 1, 2].map((r) => {
+    const target = S.hs[r];
+    // the motor changes the wheel's absolute axial momentum hw + Is wa at the rate gs; with Ia wa + hw fixed that is hw (1 - Is/Ia)
+    const Tm = P.spin && target !== 0 && S.gs > 0 ? Math.abs(target) * (1 - P.Is / P.Ia) / S.gs : 0;
+    const op = P.atRest ? { hw: target, w: waAfter(target), Iap: NaN, zone: 'rest', rigid: 'rest', prod: NaN, p2: NaN, freq: 0, grow: 0 } : analyzeAt(target, waAfter(target));
+    return { target, Tm, gsg: Math.sign(target) * S.gs, ws: target / P.Is, ...op };
+  });
+  P.tri = I[0] + I[1] >= I[2] && I[1] + I[2] >= I[0] && I[2] + I[0] >= I[1];
+}
+
+/* ---------- three runs, one integrator ----------
+   y = [qw, qx, qy, qz, w1, w2, w3, hw, sb, sc]; hw = Is ws is the wheel's spin momentum relative to the platform,
+   sb and sc the damper rotors' rates relative to the platform */
+const NY = 10;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 0.05;
+const H0 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], HA0 = [0, 0, 0], SG0 = [1, 1, 1];
+const XH = [0, 0, 0], HB = [0, 0, 0];
+function deriv(r, y, out, t) {
+  const qw = y[0], qx = y[1], qy = y[2], qz = y[3], w1 = y[4], w2 = y[5], w3 = y[6];
+  out[0] = -0.5 * (qx * w1 + qy * w2 + qz * w3);
+  out[1] = 0.5 * (qw * w1 + qy * w3 - qz * w2);
+  out[2] = 0.5 * (qw * w2 + qz * w1 - qx * w3);
+  out[3] = 0.5 * (qw * w3 + qx * w2 - qy * w1);
+  const I = P.I, a = P.a, b = P.b, c = P.c, Id = P.Id, cd = P.cd;
+  HB[0] = I[0] * w1; HB[1] = I[1] * w2; HB[2] = I[2] * w3;
+  HB[a] += y[7]; HB[b] += Id * y[8]; HB[c] += Id * y[9];
+  XH[0] = w2 * HB[2] - w3 * HB[1]; XH[1] = w3 * HB[0] - w1 * HB[2]; XH[2] = w1 * HB[1] - w2 * HB[0];
+  // transverse axes: the rotors' friction is the only torque besides the gyroscopic one
+  out[4 + b] = (cd * y[8] - XH[b]) / (I[b] - Id);
+  out[4 + c] = (cd * y[9] - XH[c]) / (I[c] - Id);
+  // wheel axis: either a motor torque gs between wheel and platform, or the wheel held at constant speed
+  const L = P.L[r];
+  if (t < L.Tm) { out[4 + a] = (-XH[a] - L.gsg) / (I[a] - P.Is); out[7] = L.gsg - P.Is * out[4 + a]; }
+  else { out[4 + a] = -XH[a] / I[a]; out[7] = 0; }
+  if (Id > 0) { out[8] = -cd * y[8] / Id - out[4 + b]; out[9] = -cd * y[9] / Id - out[4 + c]; }
+  else { out[8] = 0; out[9] = 0; }
+}
+/* the motor's mode is set once per step, at its midpoint; the steps are split where a motor cuts off */
+function rk4(r, h, t) {
+  const Y = Ys[r], tm = t + 0.5 * h;
+  deriv(r, Y, K1, tm);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, K2, tm);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, K3, tm);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, K4, tm);
+  for (let i = 0; i < NY; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[0], Y[1], Y[2], Y[3]);
+  Y[0] /= n; Y[1] /= n; Y[2] /= n; Y[3] /= n;
+}
+/* measurements of one run */
+const qOf = (r) => { const Y = Ys[r]; return [Y[0], Y[1], Y[2], Y[3]]; };
+function hBody(r) {
+  const Y = Ys[r], h = [P.I[0] * Y[4], P.I[1] * Y[5], P.I[2] * Y[6]];
+  h[P.a] += Y[7]; h[P.b] += P.Id * Y[8]; h[P.c] += P.Id * Y[9];
+  return h;
+}
+const hInertial = (r) => qrot(qOf(r), hBody(r));
+const unit = (i) => { const e = [0, 0, 0]; e[i] = 1; return e; };
+const sInertial = (r) => qrot(qOf(r), unit(P.a));
+/* display frame: the wheel axis a goes up the screen, with b and c across, a cyclic (proper) relabelling */
+const disp = (v) => [v[P.b], v[P.c], v[P.a]];
+const hScale = (r) => Math.abs(P.I[P.a] * Ys[r][4 + P.a]) + Math.abs(Ys[r][7]) + 1e-9;
+/* nutation: the angle from the wheel axis to the line of h, on the side h started on */
+function nutation(r) {
+  const h = hBody(r), n = Math.hypot(h[0], h[1], h[2]);
+  if (n < 1e-7 * hScale(r)) return NaN;
+  return Math.acos(clamp(SG0[r] * h[P.a] / n, -1, 1));
+}
+const pointing = (r) => Math.acos(clamp(sInertial(r)[P.a], -1, 1));
+function hLine(r) {
+  const h = disp(hInertial(r)), n = Math.hypot(h[0], h[1], h[2]);
+  if (n < 1e-7 * hScale(r)) return null;
+  const s = h[2] < 0 ? -1 / n : 1 / n;
+  return [h[0] * s, h[1] * s, h[2] * s];
+}
+/* motor torque on the wheel right now: gs = d(hw)/dt + Is d(wa)/dt */
+const DV = new Float64Array(NY);
+function gsNow(r) { deriv(r, Ys[r], DV, simT); return DV[7] + P.Is * DV[4 + P.a]; }
+/* the scalar Euler equations of the notes, term by term, for one run */
+function termsOf(r) {
+  const Y = Ys[r], w = [Y[4], Y[5], Y[6]], I = P.I, hw = Y[7], s = unit(P.a);
+  deriv(r, Y, DV, simT);
+  return [0, 1, 2].map((i) => {
+    const j = (i + 1) % 3, k = (i + 2) % 3;
+    const rigid = (I[j] - I[k]) * w[j] * w[k];
+    const react = -s[i] * DV[7];
+    const gyro = hw * (s[j] * w[k] - s[k] * w[j]);
+    const lhs = I[i] * DV[4 + i];
+    return { rigid, react, gyro, damper: lhs - rigid - react - gyro, lhs };
+  });
+}
+
+/* ---------- history ---------- */
+const HCAP = 24000;
+const Ht = new Float64Array(HCAP);
+const HQ = { th: [], pt: [], wt: [], wa: [], hs: [], gs: [], hn: [], px: [], py: [] };
+Object.keys(HQ).forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 0.1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) {
+    Ht[j] = Ht[i];
+    Object.values(HQ).forEach((arr) => { for (let r = 0; r < 3; r++) arr[r][j] = arr[r][i]; });
+  }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], hb = hBody(r), xy = ppXY(disp(sInertial(r)));
+    HQ.th[r][i] = nutation(r) * R2D;
+    HQ.pt[r][i] = pointing(r) * R2D;
+    HQ.wt[r][i] = Math.hypot(Y[4 + P.b], Y[4 + P.c]);
+    HQ.wa[r][i] = Y[4 + P.a];
+    HQ.hs[r][i] = Y[7];
+    HQ.gs[r][i] = gsNow(r);
+    HQ.hn[r][i] = Math.hypot(hb[0], hb[1], hb[2]);
+    HQ.px[r][i] = xy[0]; HQ.py[r][i] = xy[1];
+    const m = PPX[r];
+    if (simT > 0) { m.x0 = Math.min(m.x0, xy[0]); m.x1 = Math.max(m.x1, xy[0]); m.y0 = Math.min(m.y0, xy[1]); m.y1 = Math.max(m.y1, xy[1]); }
+  }
+}
+/* extremes of each run's pointing track, for the ellipse check */
+const PPX = [0, 1, 2].map(() => ({}));
+/* upward zero crossings of the body rate about b, to measure the nutation period */
+const XING = [[], [], []], WBprev = [0, 0, 0];
+/* 3D trace rings: raw wheel-axis directions in the display frame */
+const TRAIL_MAX = 5000;
+const rings = [0, 1, 2].map(() => ({ buf: new Float32Array(TRAIL_MAX * 3), n: 0, head: 0 }));
+let ringThr = 1e-4;
+function ringPush(r, p) {
+  const rg = rings[r];
+  if (rg.n > 0) {
+    const j = ((rg.head - 1 + TRAIL_MAX) % TRAIL_MAX) * 3;
+    if (Math.hypot(p[0] - rg.buf[j], p[1] - rg.buf[j + 1], p[2] - rg.buf[j + 2]) < ringThr) return;
+  }
+  const j = rg.head * 3; rg.buf[j] = p[0]; rg.buf[j + 1] = p[1]; rg.buf[j + 2] = p[2];
+  rg.head = (rg.head + 1) % TRAIL_MAX; if (rg.n < TRAIL_MAX) rg.n++;
+}
+function record(force) {
+  for (let r = 0; r < 3; r++) ringPush(r, disp(sInertial(r)));
+  histPush(force);
+}
+function advance(dt) {
+  let rem = dt, guard = 0;
+  while (rem > 1e-12 && guard++ < 10) {
+    // split the step where a motor reaches its wheel speed
+    let te = Infinity;
+    P.L.forEach((L) => { if (L.Tm > simT + 1e-12 && L.Tm < te) te = L.Tm; });
+    const span = Math.min(rem, te - simT);
+    const n = Math.min(60000, Math.max(1, Math.ceil(span / hStep)));
+    const h = span / n;
+    for (let i = 0; i < n; i++) {
+      for (let r = 0; r < 3; r++) {
+        rk4(r, h, simT);
+        const wb = Ys[r][4 + P.b];
+        if (WBprev[r] < 0 && wb >= 0) { const tx = simT + h * (-WBprev[r]) / (wb - WBprev[r]); XING[r].push(tx); if (XING[r].length > 8) XING[r].shift(); }
+        WBprev[r] = wb;
+      }
+      simT += h;
+      record(false);
+    }
+    if (Math.abs(simT - te) < 1e-9) { simT = te; record(true); }
+    rem -= span;
+  }
+}
+function measuredPeriod(r) {
+  const x = XING[r];
+  return x.length >= 3 ? (x[x.length - 1] - x[0]) / (x.length - 1) : NaN;
+}
+
+/* =========================================================
+   3D scene: one lane per run, side by side, wheel axis up
+   ========================================================= */
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const TRACE_R = 1.05, LANE = 2.3, BOX_L = 0.95;
+const exK = [1, 1, 1], wheelAng = [0, 0, 0];
+
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 80;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  const sideMat = new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  const topMat = new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  const edgeMat = new THREE.LineBasicMaterial();
+  const pMat = new THREE.MeshBasicMaterial();
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const rotMatA = new THREE.MeshPhongMaterial({ shininess: 60 }), rotMatB = new THREE.MeshPhongMaterial({ shininess: 60 });
+  const refMat = new THREE.LineDashedMaterial({ dashSize: 0.05, gapSize: 0.04 });
+  const traceMats = [0, 1, 2].map(() => new THREE.LineBasicMaterial());
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+  // the wheel: two half discs in contrasting colors so its turning shows, on an axle
+  const halfA = new THREE.CylinderGeometry(1, 1, 1, 32, 1, false, 0, Math.PI).rotateX(Math.PI / 2);
+  const halfB = new THREE.CylinderGeometry(1, 1, 1, 32, 1, false, Math.PI, Math.PI).rotateX(Math.PI / 2);
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    // BoxGeometry face order is +x, -x, +y, -y, +z, -z; the wheel sits on the +z face
+    const box = new THREE.Mesh(boxGeo, [sideMat, sideMat, sideMat, sideMat, topMat, topMat]);
+    const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    veh.add(box, edges);
+    const wheel = new THREE.Group(), spin = new THREE.Group();
+    spin.add(new THREE.Mesh(halfA, rotMatA), new THREE.Mesh(halfB, rotMatB));
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1).rotateX(Math.PI / 2), pMat);
+    wheel.add(spin, axle); veh.add(wheel);
+    const pAxes = [0, 1, 2].map(() => makeArrow(pMat, veh));
+    const hArrow = makeArrow(hMat, lane);
+    const traceGeo = new THREE.BufferGeometry();
+    traceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((TRAIL_MAX + 1) * 3), 3));
+    const trace = new THREE.Line(traceGeo, traceMats[r]); trace.frustumCulled = false; lane.add(trace);
+    const ref = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.5), new THREE.Vector3(0, 0, TRACE_R + 0.25)]), refMat);
+    ref.computeLineDistances(); lane.add(ref);
+    return { lane, veh, box, edges, wheel, spin, axle, pAxes, hArrow, trace };
+  });
+  const axisMat = new THREE.MeshBasicMaterial();
+  const triad = new THREE.Group(); scene.add(triad);
+  const axes = [0, 1, 2].map(() => makeArrow(axisMat, triad));
+  return { renderer, scene, cam, controls, hemi, sun, sideMat, topMat, edgeMat, pMat, hMat, rotMatA, rotMatB, refMat, traceMats, lanes, axisMat, triad, axes };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+let BOXD = [1, 1, 1];
+function updateVehicleGeometry() {
+  if (!G) return;
+  const d = disp(boxDims(P.I)).map((v) => v * BOX_L);
+  BOXD = d;
+  const wr = 0.4 * Math.min(d[0], d[1]), wt = 0.07;
+  G.lanes.forEach((L) => {
+    L.box.scale.set(d[0], d[1], d[2]); L.edges.scale.set(d[0], d[1], d[2]);
+    L.wheel.position.set(0, 0, d[2] / 2 + wt / 2 + 0.03);
+    L.spin.scale.set(wr, wr, wt);
+    L.axle.scale.set(0.022, 0.022, wt + 0.08);
+    setArrow(L.pAxes[0], V3([d[0] / 2, 0, 0]), V3([0.28, 0, 0]), 0.007, 0.022, 0.06);
+    setArrow(L.pAxes[1], V3([0, d[1] / 2, 0]), V3([0, 0.28, 0]), 0.007, 0.022, 0.06);
+    setArrow(L.pAxes[2], V3([0, 0, d[2] / 2 + wt + 0.04]), V3([0, 0, 0.3]), 0.008, 0.026, 0.07);
+  });
+  const ax = G.axes;
+  setArrow(ax[0], V3([0, 0, 0]), V3([0.55, 0, 0]), 0.005, 0.02, 0.06);
+  setArrow(ax[1], V3([0, 0, 0]), V3([0, 0.55, 0]), 0.005, 0.02, 0.06);
+  setArrow(ax[2], V3([0, 0, 0]), V3([0, 0, 0.55]), 0.005, 0.02, 0.06);
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.runs[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+/* exaggerate the tilt of a unit direction away from the nearer of +Z and -Z by factor k */
+function exaggerate(d, k) {
+  if (k === 1) return d;
+  const f = d[2] < 0 ? -1 : 1, e = [d[0] * f, d[1] * f, d[2] * f];
+  const tilt = Math.acos(clamp(e[2], -1, 1)), hz = Math.hypot(e[0], e[1]);
+  if (tilt < 1e-12 || hz < 1e-15) return d;
+  const t2 = Math.min(tilt * k, 85 * D2R);
+  return [f * Math.sin(t2) * e[0] / hz, f * Math.sin(t2) * e[1] / hz, f * Math.cos(t2)];
+}
+function renderQuat(q, k) {
+  const p = qrot(q, [0, 0, 1]), tilt = Math.acos(clamp(p[2], -1, 1)), hz = Math.hypot(p[0], p[1]);
+  if (k === 1 || tilt < 1e-12 || hz < 1e-15) return q;
+  const ax = -p[1] / hz, ay = p[0] / hz;
+  return qmul(qaa(ax, ay, 0, Math.min(tilt * k, 175 * D2R)), qmul(qconj(qaa(ax, ay, 0, tilt)), q));
+}
+const dispQuat = (q) => [q[0], q[1 + P.b], q[1 + P.c], q[1 + P.a]];
+/* the largest exaggeration that keeps a tilt under 30 degrees; it only ever comes down during a run */
+function niceK(maxTilt) {
+  if (S.exag === '1' || !(maxTilt > 0)) return 1;
+  const target = 30 * D2R, cands = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  let k = 1; for (const c of cands) if (c * maxTilt <= target) k = c;
+  return k;
+}
+function laneTilt(r) {
+  const s = disp(sInertial(r)), h = hLine(r);
+  return Math.max(Math.acos(clamp(Math.abs(s[2]), 0, 1)), h ? Math.acos(clamp(h[2], 0, 1)) : 0);
+}
+function updateExag() {
+  for (let r = 0; r < 3; r++) { const t = laneTilt(r); if (exK[r] > 1 && t * exK[r] > 50 * D2R) exK[r] = niceK(1.2 * t); }
+}
+const laneGeo = [{}, {}, {}];
+let hRef = 1, wsRef = 1;
+function updateDynamic(dtReal) {
+  const { off } = laneOffsets();
+  const first = off.find((v) => v != null);
+  G.triad.position.set(first - 1.35, -0.9, -0.75);
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.runs[r];
+    L.lane.visible = on;
+    if (!on) continue;
+    L.lane.position.set(0, off[r], 0);
+    const qr = renderQuat(dispQuat(qOf(r)), exK[r]);
+    L.veh.quaternion.set(qr[1], qr[2], qr[3], qr[0]);
+    L.pAxes.forEach((A) => { A.g.visible = S.show.axes; });
+    // the wheel, drawn slowed so a 1400 rpm wheel does not alias, turning the true way relative to the platform
+    if (S.playing && !reduceMotion) wheelAng[r] += Math.sign(Ys[r][7]) * 7 * Math.min(1, Math.abs(Ys[r][7]) / wsRef) * dtReal;
+    L.spin.rotation.z = wheelAng[r];
+    L.wheel.visible = P.L[r].target !== 0;
+    // trace
+    const rg = rings[r], pos = L.trace.geometry.attributes.position.array;
+    let o = 0;
+    for (let kk = rg.n; kk >= 1; kk--) {
+      const j = ((rg.head - kk + TRAIL_MAX) % TRAIL_MAX) * 3;
+      const d = exaggerate([rg.buf[j], rg.buf[j + 1], rg.buf[j + 2]], exK[r]);
+      pos[o++] = d[0] * TRACE_R; pos[o++] = d[1] * TRACE_R; pos[o++] = d[2] * TRACE_R;
+    }
+    L.trace.geometry.attributes.position.needsUpdate = true;
+    L.trace.geometry.setDrawRange(0, rg.n);
+    L.trace.visible = S.show.trace && rg.n > 1;
+    // h, direction exaggerated with the vehicle, length to scale across the runs
+    const h = disp(hInertial(r)), hn = Math.hypot(h[0], h[1], h[2]);
+    if (S.show.h && hn > 1e-7 * hScale(r)) {
+      const d = exaggerate([h[0] / hn, h[1] / hn, h[2] / hn], exK[r]);
+      const v = V3(d).multiplyScalar(Math.max(0.3, 1.35 * hn / hRef));
+      setArrow(L.hArrow, V3([0, 0, 0]), v, 0.014, 0.042, 0.11);
+      laneGeo[r].h = v.toArray();
+    } else { L.hArrow.g.visible = false; laneGeo[r].h = null; }
+    laneGeo[r].off = off[r];
+  }
+}
+
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')),
+  h: [0, 1, 2].map(() => mkLabel(SYM('h̄'), 'var(--hvec)', 'small')),
+};
+const laneLabelKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.15 || Math.abs(tmpV.y) > 1.15) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  for (let r = 0; r < 3; r++) {
+    const on = S.runs[r] && S.show.labels, g = laneGeo[r];
+    const html = `${laneHTML(r)}<span class="ex">${exK[r] === 1 ? 'true scale' : 'tilt ×' + exK[r]}</span>`;
+    if (html !== laneLabelKey[r]) { LB.lane[r].innerHTML = html; laneLabelKey[r] = html; }
+    if (on) placeLabel(LB.lane[r], [0, g.off, -1.25]); else LB.lane[r].hidden = true;
+    if (on && g.h) placeLabel(LB.h[r], [g.h[0] * 1.1, g.off + g.h[1] * 1.1, g.h[2] * 1.1], 12, 0); else LB.h[r].hidden = true;
+  }
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'paxis', 'hvec', 'axis', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'rotor', 'rotor-alt', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]);
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G.sideMat.color = C('hull'); G.topMat.color = C('hull-top'); G.edgeMat.color = C('edge');
+    G.pMat.color = C('paxis'); G.axisMat.color = C('axis');
+    G.hMat.color = C('hvec'); G.hMat.emissive = C('hvec').multiplyScalar(0.25);
+    G.rotMatA.color = C('rotor'); G.rotMatB.color = C('rotor-alt');
+    G.refMat.color = C('muted');
+    G.traceMats.forEach((m, r) => { m.color = C('run' + r); });
+  }
+  drawPlot(); drawPane();
+}
+
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_DIR = HAS3D ? new THREE.Vector3(1.0, 0.42, 0.5).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  const n = laneOffsets().n, rho = 1.4 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2);
+  const c = new THREE.Vector3(0, 0, 0.1);
+  G.controls.target.copy(c);
+  G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 30; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, 0, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(1, 0.0001, 0.08).normalize();
+  return ISO_DIR.clone();
+}
+
+/* =========================================================
+   Second pane: pointing plane, or the stability map in hs
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+const PP = { cx: 0, cy: 0, half: 1, auto: true, W: 1, H: 1 };
+/* a run whose axis wanders off for good is left out of the auto-fit, so the bounded ones stay readable */
+function unbounded(r) {
+  const L = P.L[r];
+  if (P.atRest) return false;
+  if (L.zone === 'none') return S.w0 > 0;
+  if (L.rigid === 'unstable') return true;
+  return P.Id > 0 && L.dverd === 'grows';
+}
+function ppBounds() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (x, y) => { if (!isFinite(x) || !isFinite(y)) return; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; };
+  add(0, 0);
+  const vis = [0, 1, 2].filter((r) => S.runs[r]), bnd = vis.filter((r) => !unbounded(r)), use = bnd.length ? bnd : vis;
+  const step = Math.max(1, Math.floor(hN / 3000));
+  use.forEach((r) => {
+    for (let i = 0; i < hN; i += step) add(HQ.px[r][i], HQ.py[r][i]);
+    if (hN) add(HQ.px[r][hN - 1], HQ.py[r][hN - 1]);
+    const e = biasEllipse(r);
+    if (e) { add(-e.ab * R2D, 0); add(e.ab * R2D, 2 * e.ac * R2D); }
+  });
+  if (!(x1 > x0) && !(y1 > y0)) { x0 = -0.5; x1 = 0.5; y0 = -0.5; y1 = 0.5; }
+  return { x0, x1, y0, y1, use };
+}
+function ppFit() {
+  const b = ppBounds();
+  PP.cx = 0.5 * (b.x0 + b.x1); PP.cy = 0.5 * (b.y0 + b.y1);
+  const a = PP.W / Math.max(1, PP.H);
+  PP.half = Math.max(0.5 * (b.x1 - b.x0) / a, 0.5 * (b.y1 - b.y0), 1e-3) * 1.25;
+  PP.auto = true;
+}
+function ppAutoExtend() {
+  if (!PP.auto || hN === 0) return;
+  const a = PP.W / Math.max(1, PP.H);
+  for (const r of ppBounds().use) {
+    const x = HQ.px[r][hN - 1], y = HQ.py[r][hN - 1];
+    if (Math.abs(x - PP.cx) > 0.95 * PP.half * a || Math.abs(y - PP.cy) > 0.95 * PP.half) { ppFit(); return; }
+  }
+}
+/* App. B: theta_b = (w0/wn) sin(wn t), theta_c = (w0 Ib/hs)(1 - cos(wn t)) */
+function biasEllipse(r) {
+  const L = P.L[r];
+  if (S.wa !== 0 || P.spin || L.zone !== 'bias' || !(S.w0 > 0)) return null;
+  const wn = Math.abs(L.target) / Math.sqrt(P.Ib * P.Ic);
+  return { wn, ab: S.w0 / wn, ac: S.w0 * P.Ib / L.target };
+}
+function drawPane() { if (S.pane === 'pp') drawPP(); else drawMap(); }
+function canvasSetup() {
+  const rect = ppCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (ppCv.width !== Math.round(W * dpr) || ppCv.height !== Math.round(H * dpr)) { ppCv.width = Math.round(W * dpr); ppCv.height = Math.round(H * dpr); }
+  PP.W = W; PP.H = H;
+  const ctx = pctx2; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.view || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { ctx, W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const MATH = 'italic 14px "STIX Two Text", Cambria, "Times New Roman", serif';
+function drawPP() {
+  const { ctx, W, H } = canvasSetup();
+  if (!COL.ink) return;
+  const s = (H / 2) / PP.half;
+  const X = (v) => W / 2 + (v - PP.cx) * s, Yp = (v) => H / 2 - (v - PP.cy) * s;
+  const xmin = PP.cx - W / 2 / s, xmax = PP.cx + W / 2 / s, ymin = PP.cy - PP.half, ymax = PP.cy + PP.half;
+  const step = niceStep(2 * PP.half, H / 60), dec = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.7; ctx.beginPath();
+  ctx.moveTo(Math.round(X(0)) + 0.5, 0); ctx.lineTo(Math.round(X(0)) + 0.5, H); ctx.moveTo(0, Math.round(Yp(0)) + 0.5); ctx.lineTo(W, Math.round(Yp(0)) + 0.5);
+  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) ctx.fillText(fx(v, dec), X(v), H - 50);
+  ctx.textAlign = 'left';
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Yp(v); if (y > 46 && y < H - 62) ctx.fillText(fx(v, dec), 4, y); }
+  ctx.font = MATH; ctx.fillStyle = COL.ink;
+  const y0p = Yp(0), x0p = X(0);
+  if (y0p > 46 && y0p < H - 46) { ctx.textAlign = 'right'; ctx.fillText('θ' + SUBD[P.b], W - 8, y0p - 10); }
+  if (x0p > 30 && x0p < W - 30) { ctx.textAlign = 'left'; ctx.fillText('θ' + SUBD[P.c], x0p + 7, 50); }
+  ctx.font = MONO;
+  // the analytic App. B loop
+  for (let r = 0; r < 3; r++) {
+    const e = S.runs[r] && biasEllipse(r);
+    if (!e) continue;
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]); ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.ellipse(X(0), Yp(e.ac * R2D), Math.abs(e.ab * R2D * s), Math.abs(e.ac * R2D * s), 0, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  // each run's track, with an arrow at the edge when it has run off the pane
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r] || hN < 1) continue;
+    const ax = HQ.px[r], ay = HQ.py[r];
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.6; ctx.beginPath();
+    let lx = X(ax[0]), ly = Yp(ay[0]); ctx.moveTo(lx, ly);
+    for (let i = 1; i < hN; i++) {
+      const x = X(ax[i]), y = Yp(ay[i]);
+      if (Math.abs(x - lx) + Math.abs(y - ly) < 0.6 && i < hN - 1) continue;
+      ctx.lineTo(x, y); lx = x; ly = y;
+    }
+    ctx.stroke();
+    const cxp = X(ax[hN - 1]), cyp = Yp(ay[hN - 1]);
+    if (cxp > 0 && cxp < W && cyp > 0 && cyp < H) { ctx.fillStyle = COL['run' + r]; ctx.beginPath(); ctx.arc(cxp, cyp, 4.2, 0, TAU); ctx.fill(); }
+    else {
+      const ang = Math.atan2(cyp - H / 2, cxp - W / 2), ex = clamp(W / 2 + Math.cos(ang) * W, 44, W - 14), ey = clamp(H / 2 + Math.sin(ang) * H, 40, H - 66);
+      ctx.fillStyle = COL['run' + r]; ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill(); ctx.restore();
+      const off = Math.hypot(ax[hN - 1], ay[hN - 1]);
+      ctx.textAlign = ex > W / 2 ? 'right' : 'left'; ctx.fillText(`${fg(off, 3)}°`, ex + (ex > W / 2 ? -12 : 12), ey + (ey > H / 2 ? -12 : 12));
+    }
+    // the line of h
+    const hl = hLine(r);
+    if (hl) {
+      const p = ppXY(hl), x = X(p[0]), y = Yp(p[1]);
+      ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x - 5, y + 5); ctx.lineTo(x + 5, y - 5); ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(0), Yp(0), 6, 0, TAU); ctx.stroke();
+}
+/* the map's wheel momentum axis, and the spin rate along it (spin-up conserves Ia wa + hs) */
+const mapWa = (hw) => (P.spin ? S.wa - hw / P.Ia : S.wa);
+function mapRange() {
+  const xs = [0, ...S.hs];
+  if (!P.spin && S.wa !== 0) xs.push((P.Ib - P.Ia) * S.wa, (P.Ic - P.Ia) * S.wa, -P.Ia * S.wa);
+  let lo = Math.min(...xs), hi = Math.max(...xs);
+  const pad = 0.15 * (hi - lo) + 10;
+  return [lo - pad, hi + pad];
+}
+const ZC = { major: 'good', neg: 'good', bias: 'good', minor: 'warn', band: 'bad', none: 'bad' };
+function drawMap() {
+  const { ctx, W, H } = canvasSetup();
+  if (!COL.ink) return;
+  const m = { l: 58, r: 18, t: 84, b: 92 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 60 || ph < 40) return;
+  ctx.font = MONO; ctx.textBaseline = 'middle';
+  if (P.atRest) {
+    ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; ctx.font = '600 14px "Barlow Semi Condensed", Arial, sans-serif';
+    ctx.fillText('The platform starts at rest, so h̄ stays zero:', W / 2, H / 2 - 10);
+    ctx.fillText('there is no spin to stabilize. Watch ωₐ and hₛ.', W / 2, H / 2 + 10);
+    return;
+  }
+  const [x0, x1] = mapRange();
+  const X = (v) => m.l + (v - x0) / (x1 - x0) * pw;
+  // the pole curve, sampled per pixel column
+  const N = Math.max(60, Math.round(pw));
+  const pts = [];
+  let ymax = 0;
+  for (let i = 0; i <= N; i++) {
+    const hw = x0 + (x1 - x0) * i / N, w = mapWa(hw), rp = rigidPoles(hw, w);
+    pts.push({ hw, zone: zoneOf(hw, w), f: rp.freq, g: rp.grow });
+    ymax = Math.max(ymax, rp.freq, rp.grow);
+  }
+  P.L.forEach((L, r) => { if (S.runs[r]) ymax = Math.max(ymax, L.freq, L.grow); });
+  ymax = Math.max(ymax * 1.12, 1e-3);
+  const Yp = (v) => m.t + (1 - v / ymax) * ph;
+  // zone strip and tint
+  const stripY = m.t - 34, stripH = 24;
+  let i0 = 0;
+  for (let i = 1; i <= N + 1; i++) {
+    if (i <= N && pts[i].zone === pts[i0].zone) continue;
+    const xa = X(pts[i0].hw), xb = X(pts[Math.min(i, N)].hw), col = COL[ZC[pts[i0].zone]];
+    ctx.fillStyle = col; ctx.globalAlpha = 0.22; ctx.fillRect(xa, stripY, xb - xa, stripH);
+    ctx.globalAlpha = 0.06; ctx.fillRect(xa, m.t, xb - xa, ph); ctx.globalAlpha = 1;
+    // zone name, or its short form when the zone is narrow
+    const z = ZONE[pts[i0].zone];
+    ctx.font = '600 12.5px "Barlow Semi Condensed", Arial, sans-serif'; ctx.fillStyle = col; ctx.textAlign = 'center';
+    const txt = xb - xa > ctx.measureText(z.name).width + 8 ? z.name : xb - xa > ctx.measureText(z.short).width + 6 ? z.short : '';
+    if (txt) ctx.fillText(txt, (xa + xb) / 2, stripY + stripH / 2);
+    ctx.font = MONO;
+    if (i <= N) {
+      // boundary tick with its value
+      const xv = X(pts[i].hw);
+      ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(xv) + 0.5, stripY); ctx.lineTo(Math.round(xv) + 0.5, m.t + ph); ctx.stroke(); ctx.setLineDash([]);
+    }
+    i0 = i;
+  }
+  // exact band edges for the label row
+  const edges = [];
+  for (let i = 1; i <= N; i++) if (pts[i].zone !== pts[i - 1].zone) {
+    let a = pts[i - 1].hw, b = pts[i].hw;
+    const za = pts[i - 1].zone;
+    for (let k = 0; k < 40; k++) { const mid = 0.5 * (a + b); if (zoneOf(mid, mapWa(mid)) === za) a = mid; else b = mid; }
+    edges.push(0.5 * (a + b));
+  }
+  // axes
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  const yt = ticksOf(0, ymax, ph / 32);
+  ctx.beginPath(); yt.v.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); }); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), m.l - 6, Yp(v)));
+  const xt = ticksOf(x0, x1, pw / 70);
+  ctx.textAlign = 'center'; xt.v.forEach((v) => { if (!edges.some((e) => Math.abs(X(e) - X(v)) < 24)) ctx.fillText(fx(v, xt.d), X(v), m.t + ph + 12); });
+  ctx.fillStyle = COL.ink; ctx.font = '600 11.5px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  edges.forEach((v, k) => { ctx.fillText(fh(Math.round(v * 10) / 10), X(v), m.t + ph + 12 + (k % 2) * 14); });
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText('|s|, 1/s', 6, m.t - 48);
+  ctx.fillText('hₛ, N·m·s', m.l, m.t + ph + 40);
+  // curves: nutation frequency solid, growth rate dashed
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  const run = (key, color, dash) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.setLineDash(dash); ctx.beginPath();
+    let on = false;
+    pts.forEach((p) => { const v = p[key]; if (v > 0) { const x = X(p.hw), y = Yp(v); if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; } else on = false; });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  run('f', COL.ink, []); run('g', COL.bad, [6, 4]);
+  // the runs
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r]) continue;
+    const L = P.L[r], hw = P.spin ? Ys[r][7] : L.target, rp = rigidPoles(hw, mapWa(hw));
+    const x = X(hw), v = rp.freq || rp.grow;
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); ctx.stroke();
+    ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, Yp(v), 6 - r * 0.6, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+  // key
+  ctx.textAlign = 'left'; ctx.font = MONO;
+  const ky = m.t - 48;
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(m.l + 70, ky); ctx.lineTo(m.l + 88, ky); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.fillText('nutation freq.', m.l + 93, ky);
+  ctx.strokeStyle = COL.bad; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(m.l + 196, ky); ctx.lineTo(m.l + 214, ky); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillText('growth rate', m.l + 219, ky);
+}
+(function ppInteractions() {
+  const ptrs = new Map(); let drag = null, pinch = null;
+  ppCv.addEventListener('pointerdown', (e) => {
+    if (S.pane !== 'pp') return;
+    ppCv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (ptrs.size === 1) drag = { x: e.offsetX, y: e.offsetY, cx: PP.cx, cy: PP.cy };
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), half: PP.half }; drag = null; }
+  });
+  ppCv.addEventListener('pointermove', (e) => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; PP.half = pinch.half * pinch.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)); PP.auto = false; return; }
+    if (drag) { const s = (PP.H / 2) / PP.half; PP.cx = drag.cx - (e.offsetX - drag.x) / s; PP.cy = drag.cy + (e.offsetY - drag.y) / s; if (Math.abs(e.offsetX - drag.x) + Math.abs(e.offsetY - drag.y) > 3) PP.auto = false; }
+  });
+  const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) drag = null; };
+  ppCv.addEventListener('pointerup', end); ppCv.addEventListener('pointercancel', end);
+  ppCv.addEventListener('wheel', (e) => {
+    if (S.pane !== 'pp') return;
+    e.preventDefault();
+    const unitPx = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unitPx, -300, 300) * 0.0018);
+    const s = (PP.H / 2) / PP.half;
+    const mx = PP.cx + (e.offsetX - PP.W / 2) / s, my = PP.cy - (e.offsetY - PP.H / 2) / s;
+    PP.half *= f; PP.cx = mx + (PP.cx - mx) * f; PP.cy = my + (PP.cy - my) * f; PP.auto = false;
+  }, { passive: false });
+  ppCv.addEventListener('dblclick', () => ppFit());
+})();
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'th', hoverX: null, m: { l: 58, r: 16, t: 20, b: 24 }, W: 1, H: 1 };
+const QINFO = {
+  th: { unit: 'deg', name: 'θ', d: 4, zero: true },
+  pt: { unit: 'deg', name: 'pointing', d: 4, zero: true },
+  wt: { unit: 'rad/s', name: '|ωt|', d: 5, zero: true },
+  wa: { unit: 'ωa, rad/s', name: 'ωa', d: 5 },
+  hs: { unit: 'hs, N·m·s', name: 'hs', d: 3 },
+  gs: { unit: 'gs, N·m', name: 'gs', d: 4 },
+  hn: { unit: '|h|, N·m·s', name: '|h|', d: 4 },
+};
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+const logOn = () => S.logY && (PL.q === 'th' || PL.q === 'pt' || PL.q === 'wt');
+function setLegend() {
+  el('hlegs').innerHTML = [0, 1, 2].filter((r) => S.runs[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${laneHTML(r)}</span>`).join('');
+  el('logBtn').hidden = !(PL.q === 'th' || PL.q === 'pt' || PL.q === 'wt');
+  el('logBtn').setAttribute('aria-pressed', String(S.logY));
+}
+function frameAxes(ctx, W, H, x0, x1, y0, y1, xlab, ylab, logy) {
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw;
+  const L0 = Math.log10(y0), L1 = Math.log10(y1);
+  const Yp = logy ? (v) => t + (L1 - Math.log10(Math.max(v, y0 * 1e-3))) / (L1 - L0) * ph : (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  let yv, yd;
+  if (logy) { yv = []; for (let e = Math.ceil(L0 - 1e-9); e <= Math.floor(L1 + 1e-9); e++) yv.push(Math.pow(10, e)); }
+  else { const yt = ticksOf(y0, y1, ph / 30); yv = yt.v; yd = yt.d; }
+  const xt = ticksOf(x0, x1, pw / 80);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yv.forEach((v) => ctx.fillText(logy ? (v >= 1 ? String(Math.round(v)) : String(+v.toPrecision(1))) : fx(v, yd), l - 6, Yp(v)));
+  if (!logy && y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(ylab, 6, 9); ctx.fillText(xlab, 6, t + ph + 12);
+  return { X, Yp, pw, ph, l, t };
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  if (!COL.ink) return;
+  if (W - PL.m.l - PL.m.r < 40 || H - PL.m.t - PL.m.b < 30) return;
+  const info = QINFO[PL.q], arrs = HQ[PL.q], logy = logOn();
+  const x0 = 0, x1 = Math.max(simT, S.tEnd, 1);
+  let mn = Infinity, mx = -Infinity, mnPos = Infinity;
+  for (let r = 0; r < 3; r++) { if (!S.runs[r]) continue; for (let i = 0; i < hN; i++) { const v = arrs[r][i]; if (v < mn) mn = v; if (v > mx) mx = v; if (v > 0 && v < mnPos) mnPos = v; } }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let y0, y1;
+  if (logy) {
+    if (!isFinite(mnPos)) mnPos = 1e-3;
+    y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(mx, mnPos * 10)) + 1e-9));
+    y0 = Math.max(Math.pow(10, Math.floor(Math.log10(mnPos))), y1 * 1e-6);
+  } else {
+    if (info.zero) mn = Math.min(mn, 0);
+    let span = mx - mn; if (span < 1e-9) span = Math.max(Math.abs(mx) * 0.1, 1e-4);
+    y0 = info.zero && mn >= 0 ? 0 : mn - 0.1 * span; y1 = mx + 0.1 * span;
+  }
+  const A = frameAxes(ctx, W, H, x0, x1, y0, y1, 't, s', info.unit, logy);
+  const { X, Yp, pw, ph, l, t } = A;
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  // spin-up intervals
+  if (P.spin) P.L.forEach((L, r) => { if (S.runs[r] && L.Tm > 0) { ctx.fillStyle = COL['run' + r]; ctx.globalAlpha = 0.06; ctx.fillRect(X(0), t, X(L.Tm) - X(0), ph); ctx.globalAlpha = 1; } });
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r] || hN < 2) continue;
+    const a = arrs[r];
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.8; ctx.beginPath();
+    if (hN <= pw * 2) {
+      let on = false;
+      for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) { on = false; continue; } const x = X(Ht[i]), y = Yp(v); if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; }
+    } else {
+      let px = null, lo = 0, hi = 0, ly = 0;
+      for (let i = 0; i < hN; i++) {
+        if (!isFinite(a[i])) continue;
+        const x = Math.floor(X(Ht[i])), y = Yp(a[i]);
+        if (x !== px) { if (px === null) ctx.moveTo(x, y); else { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); } px = x; lo = hi = y; }
+        else { if (y < lo) lo = y; if (y > hi) hi = y; }
+        ly = y;
+      }
+      if (px !== null) { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); }
+    }
+    ctx.stroke();
+  }
+  const xc = Math.round(X(simT)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = x0 + (PL.hoverX - l) / pw * (x1 - x0);
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`t ${fx(Ht[i], 1)} s`, COL.ink]];
+    for (let r = 0; r < 3; r++) {
+      if (!S.runs[r]) continue;
+      lines.push([`${laneText(r)}  ${fs(arrs[r][i], info.d)}`, COL['run' + r]]);
+      if (isFinite(arrs[r][i])) { ctx.fillStyle = COL['run' + r]; ctx.beginPath(); ctx.arc(x, Yp(arrs[r][i]), 3.2, 0, TAU); ctx.fill(); }
+    }
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    const by = t + 4;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, by + 12 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function laneHTML(r) {
+  const v = P.L ? P.L[r].target : S.hs[r];
+  if (v === 0) return 'No wheel';
+  return `<span>${HS} ${P.spin ? '→' : '='} ${fh(v)}</span>`;
+}
+const laneText = (r) => (S.hs[r] === 0 ? 'No wheel' : `hs ${fh(S.hs[r])}`);
+const laneShort = (r) => (S.hs[r] === 0 ? 'None' : fh(S.hs[r]));
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+function poleText(L) {
+  if (L.zone === 'rest') return '—';
+  if (L.zone === 'none') return '0, 0';
+  return L.p2 < 0 ? `±j${fc(L.freq, 3)}` : L.p2 > 0 ? `±${fc(L.grow, 3)}` : '0';
+}
+function timeText(L) {
+  if (L.zone === 'rest') return '—';
+  if (L.zone === 'none') return 'drifts';
+  if (L.p2 < 0) return `${fg(TAU / L.freq, 3)} s`;
+  if (L.p2 > 0) return `${fg(1 / L.grow, 2)} s`;
+  return '—';
+}
+function dampText(L) {
+  if (!L.damped) return '—';
+  const re = L.damped.maxRe;
+  const t = (x) => fg(x, x < 10 ? 2 : 3);
+  if (L.dverd === 'settles') return `τ ${t(-1 / re)} s`;
+  if (L.dverd === 'grows' || L.dverd === 'unstable') return `×2 ${t(Math.LN2 / re)} s`;
+  return 'drifts';
+}
+const RIG = { marginal: ['ok', 'marginal'], unstable: ['bad', 'unstable'], drifts: ['bad', 'drifts'], rest: ['na', '—'] };
+const DMP = { settles: ['ok', 'settles'], grows: ['bad', 'grows'], unstable: ['bad', 'unstable'], drifts: ['warn', 'drifts'] };
+function setStatic() {
+  const cols = [0, 1, 2];
+  const head = `<tr><th>Run</th>${cols.map((r) => `<th style="--c:var(--run${r})">${laneShort(r)}</th>`).join('')}</tr>`;
+  el('laneHead').innerHTML = head;
+  const row = (label, f, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td>${cols.map((r) => f(P.L[r], r)).join('')}</tr>`;
+  const td = (v, c) => `<td${c ? ` class="${c}"` : ''}>${v}</td>`;
+  let rows = '';
+  rows += row(`${HS} <span class="u">N·m·s</span>`, (L) => td(fh(L.target)));
+  rows += row(`${SYM('ω<sub>s</sub>')} <span class="u">rpm</span>`, (L) => td(fx(L.ws * 60 / TAU, 0)));
+  if (P.spin) rows += row(`${SYM('ω<sub>a</sub>')} after spin-up <span class="u">rad/s</span>`, (L) => td(fs(L.w, 4)));
+  rows += row(`${IAP} <span class="u">kg·m²</span>`, (L) => td(isFinite(L.Iap) ? fg(L.Iap, 4) : '—'));
+  rows += row('Zone', (L) => td(ST(ZONE[L.zone].s, ZONE[L.zone].short)));
+  rows += row('Momentum product', (L) => td(fc(L.prod, 4), L.prod < 0 ? 'bad' : ''));
+  rows += row(`Rigid poles ${SYM('s')} <span class="u">1/s</span>`, (L) => td(poleText(L)));
+  rows += row('Period, or e-fold time', (L) => td(timeText(L), L.p2 > 0 ? 'bad' : ''));
+  rows += row('Rigid', (L) => td(ST(...RIG[L.rigid])));
+  rows += row('With damper', (L) => td(L.damped ? ST(...DMP[L.dverd]) : '<span class="st" data-s="na">off</span>'));
+  if (P.Id > 0) rows += row('Damped: τ, or ×2 time', (L) => td(dampText(L), L.dverd === 'settles' ? 'good' : 'bad'));
+  rows += row(`${SYM('θ')} now <span class="u">deg</span>`, (L, r) => `<td id="o_th${r}"></td>`, 'sep');
+  rows += row(`Pointing now <span class="u">deg</span>`, (L, r) => `<td id="o_pt${r}"></td>`);
+  rows += row(`${SYM('g<sub>s</sub>')} now <span class="u">N·m</span>`, (L, r) => `<td id="o_gs${r}"></td>`);
+  el('laneBody').innerHTML = rows;
+  el('laneNote').innerHTML = P.spin
+    ? `In spin-up, ${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} stays fixed, so the analysis is for the speed each wheel ends at. ${SYM('θ')} is the angle from the wheel axis to ${SYM('h̄')}.`
+    : `${HS} is the wheel's spin momentum relative to the platform, positive when it spins the same way as the vehicle. The momentum product is (${HS} + (${SYM('I<sub>a</sub>')} − ${SYM('I<sub>b</sub>')})${SYM('ω<sub>a</sub>')})(${HS} + (${SYM('I<sub>a</sub>')} − ${SYM('I<sub>c</sub>')})${SYM('ω<sub>a</sub>')}); the rigid spin is stable when it is positive.`;
+
+  // stability band
+  const showBand = S.wa !== 0 || P.spin;
+  el('bandGrp').hidden = !showBand || P.atRest;
+  if (showBand && !P.atRest) {
+    const a = P.a, b = P.b, c = P.c;
+    el('bandUnit').innerHTML = `spin about <span class="sym">p̂</span>${SUBD[a]}, ${SYM('ω<sub>a</sub>')} = ${fx(S.wa, 3)} rad/s`;
+    // zone intervals along the hs axis (along the spin-up path in spin-up)
+    const [x0, x1] = [-1e4, 1e4];
+    const cuts = [];
+    const N = 4000;
+    let zp = zoneOf(x0, mapWa(x0)), from = -Infinity;
+    for (let i = 1; i <= N; i++) {
+      const hw = x0 + (x1 - x0) * i / N, z = zoneOf(hw, mapWa(hw));
+      if (z !== zp) {
+        let lo = x0 + (x1 - x0) * (i - 1) / N, hi = hw;
+        for (let k = 0; k < 50; k++) { const mid = 0.5 * (lo + hi); if (zoneOf(mid, mapWa(mid)) === zp) lo = mid; else hi = mid; }
+        const e = 0.5 * (lo + hi);
+        cuts.push([zp, from, e]); from = e; zp = z;
+      }
+    }
+    cuts.push([zp, from, Infinity]);
+    const rng = (lo, hi) => (lo === -Infinity ? `${HS} &lt; ${fh(+hi.toFixed(1))}` : hi === Infinity ? `${HS} &gt; ${fh(+lo.toFixed(1))}` : `${fh(+lo.toFixed(1))} … ${fh(+hi.toFixed(1))}`);
+    const desc = { major: `${IAP} is the largest inertia: marginal, and settles with dissipation`, neg: `the wheel carries more momentum than the vehicle and opposes it: settles with dissipation`, minor: `${IAP} is the smallest: marginal when rigid, grows with dissipation`, band: `${IAP} lies between ${SYM('I<sub>b</sub>')} and ${SYM('I<sub>c</sub>')}: real poles, the spin is lost` };
+    el('zoneList').innerHTML = cuts.map(([z, lo, hi]) => `<li style="--zc:var(--${ZC[z]})"><span>${ZONE[z].name}</span><span class="r">${rng(lo, hi)}</span><span class="d">${desc[z] || ''}</span></li>`).join('');
+    const p0 = rigidPoles(0, S.wa);
+    const need = (Math.max(P.Ib, P.Ic) - P.Ia) * S.wa;
+    el('bandNote').innerHTML = P.spin
+      ? `Along the spin-up, ${SYM('ω<sub>a</sub>')} = ${SYM('ω<sub>a</sub>')}(0) − ${HS}/${SYM('I<sub>a</sub>')}, so the edges differ from the band at constant ${SYM('ω<sub>a</sub>')}.`
+      : `Spin axis is the ${P.role} axis (${SYM('I<sub>a</sub>')} = ${fg(P.Ia, 4)}). With no wheel the poles are ${p0.p2 > 0 ? '±' + fg(p0.grow, 3) + ' s⁻¹: unstable' : '±j' + fg(p0.freq, 3) + ' s⁻¹'}. To survive dissipation the wheel needs ${HS} ${S.wa > 0 ? '&gt;' : '&lt;'} (${SYM('I<sub>max</sub>')} − ${SYM('I<sub>a</sub>')})${SYM('ω<sub>a</sub>')} = ${fh(+need.toFixed(2))} N·m·s.`;
+  }
+
+  // momentum bias
+  const showBias = S.wa === 0 && !P.spin;
+  el('biasGrp').hidden = !showBias;
+  if (showBias) {
+    el('biasHead').innerHTML = head;
+    let br = '';
+    const bt = (L, r, f) => { const e = biasEllipse(r); return td(e ? f(e) : L.zone === 'none' ? '—' : '—'); };
+    br += row(`${SYM('ω<sub>n</sub>')} = ${HS}/√(${SYM('I<sub>b</sub>I<sub>c</sub>')}) <span class="u">rad/s</span>`, (L) => td(L.zone === 'bias' ? fg(L.freq, 3) : '0'));
+    br += row('Period <span class="u">s</span>', (L) => td(L.zone === 'bias' ? fg(TAU / L.freq, 3) : '∞'));
+    br += row(`${SYM('θ')}${SUBD[P.b]} swing <span class="u">deg</span>`, (L, r) => bt(L, r, (e) => '±' + fg(e.ab * R2D, 3)));
+    br += row(`${SYM('θ')}${SUBD[P.c]} range <span class="u">deg</span>`, (L, r) => bt(L, r, (e) => `0 … ${fg(Math.abs(2 * e.ac) * R2D, 3)}`));
+    br += row(`${SYM('h̄')} tilt <span class="u">deg</span>`, (L) => td(L.target !== 0 ? fg(Math.atan(P.Ib * S.w0 / Math.abs(L.target)) * R2D, 3) : '90'));
+    br += row('Drift <span class="u">deg/min</span>', (L) => td(L.zone === 'none' ? fg(S.w0 * R2D * 60, 3) : '0'));
+    el('biasBody').innerHTML = br;
+    el('biasNote').innerHTML = `The disturbance leaves ${SYM('I<sub>b</sub>ω')}${SUBD[P.b]}<sub class="n">0</sub> = ${fg(P.Ib * S.w0, 3)} N·m·s of transverse momentum. ${SYM('h̄')} tilts by tan⁻¹(${SYM('I<sub>b</sub>ω')}<sub class="n">0</sub>/${HS}), and the wheel axis loops around it instead of drifting away. Doubling ${HS} halves the loop and doubles the frequency.`;
+  }
+
+  // equation terms
+  $$('#termSeg [data-tl]').forEach((bt) => { const r = +bt.dataset.tl; bt.innerHTML = `<span class="sw" style="--sw:var(--run${r})"></span>${laneShort(r)}`; bt.setAttribute('aria-pressed', String(r === S.termLane)); });
+}
+function verdict() {
+  const L = P.L, vis = [0, 1, 2].filter((r) => S.runs[r]);
+  const nm = (r) => (S.hs[r] === 0 ? 'No wheel' : `${HS} = ${fh(S.hs[r])}`);
+  if (P.atRest) {
+    const r = vis.find((k) => S.hs[k] !== 0);
+    if (r == null) return { t: 'Nothing is spinning', s: 'Give a run some wheel momentum to see the reaction.' };
+    const spinning = simT < L[r].Tm;
+    return {
+      t: spinning ? 'The motor spins the wheel up, and the platform turns the other way' : 'Wheel at speed: the platform keeps turning backwards',
+      s: `The motor torque ${SYM('g<sub>s</sub>')} acts between wheel and platform, so ${SYM('h̄')} stays zero: ${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} = 0. When the wheel reaches ${HS} = ${fh(L[r].target)} N·m·s the platform turns at −${HS}/${SYM('I<sub>a</sub>')} = ${fs(L[r].w, 4)} rad/s. This is the reaction term −${SYM('I<sub>s</sub>s<sub>i</sub>')}${DOT('ω')}<sub class="n">s</sub> in Euler's equations; reaction wheels point spacecraft with it.`,
+    };
+  }
+  if (P.spin) {
+    const parts = vis.map((r) => `${nm(r)} ends ${ZONE[L[r].zone].name}${L[r].damped ? ', ' + DMP[L[r].dverd][1] : ''}`).join('; ');
+    return { t: 'Spinning up the wheel moves the vehicle across the map', s: `${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} is conserved, so ${SYM('ω<sub>a</sub>')} changes as the wheel speeds up, and a run can spend time inside the unstable band on the way. ${parts}.` };
+  }
+  if (S.wa === 0) {
+    const w = vis.filter((r) => L[r].zone === 'bias').sort((x, y) => Math.abs(S.hs[x]) - Math.abs(S.hs[y]));
+    const none = vis.find((r) => L[r].zone === 'none');
+    if (!w.length) return { t: 'No spin and no wheel: nothing holds the attitude', s: `A disturbance rate just persists: ${fg(S.w0 * R2D * 60, 3)}° a minute.` };
+    const r = w[0], e = biasEllipse(r);
+    const loop = e ? `the wheel axis loops ±${fg(e.ab * R2D, 3)}° and 0 to ${fg(2 * Math.abs(e.ac) * R2D, 3)}°, period ${fg(TAU / L[r].freq, 3)} s` : `the poles are ±j${fg(L[r].freq, 3)} s⁻¹`;
+    return {
+      t: 'Momentum bias: the wheel holds a still platform',
+      s: `With ${nm(r)} N·m·s, ${loop}.${none != null && S.w0 > 0 ? ` With no wheel the same ${fg(S.w0, 3)} rad/s turns the platform ${fg(S.w0 * R2D * 60, 3)}° every minute.` : ''}${w.length > 1 ? ` ${nm(w[1])} gives a loop ${fg(Math.abs(S.hs[w[1]] / S.hs[r]), 3)} times smaller.` : ''}${P.Id > 0 ? ' With the damper, the loop slowly shrinks: a momentum-bias platform with dissipation settles.' : ''}`,
+    };
+  }
+  const items = vis.map((r) => {
+    const x = L[r];
+    let s = `${nm(r)}: ${ZONE[x.zone].name}`;
+    if (isFinite(x.Iap) && x.target !== 0) s += ` (${IAP} = ${fg(x.Iap, 4)})`;
+    s += x.p2 < 0 ? `, wobble period ${fg(TAU / x.freq, 3)} s` : x.p2 > 0 ? `, grows e× every ${fg(1 / x.grow, 2)} s` : '';
+    if (x.damped) s += `, ${DMP[x.dverd][1]} with the damper`;
+    return s;
+  });
+  // two runs with the same rigid poles in different zones: the rigid analysis cannot tell them apart
+  let twin = null;
+  for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
+    const A = L[vis[i]], B = L[vis[j]];
+    if (A.p2 < 0 && Math.abs(A.p2 - B.p2) < 1e-6 * Math.abs(A.p2) && A.zone !== B.zone) twin = [vis[i], vis[j]];
+  }
+  if (P.Id === 0) {
+    const anyBand = vis.some((r) => L[r].zone === 'band'), anyOut = vis.some((r) => L[r].zone !== 'band');
+    return {
+      t: anyBand && anyOut ? 'Rigid vehicle: wheel momentum moves the spin out of the band' : 'Rigid vehicle',
+      s: items.join('. ') + '.' + (twin ? ` The rigid analysis cannot tell ${nm(twin[0])} from ${nm(twin[1])}: same poles. Turn on the damper to see which one really works.` : ''),
+    };
+  }
+  return {
+    t: 'With dissipation, the effective major axis decides',
+    s: items.join('. ') + `. The rule is Lesson 20's with ${IAP} in place of ${SYM('I<sub>a</sub>')}: spin the wheel the same way as the vehicle, hard enough to make ${IAP} the largest inertia.`,
+  };
+}
+function checks() {
+  const items = [];
+  // |h| is conserved: no external torque in any run
+  let worst = 0;
+  for (let r = 0; r < 3; r++) {
+    const h = hInertial(r), d = Math.hypot(h[0] - H0[r][0], h[1] - H0[r][1], h[2] - H0[r][2]);
+    worst = Math.max(worst, d / Math.max(1, Math.hypot(...H0[r])));
+  }
+  items.push({ s: worst < 1e-8 ? 'ok' : 'bad', t: `${SYM('h̄')} is fixed in inertial space in every run`, sub: `largest |Δh̄|/|h̄₀| = ${sci(worst, 1)}; the motor and the damper are internal` });
+  // nutation period
+  if (P.Id === 0 && !P.spin) {
+    const ok = [], sub = [];
+    for (let r = 0; r < 3; r++) {
+      const L = P.L[r];
+      if (!S.runs[r] || !(L.p2 < 0) || !(S.w0 > 0)) continue;
+      const Tm = measuredPeriod(r), Ta = TAU / L.freq;
+      if (!isFinite(Tm)) continue;
+      ok.push(Math.abs(Tm - Ta) <= 0.01 * Ta); sub.push(`${laneShort(r)}: ${fg(Tm, 4)} vs ${fg(Ta, 4)} s`);
+    }
+    items.push({ s: !ok.length ? 'na' : ok.every(Boolean) ? 'ok' : 'bad', t: 'Simulated wobble period matches the rigid poles', sub: ok.length ? sub.join(' · ') : 'needs a wobble and two periods of a stable run' });
+  }
+  // the energy-sink rule against the linear damper model
+  if (P.Id > 0 && S.wa !== 0) {
+    const ag = [], sub = [];
+    for (let r = 0; r < 3; r++) {
+      const L = P.L[r];
+      if (!S.runs[r] || !L.damped) continue;
+      const rule = ZONE[L.zone].rule;
+      ag.push(rule === L.dverd); sub.push(`${laneShort(r)}: rule ${rule}, model ${L.dverd}`);
+    }
+    items.push({ s: !ag.length ? 'na' : ag.every(Boolean) ? 'ok' : 'bad', t: `The ${IAP} rule agrees with the four-state damper model`, sub: sub.join(' · ') });
+  }
+  // App. B loop
+  if (S.wa === 0 && !P.spin && P.Id === 0 && S.w0 > 0) {
+    const ok = [], sub = [];
+    for (let r = 0; r < 3; r++) {
+      const e = S.runs[r] && biasEllipse(r), m = PPX[r];
+      if (!e || !(simT > TAU / e.wn)) continue;
+      const sb = 0.5 * (m.x1 - m.x0), sc = Math.max(Math.abs(m.y1), Math.abs(m.y0));
+      const Ab = e.ab * R2D, Ac = 2 * Math.abs(e.ac) * R2D;
+      ok.push(Math.abs(sb - Ab) <= 0.02 * Ab && Math.abs(sc - Ac) <= 0.02 * Ac);
+      sub.push(`${laneShort(r)}: ±${fg(sb, 3)}° and ${fg(sc, 3)}° vs ±${fg(Ab, 3)}° and ${fg(Ac, 3)}°`);
+    }
+    items.push({ s: !ok.length ? 'na' : ok.every(Boolean) ? 'ok' : 'bad', t: 'The simulated loop matches App. B', sub: ok.length ? sub.join(' · ') : 'needs one full period' });
+  }
+  // spin-up: axial momentum is shared, not created
+  // (exact at rest; with a wobble a little of it moves to the other axes, and a tumbled run says nothing)
+  if (P.spin) {
+    let wd = 0, n = 0;
+    for (let r = 0; r < 3; r++) {
+      if (!S.runs[r] || (!P.atRest && !(nutation(r) < 5 * D2R))) continue;
+      const ha = P.Ia * Ys[r][4 + P.a] + Ys[r][7]; wd = Math.max(wd, Math.abs(ha - HA0[r])); n++;
+    }
+    const tol = 1e-3 * (P.Ia * Math.abs(S.wa) + Math.max(...S.hs.map(Math.abs)) + 1);
+    items.push({ s: !n ? 'na' : wd < tol ? 'ok' : 'bad', t: `${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} stays at its starting value`, sub: n ? `largest change ${fg(wd, 3)} N·m·s${P.atRest ? '' : ', in runs still within 5° of h̄'}` : 'every run has tumbled' });
+  }
+  // the tempting wrong answer
+  const vis = [0, 1, 2].filter((r) => S.runs[r]);
+  for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
+    const A = P.L[vis[i]], B = P.L[vis[j]];
+    if (A.p2 < 0 && Math.abs(A.p2 - B.p2) < 1e-6 * Math.abs(A.p2) && A.zone !== B.zone) items.push({ s: 'ok', t: `${laneShort(vis[i])} and ${laneShort(vis[j])} have the same rigid poles`, sub: `±j${fg(A.freq, 4)} s⁻¹ for both, but one is the effective ${ZONE[A.zone].short} axis and the other ${ZONE[B.zone].short}` });
+  }
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+let lastV = '';
+function updateReadouts() {
+  el('tOut').textContent = simT.toFixed(1);
+  const spinning = P.spin && P.L.some((L) => simT < L.Tm);
+  const chip = el('phaseChip'); chip.dataset.p = spinning ? 'spin' : 'free'; chip.textContent = spinning ? 'Motor spinning up' : P.spin ? 'Wheels at speed' : 'Wheels at speed';
+  const v = verdict(), key = v.t + v.s;
+  if (key !== lastV) { el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; lastV = key; }
+  for (let r = 0; r < 3; r++) {
+    const th = nutation(r) * R2D, pt = pointing(r) * R2D, g = gsNow(r);
+    const a = el('o_th' + r), b = el('o_pt' + r), c = el('o_gs' + r);
+    if (a) a.textContent = isFinite(th) ? fx(th, th < 1 ? 3 : 2) : '—';
+    if (b) b.textContent = fx(pt, pt < 1 ? 3 : 2);
+    if (c) c.textContent = fc(g, 3);
+  }
+  // terms
+  const T = termsOf(S.termLane), rows = [
+    ['Rigid (<span class="sym">I<sub>j</sub></span> − <span class="sym">I<sub>k</sub></span>)<span class="sym">ω<sub>j</sub>ω<sub>k</sub></span>', 'rigid'],
+    [`Reaction −${SYM('I<sub>s</sub>s<sub>i</sub>')}${DOT('ω')}<sub class="n">s</sub>`, 'react'],
+    [`Wheel ${HS}(${SYM('s<sub>j</sub>ω<sub>k</sub>')} − ${SYM('s<sub>k</sub>ω<sub>j</sub>')})`, 'gyro'],
+    ['Damper rotors', 'damper'],
+    [`Sum = ${SYM('I<sub>i</sub>')}${DOT('ω')}<sub class="n">i</sub>`, 'lhs'],
+  ];
+  el('termBody').innerHTML = rows.filter((rw) => rw[1] !== 'damper' || P.Id > 0).map(([lab, k]) => `<tr${k === 'lhs' ? ' class="sep"' : ''}><td>${lab}</td>${T.map((t) => `<td>${fc(t[k], 3)}</td>`).join('')}</tr>`).join('');
+  el('termNote').innerHTML = `The wheel is on ${SYM('p̂')}${SUBD[P.a]}. The reaction term lives only on that axis and vanishes once the wheel's speed is constant; the wheel's gyroscopic term lives only on the other two.`;
+  checks();
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function resetRuns() {
+  derive();
+  const a = P.a, b = P.b;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r];
+    Y.fill(0); Y[0] = 1;
+    Y[4 + a] = S.wa; Y[4 + b] = S.w0;
+    Y[7] = P.spin ? 0 : P.L[r].target;
+    const hb = hBody(r);
+    H0[r] = qrot(qOf(r), hb);
+    HA0[r] = P.Ia * S.wa + Y[7];
+    SG0[r] = hb[a] < 0 ? -1 : 1;
+    XING[r].length = 0; WBprev[r] = S.w0;
+    PPX[r] = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+    wheelAng[r] = 0;
+  }
+  simT = 0;
+  let rate = Math.abs(S.wa) + 0.05;
+  P.L.forEach((L) => { rate = Math.max(rate, Math.abs(S.wa) + Math.abs(L.w) + L.freq + L.grow); });
+  if (P.Id > 0) rate += P.cd / P.Id;
+  hStep = Math.min(0.05, 0.25 / rate);
+  hN = 0; hLast = -Infinity; hDt = Math.max(0.05, S.tEnd / 6000);
+  rings.forEach((rg) => { rg.n = 0; rg.head = 0; });
+  // exaggeration from each run's starting nutation; it only comes down from here
+  let tmax = 0;
+  for (let r = 0; r < 3; r++) {
+    const th = nutation(r);
+    const est = isFinite(th) ? 2.5 * Math.min(th, Math.PI - th) : 0;
+    exK[r] = P.atRest ? 1 : P.spin ? niceK(Math.max(est, 3 * D2R)) : niceK(est);
+    tmax = Math.max(tmax, est);
+  }
+  ringThr = Math.max(1e-6, Math.min(tmax, 0.5) / 400);
+  hRef = Math.max(1e-9, ...[0, 1, 2].map((r) => Math.hypot(...H0[r])));
+  wsRef = Math.max(1e-9, ...S.hs.map(Math.abs));
+  record(true);
+}
+function rebuild(opts = {}) {
+  pastEnd = false;
+  resetRuns();
+  if (G) updateVehicleGeometry();
+  syncInputs();
+  setStatic();
+  setLegend();
+  if (opts.fit !== false) ppFit();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (Number.isFinite(v) ? String(+v.toFixed(5)) : '');
+const PAIRS = [
+  ['I0R', 'I0N', (v) => { S.I[0] = v; }, () => S.I[0], 1],
+  ['I1R', 'I1N', (v) => { S.I[1] = v; }, () => S.I[1], 1],
+  ['I2R', 'I2N', (v) => { S.I[2] = v; }, () => S.I[2], 1],
+  ['waR', 'waN', (v) => { S.wa = v; }, () => S.wa, null],
+  ['IsR', 'IsN', (v) => { S.Is = v; }, () => S.Is, 0.01],
+  ['w0R', 'w0N', (v) => { S.w0 = v; }, () => S.w0, 0],
+  ['h0R', 'h0N', (v) => { S.hs[0] = v; }, () => S.hs[0], null],
+  ['h1R', 'h1N', (v) => { S.hs[1] = v; }, () => S.hs[1], null],
+  ['h2R', 'h2N', (v) => { S.hs[2] = v; }, () => S.hs[2], null],
+  ['gsR', 'gsN', (v) => { S.gs = v; }, () => S.gs, 0.01],
+  ['idR', 'idN', (v) => { S.Id = v; }, () => S.Id, 0.01],
+];
+function syncInputs() {
+  PAIRS.forEach(([r, n, , get]) => { el(r).value = get(); el(n).value = fmt(get()); });
+  el('cdR').value = Math.log10(S.cd); el('cdN').value = fmt(S.cd);
+  const pill = el('rolePill'); pill.textContent = P.role + ' axis'; pill.dataset.s = P.role;
+  el('vehNote').innerHTML = (P.tri ? '' : '<strong>These inertias break the triangle inequality: no real body has them.</strong> ')
+    + `Principal moments of the whole vehicle, wheel and damper rotors included as if locked. The box has the same inertia ratios. The wheel is on ${SYM('p̂')}${SUBD[P.a]}, the ${P.role} axis.`;
+  el('vehNote').classList.toggle('warnv', !P.tri);
+  el('w0Lab').innerHTML = `<span class="sym">ω</span><sub class="n">${P.b + 1}<sub>0</sub></sub><span class="u">rad/s</span>`;
+  el('spinNote').innerHTML = `The platform spins at ${SYM('ω<sub>a</sub>')} about the wheel axis ${SYM('p̂')}${SUBD[P.a]} and starts with a small rate ${SYM('ω')}${SUBD[P.b]}<sub class="n">0</sub> about ${SYM('p̂')}${SUBD[P.b]}. ${S.wa === 0 ? 'With ω<sub>a</sub> = 0 this is a momentum-bias platform.' : ''}`;
+  for (let r = 0; r < 3; r++) {
+    const ws = S.hs[r] / P.Is;
+    el(`h${r}Note`).textContent = S.hs[r] === 0 ? 'no wheel' : `ωs ${fs(ws, 1)} rad/s · ${fx(ws * 60 / TAU, 0)} rpm${P.spin ? ` · spin-up ${fg(P.L[r].Tm, 3)} s` : ''}`;
+  }
+  $$('#axSeg [data-ax]').forEach((bt) => bt.setAttribute('aria-pressed', String(+bt.dataset.ax === S.ax)));
+  $$('#startSeg [data-start]').forEach((bt) => bt.setAttribute('aria-pressed', String(bt.dataset.start === S.start)));
+  $$('#dampSeg [data-damp]').forEach((bt) => bt.setAttribute('aria-pressed', String((bt.dataset.damp === '1') === S.damp)));
+  el('gsRow').hidden = !P.spin;
+  el('wheelNote').innerHTML = P.spin
+    ? `The motor applies ${SYM('g<sub>s</sub>')} between wheel and platform until each wheel reaches its ${HS}, then holds its speed.`
+    : `The motor holds each wheel at constant speed relative to the platform, as the notes assume. That takes a small torque ${SYM('g<sub>s</sub>')} = ${SYM('I<sub>s</sub>')}${DOT('ω')}<sub class="n">a</sub> whenever the platform wobbles.`;
+  el('dampNote').innerHTML = S.damp
+    ? `Two rotors on ${SYM('p̂')}${SUBD[P.b]} and ${SYM('p̂')}${SUBD[P.c]}, as in Lesson 25's Appendix B: the dissipation is in the platform.${S.Id > P.IdMax ? ` ${SYM('I<sub>d</sub>')} is held at ${fg(P.IdMax, 3)} kg·m², a fifth of the smaller transverse inertia.` : ''}`
+    : 'A perfectly rigid vehicle: no energy is lost, and the stability results are only marginal.';
+  el('chkTrace').checked = S.show.trace; el('chkH').checked = S.show.h; el('chkLabels').checked = S.show.labels; el('chkAxes').checked = S.show.axes;
+  $$('#exSeg [data-ex]').forEach((bt) => bt.setAttribute('aria-pressed', String(bt.dataset.ex === S.exag)));
+  $$('#runChips [data-run]').forEach((bt) => { const r = +bt.dataset.run; bt.setAttribute('aria-pressed', String(S.runs[r])); bt.querySelector('.nm').innerHTML = laneHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((bt) => bt.setAttribute('aria-pressed', String(bt.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((bt) => bt.setAttribute('aria-pressed', String(bt.dataset.q === PL.q)));
+  el('pp').dataset.pane = S.pane;
+  el('ppFit').hidden = S.pane !== 'pp';
+  el('paneTitle').textContent = S.pane === 'pp' ? 'Degrees' : 'Rigid poles';
+  el('paneCap').innerHTML = S.pane === 'pp'
+    ? `Where the wheel axis ${SYM('ŝ')} points, from where it started. ×: the line of ${SYM('h̄')}.${S.wa === 0 && !P.spin && S.w0 > 0 ? ' Dashed: the App. B loop.' : ''}`
+    : P.spin ? `Zones along the spin-up: ${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} is fixed, so ${SYM('ω<sub>a</sub>')} falls as ${HS} grows. Each dot is a run's wheel now.`
+      : S.wa === 0 ? `With ${SYM('ω<sub>a</sub>')} = 0 any wheel momentum gives poles ±${SYM('j')}${HS}/√(${SYM('I<sub>b</sub>I<sub>c</sub>')}): marginal, and settling with dissipation.`
+      : `Zones from ${IAP} = ${SYM('I<sub>a</sub>')} + ${HS}/${SYM('ω<sub>a</sub>')}. Green settles with dissipation, amber is marginal but grows, red is unstable.`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return (s < 10 ? s.toFixed(1) : s.toFixed(0)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, set, get, mn]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = +r.value; n.value = fmt(v); set(v); rebuild(); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(get()); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = v; set(v); rebuild();
+  });
+});
+el('cdR').addEventListener('input', () => { S.cd = +Math.pow(10, +el('cdR').value).toPrecision(3); el('cdN').value = fmt(S.cd); rebuild(); });
+el('cdN').addEventListener('change', () => { const v = parseFloat(el('cdN').value); if (!Number.isFinite(v)) { el('cdN').value = fmt(S.cd); return; } S.cd = Math.max(0.001, v); rebuild(); });
+el('tuneBtn').addEventListener('click', () => {
+  S.damp = true; derive();
+  const f = P.L[S.termLane].freq || Math.max(...P.L.map((L) => L.freq)) || 0.1;
+  S.cd = +Math.max(0.001, P.Id * f).toPrecision(3); rebuild();
+});
+$$('#axSeg [data-ax]').forEach((bt) => bt.addEventListener('click', () => { S.ax = +bt.dataset.ax; rebuild(); fit(); }));
+$$('#startSeg [data-start]').forEach((bt) => bt.addEventListener('click', () => { S.start = bt.dataset.start; rebuild(); }));
+$$('#dampSeg [data-damp]').forEach((bt) => bt.addEventListener('click', () => { S.damp = bt.dataset.damp === '1'; rebuild(); }));
+$$('#termSeg [data-tl]').forEach((bt) => bt.addEventListener('click', () => { S.termLane = +bt.dataset.tl; setStatic(); updateReadouts(); }));
+el('chkTrace').addEventListener('change', (e) => { S.show.trace = e.target.checked; });
+el('chkH').addEventListener('change', (e) => { S.show.h = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+el('chkAxes').addEventListener('change', (e) => { S.show.axes = e.target.checked; });
+$$('#exSeg [data-ex]').forEach((bt) => bt.addEventListener('click', () => {
+  S.exag = bt.dataset.ex;
+  for (let r = 0; r < 3; r++) { const t = laneTilt(r); exK[r] = niceK(Math.max(t, 1e-9) * 1.5); }
+  syncInputs();
+}));
+$$('#runChips [data-run]').forEach((bt) => bt.addEventListener('click', () => {
+  const r = +bt.dataset.run; S.runs[r] = !S.runs[r];
+  if (!S.runs.some(Boolean)) S.runs[r] = true;
+  syncInputs(); setLegend(); fit(); ppFit();
+}));
+function setPane(p) { S.pane = p; syncInputs(); if (p === 'pp') ppFit(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((bt) => bt.addEventListener('click', () => setPane(bt.dataset.pane)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((bt) => bt.addEventListener('click', () => setTab(bt.dataset.q)));
+el('logBtn').addEventListener('click', () => { S.logY = !S.logY; setLegend(); drawPlot(); });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* App. A and App. B values from the notes. App. B gives no I3; it does not enter the small-angle result.
+   The damper is tuned near cd = Id |s|, as in Lesson 25 */
+const APPA = { I: [400, 300, 500], ax: 0, wa: 0.5, Is: 0.5, w0: 0.005, gs: 1.25, Id: 4, cd: 0.6 };
+const PRESETS = {
+  appA: { ...APPA, hs: [0, 75, -75], start: 'speed', damp: false, tEnd: 600, speed: 10, pane: 'map', tab: 'th', logY: false },
+  appAd: { ...APPA, hs: [0, 75, -75], start: 'speed', damp: true, tEnd: 1500, speed: 30, pane: 'pp', tab: 'th', logY: true },
+  neg: { ...APPA, hs: [-75, -300, 75], start: 'speed', damp: true, tEnd: 1500, speed: 30, pane: 'map', tab: 'th', logY: true },
+  appB: { I: [150, 250, 200], ax: 2, wa: 0, Is: 0.5, w0: 0.002, hs: [0, 20, 40], start: 'speed', gs: 1.25, damp: false, Id: 4, cd: 0.4, tEnd: 240, speed: 5, pane: 'pp', tab: 'pt', logY: false },
+  spinup: { ...APPA, wa: 0, w0: 0, hs: [0, 75, -75], start: 'spinup', damp: false, tEnd: 120, speed: 4, pane: 'pp', tab: 'wa', logY: false },
+  spinup2: { ...APPA, gs: 2.5, hs: [0, 75, -75], start: 'spinup', damp: true, tEnd: 1500, speed: 20, pane: 'map', tab: 'th', logY: true },
+};
+function applyPreset(name) {
+  const p = PRESETS[name];
+  ['ax', 'wa', 'Is', 'w0', 'start', 'gs', 'damp', 'Id', 'cd', 'tEnd', 'speed', 'pane', 'logY'].forEach((k) => { S[k] = p[k]; });
+  S.I = p.I.slice(); S.hs = p.hs.slice();
+  S.runs = [true, true, true];
+  S.termLane = 1;
+  PL.q = p.tab;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((bt) => bt.addEventListener('click', () => applyPreset(bt.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= S.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild({ fit: true }); });
+el('fitBtn').addEventListener('click', () => fit());
+el('ppFit').addEventListener('click', () => ppFit());
+$$('.viewbar [data-view]').forEach((bt) => bt.addEventListener('click', () => fit(viewDir(bt.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') { fit(); ppFit(); }
+  else if (k === 'm') setPane(S.pane === 'pp' ? 'map' : 'pp');
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The pointing plane, the stability map, the plots and the analysis still work.';
+  vp.appendChild(d);
+  el('exagLbl').hidden = true;
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+S.playing = false;
+applyPreset('appA');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_DIR.clone());
+requestAnimationFrame(() => ppFit());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= S.tEnd) { dt = Math.max(0, S.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+    updateExag();
+    if (S.pane === 'pp') ppAutoExtend();
+  }
+  if (G) {
+    updateDynamic(dtReal);
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__gyro = { S, P: () => P, Ys, advance, rebuild, applyPreset, updateReadouts, rigidPoles, dampedPoles, zoneOf, nutation, pointing, hBody, hInertial, sInertial, termsOf, gsNow, measuredPeriod, biasEllipse, t: () => simT, hist: () => ({ hN, Ht, HQ, PPX }), exK, setPlaying, G: () => G };
+})();
+</script>
+</body>
+</html>
