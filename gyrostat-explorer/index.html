@@ -231,6 +231,20 @@ a.btn { text-decoration: none; display: inline-block; }
 .verdict { display: grid; gap: 5px; }
 .verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -541,6 +555,27 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <h2>What is happening</h2>
       <div class="rt" id="vTitle">—</div>
       <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Moment of inertia <span class="sym">I</span></dt>
+          <dd>How hard a body is to spin about an axis. Mass far from the axis makes it larger. A box has three principal axes, each with its own <span class="sym">I</span>.</dd>
+          <dt>Major, intermediate and minor axis</dt>
+          <dd>The principal axes with the largest, middle and smallest moment of inertia. A rigid body spins steadily about the major or minor axis, and tumbles if it spins about the intermediate one.</dd>
+          <dt>Angular momentum <span class="sym">h̄</span></dt>
+          <dd>The "amount of spin", a vector. With no outside torque it never changes, so it is a fixed reference direction in space (the yellow arrow, and the × in the pointing pane).</dd>
+          <dt>Wobble, or nutation</dt>
+          <dd>The spin axis circling around <span class="sym">h̄</span> instead of lining up with it. The nutation angle <span class="sym">θ</span> measures how far apart they are.</dd>
+          <dt>Momentum wheel, <span class="sym">h<sub>s</sub></span></dt>
+          <dd>A heavy disc spun by a motor inside the spacecraft. <span class="sym">h<sub>s</sub></span> is its angular momentum relative to the spacecraft: positive when it spins the same way as the craft.</dd>
+          <dt>Effective inertia <span class="sym">I<sub>a</sub></span>′</dt>
+          <dd>The wheel's stored momentum makes the spin axis behave as if it had inertia <span class="sym">I<sub>a</sub></span>′ = <span class="sym">I<sub>a</sub></span> + <span class="sym">h<sub>s</sub></span>/<span class="sym">ω<sub>a</sub></span>. Compare it with the other two inertias to predict the motion.</dd>
+          <dt>Damper, energy loss</dt>
+          <dd>Anything that turns wobble into heat: sloshing fuel, flexing panels, or a purpose-built damper. Losing energy is what decides between designs that a rigid analysis rates as equally good.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -843,7 +878,7 @@ const NY = 10;
 const Ys = [0, 1, 2].map(() => new Float64Array(NY));
 const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
 let simT = 0, hStep = 0.05;
-const H0 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], HA0 = [0, 0, 0], SG0 = [1, 1, 1];
+const H0 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], HA0 = [0, 0, 0], SG0 = [1, 1, 1], TH0 = [0, 0, 0];
 const XH = [0, 0, 0], HB = [0, 0, 0];
 function deriv(r, y, out, t) {
   const qw = y[0], qx = y[1], qy = y[2], qz = y[3], w1 = y[4], w2 = y[5], w3 = y[6];
@@ -1762,57 +1797,119 @@ function setStatic() {
   // equation terms
   $$('#termSeg [data-tl]').forEach((bt) => { const r = +bt.dataset.tl; bt.innerHTML = `<span class="sw" style="--sw:var(--run${r})"></span>${laneShort(r)}`; bt.setAttribute('aria-pressed', String(r === S.termLane)); });
 }
+/* the "What is happening" card, in plain words: the idea, one line per run, and where to look */
 function verdict() {
   const L = P.L, vis = [0, 1, 2].filter((r) => S.runs[r]);
-  const nm = (r) => (S.hs[r] === 0 ? 'No wheel' : `${HS} = ${fh(S.hs[r])}`);
+  const Ia = SYM('I<sub>a</sub>'), WA = SYM('ω<sub>a</sub>');
+  const lo = Math.min(P.Ib, P.Ic), hi = Math.max(P.Ib, P.Ic);
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${laneHTML(r)}${S.hs[r] !== 0 ? ' N·m·s' : ''}.</span> `;
+  const now = (txt) => `<span class="now">${txt}</span></span>`;
+  const deg = (x) => `${fx(x, x < 1 ? 3 : x < 10 ? 2 : 1)}°`;
+  const wobbleNow = (r) => {
+    const th = nutation(r) * R2D;
+    if (!isFinite(th)) return now('—');
+    return now(th > 30 ? `has tumbled: the spin axis is now ${deg(th)} from h̄` : `wobble now ${deg(th)}, started at ${deg(TH0[r] * R2D)}`);
+  };
+  const period = (x) => `${fg(TAU / x.freq, 3)} s`;
+  const dampWords = (x) => {
+    if (!x.damped || x.zone === 'band') return '';
+    const re = x.damped.maxRe;
+    if (x.dverd === 'settles') return ` <b>With the damper the wobble dies away</b>, shrinking by a factor e (about 2.7) every ${fg(-1 / re, 3)} s.`;
+    if (x.dverd === 'grows') return ` <b>With the damper the wobble slowly grows</b>, doubling every ${fg(Math.LN2 / re, 3)} s, until the craft tumbles.`;
+    return '';
+  };
+  /* where the wheel puts the spin, compared with the other two inertias */
+  const zoneWords = (x) => {
+    if (x.zone === 'band') return `, between the other two inertias. That is like spinning about the intermediate axis: <b>unstable</b>, so any wobble grows until the craft tumbles, roughly tripling every ${fg(1.1 / x.grow, 2)} s.`;
+    if (x.zone === 'major') return `, more than both others. It now acts like the major axis: <b>the wobble stays small</b>, swinging back every ${period(x)}.`;
+    if (x.zone === 'minor') return `, less than both others. It now acts like the minor axis: a perfectly rigid craft <b>only wobbles a little</b>, every ${period(x)}.`;
+    if (x.zone === 'neg') return `, below zero: the wheel carries more momentum than the whole craft, in the opposite direction. <b>The wobble stays small</b>, swinging back every ${period(x)}.`;
+    return '.';
+  };
+  const wheelWords = (r, x, w) => {
+    if (x.target === 0) return `With no wheel, ${IAP} is just ${Ia} = ${fg(P.Ia, 3)} kg·m²`;
+    const same = x.target * w > 0;
+    return `The wheel turns at ${fx(Math.abs(x.ws) * 60 / TAU, 0)} rpm, ${same ? 'the same way as' : 'against'} the craft, and ${x.Iap > P.Ia ? 'raises' : 'lowers'} ${IAP} to ${fg(x.Iap, 3)} kg·m²`;
+  };
+
+  /* wheel spin-up on a craft at rest: the reaction */
   if (P.atRest) {
     const r = vis.find((k) => S.hs[k] !== 0);
-    if (r == null) return { t: 'Nothing is spinning', s: 'Give a run some wheel momentum to see the reaction.' };
+    if (r == null) return { t: 'Nothing is spinning', s: 'Give a run some wheel momentum to see what the motor does to the craft.', runs: [], watch: '' };
     const spinning = simT < L[r].Tm;
     return {
-      t: spinning ? 'The motor spins the wheel up, and the platform turns the other way' : 'Wheel at speed: the platform keeps turning backwards',
-      s: `The motor torque ${SYM('g<sub>s</sub>')} acts between wheel and platform, so ${SYM('h̄')} stays zero: ${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} = 0. When the wheel reaches ${HS} = ${fh(L[r].target)} N·m·s the platform turns at −${HS}/${SYM('I<sub>a</sub>')} = ${fs(L[r].w, 4)} rad/s. This is the reaction term −${SYM('I<sub>s</sub>s<sub>i</sub>')}${DOT('ω')}<sub class="n">s</sub> in Euler's equations; reaction wheels point spacecraft with it.`,
+      t: spinning ? 'Spinning the wheel up turns the spacecraft the other way' : 'The wheels are at speed, and the spacecraft keeps turning backwards',
+      s: `The motor sits between the wheel and the spacecraft, so as it pushes the wheel one way it pushes the spacecraft the other way, equally hard (Newton's third law, for rotation). Nothing outside touches the craft, so the total angular momentum stays zero: whatever spin the wheel gains, the body gains the same amount backwards. This is how <b>reaction wheels</b> turn and point most spacecraft.`,
+      runs: vis.map((k) => {
+        const x = L[k];
+        if (x.target === 0) return head(k) + 'No motor, so the craft stays still.' + now('body rate 0 rad/s');
+        return head(k) + `The motor spins the wheel up to ${fx(Math.abs(x.ws) * 60 / TAU, 0)} rpm in ${fg(x.Tm, 3)} s. The craft, about ${fg(P.Ia / P.Is, 3)} times harder to turn than the wheel, ends up turning the opposite way at ${fx(Math.abs(x.w), 4)} rad/s (${fg(Math.abs(x.w) * R2D, 3)}°/s).`
+          + now(`body rate now ${fs(Ys[k][4 + P.a], 4)} rad/s`);
+      }),
+      watch: `The ${WA} history tab: each body's rate grows while its motor runs (the shaded strip) and then holds steady. In the 3D view the boxes turn opposite to their wheels.`,
     };
   }
+
+  /* wheel spin-up on a craft that is already spinning */
   if (P.spin) {
-    const parts = vis.map((r) => `${nm(r)} ends ${ZONE[L[r].zone].name}${L[r].damped ? ', ' + DMP[L[r].dverd][1] : ''}`).join('; ');
-    return { t: 'Spinning up the wheel moves the vehicle across the map', s: `${SYM('I<sub>a</sub>ω<sub>a</sub>')} + ${HS} is conserved, so ${SYM('ω<sub>a</sub>')} changes as the wheel speeds up, and a run can spend time inside the unstable band on the way. ${parts}.` };
+    return {
+      t: 'Spinning up a wheel on a spinning spacecraft',
+      s: `Same motor as before, but this craft is already spinning, about its ${P.role} axis (${Ia} = ${fg(P.Ia, 3)} kg·m², against ${fg(lo, 3)} and ${fg(hi, 3)} kg·m² for the other two). The craft and wheel share a fixed total of angular momentum, so as the wheel speeds up the craft slows down (or speeds up, if the wheel turns the other way). The effective inertia ${IAP} = ${Ia} + ${HS}/${WA} changes all the way, so a run can pass through the unstable range before it reaches its final speed.`,
+      runs: vis.map((k) => {
+        const x = L[k];
+        const lead = x.target === 0 ? `With no wheel, ${IAP} is just ${Ia} = ${fg(P.Ia, 3)} kg·m²` : `As its wheel spins up, the craft's spin goes from ${fx(S.wa, 3)} to ${fx(x.w, 4)} rad/s, ending with ${IAP} = ${fg(x.Iap, 3)} kg·m²`;
+        return head(k) + lead + zoneWords(x) + dampWords(x) + wobbleNow(k);
+      }),
+      watch: `The stability map: each dot slides along the ${HS} axis as its wheel speeds up, through the colored zones. Then the nutation history (log scale) shows which runs settle.`,
+    };
   }
+
+  /* momentum bias: no spin, the wheel alone */
   if (S.wa === 0) {
     const w = vis.filter((r) => L[r].zone === 'bias').sort((x, y) => Math.abs(S.hs[x]) - Math.abs(S.hs[y]));
-    const none = vis.find((r) => L[r].zone === 'none');
-    if (!w.length) return { t: 'No spin and no wheel: nothing holds the attitude', s: `A disturbance rate just persists: ${fg(S.w0 * R2D * 60, 3)}° a minute.` };
-    const r = w[0], e = biasEllipse(r);
-    const loop = e ? `the wheel axis loops ±${fg(e.ab * R2D, 3)}° and 0 to ${fg(2 * Math.abs(e.ac) * R2D, 3)}°, period ${fg(TAU / L[r].freq, 3)} s` : `the poles are ±j${fg(L[r].freq, 3)} s⁻¹`;
+    const lines = vis.map((k) => {
+      const x = L[k], off = pointing(k) * R2D;
+      if (x.zone === 'none') return head(k) + `Nothing resists the knock, so the craft simply keeps turning, ${fg(S.w0 * R2D * 60, 3)}° every minute, and never comes back.` + now(`now ${deg(off)} off target`);
+      const e = biasEllipse(k);
+      const loop = e ? `traces a small loop, ±${fg(e.ab * R2D, 3)}° one way and 0 to ${fg(2 * Math.abs(e.ac) * R2D, 3)}° the other, going round every ${period(x)}, and comes back` : `circles its starting direction every ${period(x)}`;
+      const rel = w.length > 1 && k !== w[0] ? ` With ${fg(Math.abs(S.hs[k] / S.hs[w[0]]), 3)} times the wheel momentum, the loop is that many times smaller and faster.` : '';
+      return head(k) + `The wheel's momentum resists the knock: the wheel axis ${loop}.${rel}${P.Id > 0 ? ' <b>With the damper the loop slowly shrinks</b> toward the new direction of h̄.' : ''}` + now(`now ${deg(off)} off target`);
+    });
+    if (!w.length) return { t: 'Nothing holds this spacecraft still', s: `With no spin and no wheel momentum, nothing resists a disturbance: a small knock just keeps the craft turning.`, runs: lines, watch: 'The pointing history: it climbs in a straight line.' };
     return {
-      t: 'Momentum bias: the wheel holds a still platform',
-      s: `With ${nm(r)} N·m·s, ${loop}.${none != null && S.w0 > 0 ? ` With no wheel the same ${fg(S.w0, 3)} rad/s turns the platform ${fg(S.w0 * R2D * 60, 3)}° every minute.` : ''}${w.length > 1 ? ` ${nm(w[1])} gives a loop ${fg(Math.abs(S.hs[w[1]] / S.hs[r]), 3)} times smaller.` : ''}${P.Id > 0 ? ' With the damper, the loop slowly shrinks: a momentum-bias platform with dissipation settles.' : ''}`,
+      t: 'A spinning wheel alone keeps a still spacecraft pointed',
+      s: `Many Earth-pointing satellites cannot spin: their cameras and antennas must stare at one target. Instead a heavy wheel spins fast inside them. Its angular momentum gives the whole craft the same resistance to being tipped that a spinning top or a bicycle wheel has. This is a <b>momentum-bias</b> spacecraft. Here every run gets the same small knock, ${fg(S.w0, 3)} rad/s about ${SYM('p̂')}${SUBD[P.b]}.`,
+      runs: lines,
+      watch: `The pointing pane, where you look along the wheel axis. The wheel runs loop around their × marks: the knock tipped the angular momentum h̄ slightly, and the axis now circles that new direction instead of drifting away.`,
     };
   }
-  const items = vis.map((r) => {
-    const x = L[r];
-    let s = `${nm(r)}: ${ZONE[x.zone].name}`;
-    if (isFinite(x.Iap) && x.target !== 0) s += ` (${IAP} = ${fg(x.Iap, 4)})`;
-    s += x.p2 < 0 ? `, wobble period ${fg(TAU / x.freq, 3)} s` : x.p2 > 0 ? `, grows e× every ${fg(1 / x.grow, 2)} s` : '';
-    if (x.damped) s += `, ${DMP[x.dverd][1]} with the damper`;
-    return s;
-  });
-  // two runs with the same rigid poles in different zones: the rigid analysis cannot tell them apart
+
+  /* a spinning craft with a wheel held at constant speed */
+  const lines = vis.map((k) => { const x = L[k]; return head(k) + wheelWords(k, x, S.wa) + zoneWords(x) + dampWords(x) + wobbleNow(k); });
   let twin = null;
   for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
     const A = L[vis[i]], B = L[vis[j]];
     if (A.p2 < 0 && Math.abs(A.p2 - B.p2) < 1e-6 * Math.abs(A.p2) && A.zone !== B.zone) twin = [vis[i], vis[j]];
   }
+  const spinAxis = `This spacecraft spins about ${SYM('p̂')}${SUBD[P.a]}, its ${P.role} axis: ${Ia} = ${fg(P.Ia, 3)} kg·m², against ${fg(lo, 3)} and ${fg(hi, 3)} kg·m² for the other two.`;
+  const idea = `A wheel spinning inside stores extra angular momentum along the spin axis. To the rest of the craft that acts like extra (or, if the wheel turns backwards, less) inertia about that axis: the <b>effective inertia</b> ${IAP} = ${Ia} + ${HS}/${WA}. Comparing ${IAP} with the other two inertias predicts the motion, just as comparing the three inertias does for a plain rigid body.`;
   if (P.Id === 0) {
-    const anyBand = vis.some((r) => L[r].zone === 'band'), anyOut = vis.some((r) => L[r].zone !== 'band');
+    const roleNote = P.role === 'intermediate' ? ' On its own a rigid body spinning about that axis tumbles: any tiny wobble grows (Lesson 20).' : '';
     return {
-      t: anyBand && anyOut ? 'Rigid vehicle: wheel momentum moves the spin out of the band' : 'Rigid vehicle',
-      s: items.join('. ') + '.' + (twin ? ` The rigid analysis cannot tell ${nm(twin[0])} from ${nm(twin[1])}: same poles. Turn on the damper to see which one really works.` : ''),
+      t: P.role === 'intermediate' ? 'A wheel inside can steady a spin that would otherwise tumble' : 'A wheel inside changes how steady the spin is',
+      s: `${spinAxis}${roleNote} ${idea}`,
+      runs: lines,
+      watch: twin
+        ? `The 3D view and the nutation history. The runs in the unstable band swing far; the others only quiver. On paper ${laneHTML(twin[0])} and ${laneHTML(twin[1])} look equally good, with the same wobble period. Turn on the damper (or press <i>Add a damper</i>) to see why they are not.`
+        : `The stability map shows where each run's ${HS} falls; the nutation history shows which wobbles stay small.`,
     };
   }
+  const neg = vis.some((k) => L[k].zone === 'neg');
   return {
-    t: 'With dissipation, the effective major axis decides',
-    s: items.join('. ') + `. The rule is Lesson 20's with ${IAP} in place of ${SYM('I<sub>a</sub>')}: spin the wheel the same way as the vehicle, hard enough to make ${IAP} the largest inertia.`,
+    t: 'Losing energy decides which wheel design really works',
+    s: `${spinAxis} ${idea} A perfectly rigid craft never loses energy, but real ones do: fuel sloshes, panels flex, and dampers turn wobble into heat. Losing energy always pushes a spin toward the axis with the <b>largest</b> inertia, and with a wheel aboard that means the largest ${IAP}. The damper here is Lesson 25's pair of small friction rotors.${neg ? ` A wheel spun backwards hard enough to make ${IAP} negative settles too; the notes state this without proof.` : ''}`,
+    runs: lines,
+    watch: `The nutation history on its log scale: a wobble that dies away is a line sloping down, one that grows slopes up. The lesson: spin the wheel the same way as the craft, and hard enough to make ${IAP} the largest inertia.`,
   };
 }
 function checks() {
@@ -1884,8 +1981,12 @@ function updateReadouts() {
   el('tOut').textContent = simT.toFixed(1);
   const spinning = P.spin && P.L.some((L) => simT < L.Tm);
   const chip = el('phaseChip'); chip.dataset.p = spinning ? 'spin' : 'free'; chip.textContent = spinning ? 'Motor spinning up' : P.spin ? 'Wheels at speed' : 'Wheels at speed';
-  const v = verdict(), key = v.t + v.s;
-  if (key !== lastV) { el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; lastV = key; }
+  const v = verdict(), runs = (v.runs || []).map((x) => `<li>${x}</li>`).join(''), key = v.t + v.s + runs + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; el('vRuns').innerHTML = runs;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
   for (let r = 0; r < 3; r++) {
     const th = nutation(r) * R2D, pt = pointing(r) * R2D, g = gsNow(r);
     const a = el('o_th' + r), b = el('o_pt' + r), c = el('o_gs' + r);
@@ -1921,6 +2022,7 @@ function resetRuns() {
     H0[r] = qrot(qOf(r), hb);
     HA0[r] = P.Ia * S.wa + Y[7];
     SG0[r] = hb[a] < 0 ? -1 : 1;
+    TH0[r] = nutation(r);
     XING[r].length = 0; WBprev[r] = S.w0;
     PPX[r] = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
     wheelAng[r] = 0;
@@ -2159,7 +2261,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.__gyro = { S, P: () => P, Ys, advance, rebuild, applyPreset, updateReadouts, rigidPoles, dampedPoles, zoneOf, nutation, pointing, hBody, hInertial, sInertial, termsOf, gsNow, measuredPeriod, biasEllipse, t: () => simT, hist: () => ({ hN, Ht, HQ, PPX }), exK, setPlaying, G: () => G };
+window.__gyro = { S, P: () => P, Ys, advance, rebuild, applyPreset, updateReadouts, verdict, rigidPoles, dampedPoles, zoneOf, nutation, pointing, hBody, hInertial, sInertial, termsOf, gsNow, measuredPeriod, biasEllipse, t: () => simT, hist: () => ({ hN, Ht, HQ, PPX }), exK, setPlaying, G: () => G };
 })();
 </script>
 </body>
