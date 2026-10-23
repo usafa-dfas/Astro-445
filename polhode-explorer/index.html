@@ -228,6 +228,21 @@ a.btn { text-decoration: none; display: inline-block; }
 .regime-card { display: grid; gap: 5px; }
 .regime-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .regime-card .rs { font-size: 14px; color: var(--muted); }
+.regime-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--omega); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -534,9 +549,32 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
   <!-- ================= analysis ================= -->
   <aside class="rail analysis" aria-label="Analysis">
     <section class="group regime-card">
-      <h2>Motion</h2>
+      <h2>What is happening</h2>
       <div class="rt" id="regTitle">—</div>
       <div class="rs" id="regSub"></div>
+      <ul class="vruns" id="regList"></ul>
+      <p class="vwatch" id="regWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Torque-free motion</dt>
+          <dd>Nothing outside pushes or twists the body, as for a spacecraft coasting with its thrusters off. It can still wobble and tumble on its own.</dd>
+          <dt>Principal axes and moments of inertia <span class="sym">I</span></dt>
+          <dd>Every rigid body has three special perpendicular axes. Its resistance to spinning about each one is that axis's moment of inertia: the major axis has the largest, the minor the smallest, the intermediate the one in between.</dd>
+          <dt>Angular velocity <span class="sym">ω</span></dt>
+          <dd>An arrow along the line the body is spinning about right now, with length equal to the spin rate. It is drawn in the body's own axes on the left, and in space on the right.</dd>
+          <dt>Angular momentum <span class="sym">H</span></dt>
+          <dd>The body's "amount of spin". With no outside torque it never changes, so it is a fixed direction in space. <span class="sym">ω</span> and <span class="sym">H</span> point the same way only for a spin about a principal axis.</dd>
+          <dt>Energy and momentum ellipsoids</dt>
+          <dd>With energy and momentum both fixed, the tip of <span class="sym">ω</span> must lie on two egg-shaped surfaces at once.</dd>
+          <dt>Polhode</dt>
+          <dd>The curve where the two ellipsoids meet: the path the tip of <span class="sym">ω</span> follows in the body's axes.</dd>
+          <dt>Separatrix</dt>
+          <dd>The polhode that passes through the intermediate axis. It separates loops around the major axis from loops around the minor axis.</dd>
+          <dt>Energy dissipation</dt>
+          <dd>Flexing parts or sloshing fuel slowly turn spin energy into heat while <span class="sym">H</span> stays the same. That pushes any spin toward the major axis.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -683,6 +721,7 @@ function fg(x, sig = 4) {
   const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
   return fx(x, Math.min(d, 6));
 }
+const SYM = (s) => `<span class="sym">${s}</span>`;
 const fin = (v) => (Number.isFinite(v) ? String(+v.toPrecision(6)) : '');
 
 /* =========================================================
@@ -1852,6 +1891,64 @@ function regimeText(cl) {
   }
   return { t: '—', s: '', pill: '—' };
 }
+/* the "What is happening" card, in plain words: the idea, one line per principal axis, and where to look */
+let lastMcKey = '';
+function motionCard(cl) {
+  const { a, b, c } = inf, I = S.I, w = S.w;
+  const axN = (i) => `<span class="sym">ω</span><sub class="n">${i + 1}</sub>`;
+  const intro = `A rigid body spins freely in space, with nothing pushing on it. Two things then stay fixed: its energy of rotation and its angular momentum ${SYM('H')}. The left view follows the spin arrow ${SYM('ω')} in the body's own axes: its tip must stay on two surfaces at once, the energy and momentum ellipsoids, so it runs along the curve where they meet, the <b>polhode</b>. The right view shows the same body from outside, turning about the fixed ${SYM('H')}.`;
+  const dissip = S.nu > 0 ? ` Here the body is also <b>losing energy</b> (the dissipation slider), as flexing parts or sloshing fuel would make it. ${SYM('H')} stays fixed, so the spin slowly drifts toward the major axis, the way to carry that ${SYM('H')} with the least energy.` : '';
+  // one line per principal axis: its role, what a spin about it does, and the live component of omega
+  const desc = (i) => {
+    if (inf.type === 'iso') return 'All three inertias are equal, so no axis is special and any spin just continues unchanged.';
+    if (inf.type === 'oblate') return i === c ? 'Largest inertia: the symmetry axis, through the flat box\'s thin dimension. A spin about it is stable, even when the body loses energy.' : 'Equal to the other transverse axis. A spin about it is only neutrally stable: a nudge sends the spin wandering around the symmetry axis.';
+    if (inf.type === 'prolate') return i === a ? 'Smallest inertia: the symmetry axis, along the box\'s long side. A spin about it is stable for a perfectly rigid body, but losing energy tips it over.' : 'Equal to the other transverse axis. A spin about it is only neutrally stable: a nudge sends the spin wandering around the symmetry axis.';
+    if (i === a) return 'Smallest inertia, along the box\'s longest side. A spin about it is stable for a perfectly rigid body, but losing energy tips it over.';
+    if (i === b) return '<b>The middle inertia. A spin about it is unstable</b>: any tiny wobble grows into an end-over-end flip.';
+    return 'Largest inertia, through the box\'s thinnest dimension. A spin about it is stable, even when the body loses energy.';
+  };
+  const roleName = (i) => (inf.type === 'tri' ? `${inf.roleL[i]} axis` : inf.type === 'iso' ? 'axis' : inf.roleL[i].replace(/ \(.*\)/, '') + ' axis');
+  const list = [0, 1, 2].map((i) => `<span class="sw" style="--sw:var(--c${i + 1})"></span><span><span class="nm" style="--c:var(--c${i + 1})">${axN(i)}, ${roleName(i)} (${SYM('I')}<sub class="n">${i + 1}</sub> = ${fg(I[i], 3)}):</span> ${desc(i)}<span class="now">ω${SUBD[i]} now ${fs(w[i], 3)} rad/s</span></span>`);
+  const flipZone = inf.type === 'tri' && (cl.kind === 'sep' || ((cl.kind === 'major' || cl.kind === 'minor') && cl.near < 0.03));
+  let t, s, watch;
+  switch (cl.kind) {
+    case 'zero': t = 'Not rotating'; s = `With ${SYM('ω')} = 0 there is nothing to see. Pick a spin preset on the left.`; watch = ''; break;
+    case 'iso': t = 'Equal inertias: no axis is special'; s = `${intro} With all three inertias equal, both ellipsoids are the same sphere, ${SYM('ω')} and ${SYM('H')} always line up, and the spin never changes.`; watch = 'Try a tri-inertial body to see a polhode.'; break;
+    case 'eq': {
+      const k = cl.k, role = inf.type === 'tri' ? inf.roleL[k] : '';
+      t = role === 'intermediate' ? 'Balanced on a knife-edge: an exact spin about the intermediate axis' : `An exact spin about the ${roleName(k)}`;
+      s = `${intro} Right now ${SYM('ω')} lies exactly along a principal axis, ${axN(k)}, so ${SYM('ω')} and ${SYM('H')} line up and nothing changes: the polhode is a single point.${role === 'intermediate' ? ' But this spin is unstable, like a pencil balanced on its tip: the smallest disturbance will grow.' : ''}`;
+      watch = `Press "Perturbed" in the spin presets to give it a small nudge and see what this axis does with it.`;
+      break;
+    }
+    case 'major': case 'minor': {
+      const k = cl.kind === 'major' ? c : a;
+      if (flipZone) {
+        t = 'Flipping end over end: the intermediate-axis effect';
+        s = `${intro} This spin started near the intermediate axis ${axN(b)}, which is unstable. The polhode runs close to the separatrix, so ${SYM('ω')} lingers near ${axN(b)}, then swings across to the far side, over and over. Seen from outside, the body flips end over end at regular intervals while ${SYM('H')} stays put. This is the tennis-racket, or Dzhanibekov, effect.`;
+        watch = `The inertial view: long quiet spells, then a sudden flip. In ω space the ω tip crawls near ±${axN(b)} and then races across.`;
+      } else if (inf.type !== 'tri') {
+        t = `A steady wobble around the symmetry axis`;
+        s = `${intro} This body is symmetric, so the polhode is a circle: ${SYM('ω')} circles the symmetry axis ${axN(k)} at a constant rate, and the body wobbles steadily around ${SYM('H')}.`;
+        watch = `In ω space the ω tip runs round a circle. The inertial view: the spin axis traces a cone around ${SYM('H')}.`;
+      } else {
+        t = cl.kind === 'major' ? `A steady wobble around the major axis` : `A steady wobble around the minor axis`;
+        s = `${intro} Here the polhode is a closed loop around the ${cl.kind} axis ${axN(k)}: ${SYM('ω')} keeps circling it and never strays far, so the body wobbles but does not tumble.${cl.kind === 'minor' ? ' That is only true for a perfectly rigid body; with energy loss this spin would drift away to the major axis.' : ''}`;
+        watch = `In ω space the ω tip goes round and round the same loop. The inertial view: the body wobbles (nutates) around the fixed ${SYM('H')}.`;
+      }
+      break;
+    }
+    case 'sep': t = 'Exactly on the separatrix: the slowest possible flip'; s = `${intro} This spin sits exactly on the dividing line between loops around the major axis and loops around the minor axis. ${SYM('ω')} creeps toward the intermediate axis ${axN(b)} and takes forever to get there.`; watch = `The ω tip slowing to a crawl as it nears ±${axN(b)}.`; break;
+    default: t = '—'; s = ''; watch = '';
+  }
+  if (S.nu > 0 && cl.kind !== 'zero' && cl.kind !== 'iso') {
+    const settling = cl.kind === 'major' || (cl.kind === 'eq' && cl.k === c);
+    t = settling ? 'Losing energy: the wobble shrinks around the major axis' : 'Losing energy: the spin drifts toward the major axis';
+    s = s.replace(' That is only true for a perfectly rigid body; with energy loss this spin would drift away to the major axis.', '') + dissip;
+    watch = `The polhode no longer closes: it spirals out from where it started and ends circling the major axis ${axN(c)}. Energy falls (the energy readout) while ${SYM('H')} does not.`;
+  }
+  return { t, s, list: cl.kind === 'zero' ? [] : list, watch };
+}
 let lastRegKey = '';
 function updateReadouts() {
   const I = S.I, w = S.w;
@@ -1873,10 +1970,11 @@ function updateReadouts() {
 
   const regKey = cl.kind + '|' + (cl.k ?? '') + '|' + (cl.near < 0.03) + '|' + inf.type + '|' + inf.o.join('');
   if (regKey !== lastRegKey) {
-    const rt = regimeText(cl);
-    el('regTitle').innerHTML = rt.t; el('regSub').innerHTML = rt.s; el('regPill').innerHTML = rt.pill;
+    el('regPill').innerHTML = regimeText(cl).pill;
     lastRegKey = regKey;
   }
+  const mc = motionCard(cl), mcKey = mc.t + mc.s + mc.list.join('') + mc.watch;
+  if (mcKey !== lastMcKey) { el('regTitle').innerHTML = mc.t; el('regSub').innerHTML = mc.s; el('regList').innerHTML = (mc.list || []).map((x) => `<li>${x}</li>`).join(''); el('regList').hidden = !(mc.list || []).length; el('regWatch').innerHTML = mc.watch ? `<span class="lbl">Watch</span>${mc.watch}` : ''; el('regWatch').hidden = !mc.watch; lastMcKey = mcKey; }
 
   // D scale
   const dw = el('dwrap');
