@@ -229,6 +229,21 @@ a.btn { text-decoration: none; display: inline-block; }
 .phase-card { display: grid; gap: 5px; }
 .phase-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .phase-card .rs { font-size: 14px; color: var(--muted); }
+.phase-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -496,6 +511,29 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <h2>What is happening</h2>
       <div class="rt" id="phTitle">—</div>
       <div class="rs" id="phSub"></div>
+      <ul class="vruns" id="phList"></ul>
+      <p class="vwatch" id="phWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Upper stage</dt>
+          <dd>The last rocket stage, which fires its engine to push a payload to its final orbit.</dd>
+          <dt>Misalignment torque <span class="sym">c</span></dt>
+          <dd>If the engine's thrust line misses the center of mass slightly, it also twists the stage. A tiny offset over a long burn is enough to tumble a stage that is not spinning.</dd>
+          <dt>Spin stabilization</dt>
+          <dd>Spinning the stage about its long axis before the burn. A spinning body resists being tipped, so the twist only makes it wobble a little.</dd>
+          <dt>Transverse rate <span class="sym">ω<sub>t</sub></span></dt>
+          <dd>How fast the stage is turning sideways, away from its spin axis. It is what the misalignment torque creates.</dd>
+          <dt>Epicycloid</dt>
+          <dd>The looping, flower-like path the spin axis traces during the burn: a small circle rolling around a larger one.</dd>
+          <dt>Angular momentum <span class="sym">h̄</span></dt>
+          <dd>The stage's "amount of spin". A torque slowly moves it; once the engine stops it stays fixed, and the spin axis circles (cones around) it.</dd>
+          <dt>Coning, or nutation</dt>
+          <dd>The spin axis circling around <span class="sym">h̄</span> at a fixed angle after the burn. That angle, plus how far <span class="sym">h̄</span> moved, is the pointing error left behind.</dd>
+          <dt>Oblate and prolate</dt>
+          <dd>Oblate: spinning about the axis with the largest inertia (squat, like a wheel). Prolate: about the smallest (long, like a pencil). It changes the direction and speed of the wobble.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -1514,20 +1552,32 @@ function resetPlotView() { PL.yAuto = true; PL.win = defaultWindow(); setFollow(
    Readouts
    ========================================================= */
 function axisName() { return `${SYM('p̂')}<sub class="n">${S.axis + 1}</sub>`; }
+/* the "What is happening" card, in plain words: the idea, one line per quantity, and where to look */
 function phaseText() {
   const ph = phaseAt(simT - 1e-9);
-  const wt = Math.hypot(Y[4], Y[5]);
-  if (ph === 'spin') return { p: 'spin', chip: 'Spin-up', t: 'Spin-up', s: `The spin thrusters apply ${SYM('g')}<sub class="n">3</sub> = ${SYM('I<sub>a</sub>ω')}<sub class="n">3<sub>0</sub></sub>/${SYM('T')}<sub class="n">su</sub> = ${fg(P.Ia * P.w3 / S.Tsu, 3)} N·m, so ${SYM('ω')}<sub class="n">3</sub> climbs linearly toward ${fg(P.w3, 3)} rad/s. With no transverse rate, nothing else moves.` };
-  if (ph === 'burn') {
-    if (Math.abs(P.w3) < 1e-12) return { p: 'burn', chip: 'Burn', t: 'Burning with no spin', s: `With ${SYM('ω')}<sub class="n">3<sub>0</sub></sub> = 0 there is no gyroscopic coupling. The torque about ${axisName()} accelerates the vehicle steadily: the rate grows as ${SYM('ct')}/${SYM('I<sub>t</sub>')} and the vehicle tumbles.` };
-    if (S.mode === 'pulse') return { p: 'burn', chip: 'Pulse', t: 'Thruster pulse', s: `A torque of ${fg(P.g, 3)} N·m about ${axisName()} acts for ${fg(S.dt, 3)} s, delivering the impulse ${SYM('H')} = ${fg(S.H, 3)} N·m·s.` };
-    return { p: 'burn', chip: 'Burn', t: 'Main engine burn', s: `A constant torque ${SYM('c')} = ${fg(S.c, 3)} N·m about ${axisName()}. The transverse rates oscillate at ${SYM('Ω')} = ${fg(P.Om, 4)} rad/s inside a band of ±${fg(2 * Math.abs(P.scale), 3)} rad/s, and ${SYM('p̂')}<sub class="n">3</sub> traces an epicycloid.` };
-  }
-  if (simT < P.tIgn) return { p: 'coast', chip: 'Coast', t: 'Before ignition', s: 'Waiting for ignition.' };
-  if (Math.abs(P.w3) < 1e-12 && wt > 0) return { p: 'coast', chip: 'Coast', t: 'Tumbling', s: `Without spin the vehicle keeps the rate it gained, ${fg(wt, 4)} rad/s, and its pointing drifts without limit.` };
+  const wt = Math.hypot(Y[4], Y[5]), spinning = Math.abs(P.w3) > 1e-12;
+  const p3 = qrot(q4(), [0, 0, 1]), err = Math.acos(clamp(p3[2], -1, 1)) * R2D;
   const gam = cut ? Math.acos(clamp(cut.p[0] * cut.k[0] + cut.p[1] * cut.k[1] + cut.p[2] * cut.k[2], -1, 1)) * R2D : NaN;
-  if (S.mode === 'impulse') return { p: 'coast', chip: 'Coast', t: 'Torque-free after the impulse', s: `The impulse jumped the transverse rate by ${SYM('H')}/${SYM('I<sub>t</sub>')} = ${fg(S.H / P.It, 4)} rad/s. Since then the motion is torque-free: ${SYM('p̂')}<sub class="n">3</sub> cones about ${SYM('h̄')} at ${fg(gam, 3)}°.` };
-  return { p: 'coast', chip: 'Coast', t: 'Engine off: torque-free coning', s: `The dynamics revert to axisymmetric torque-free motion. ${SYM('p̂')}<sub class="n">3</sub> cones about the new ${SYM('h̄')} at a constant ${fg(gam, 3)}°, and the transverse rate stays at ${fg(wt, 4)} rad/s.` };
+  const line = (col, name, txt, now) => `<span class="sw" style="--sw:var(--${col})"></span><span><span class="nm" style="--c:var(--${col})">${name}:</span> ${txt}<span class="now">${now}</span></span>`;
+  const band = 2 * Math.abs(P.scale);
+  const list = [
+    line('c3', 'Spin', spinning ? `the stage turning about its long axis, one turn every ${fg(TAU / Math.abs(P.w3), 3)} s at full speed.` : 'none. Nothing resists the twist.', `ω₃ = ${fs(Y[6], 3)} rad/s`),
+    line('trace', 'Sideways turning', S.mode === 'step' && spinning ? `how fast the axis is being tipped. During the burn it swings between 0 and ${fg(band, 3)} rad/s and never grows beyond that.` : 'how fast the axis is being tipped sideways.', `|ω_t| = ${fx(wt, 4)} rad/s`),
+    line('hvec', 'Pointing error', 'how far the spin axis now points from where it started.', `${fx(err, err < 1 ? 3 : 2)}° (largest so far ${fx(maxErr * R2D, 3)}°)`),
+  ];
+  const intro = S.mode === 'step'
+    ? `This rocket stage fires an engine whose thrust line misses its center of mass by a little. That gives a small, steady twist (torque) as well as the push. With no spin the twist would simply tip the stage over further and further. Spinning the stage first makes it gyroscopically stiff, like a top, so the same twist only makes the axis wobble in a small, bounded pattern.`
+    : `This spinning rocket stage gets a sideways twist (torque) from a thruster, ${S.mode === 'impulse' ? 'all at once, as a sudden kick' : `spread over ${fg(S.dt, 3)} s`}. Because the stage spins, it is gyroscopically stiff, like a top: instead of tumbling, its axis settles into a small, steady circle.`;
+  if (ph === 'spin') return { p: 'spin', chip: 'Spin-up', t: 'Spinning up before the burn', s: `${intro} First, small thrusters spin the stage up to ${fg(P.w3, 3)} rad/s about its long axis. Nothing tips it yet, so only the spin changes.`, list, watch: `The Spin ω₃ history tab: a straight climb to full speed.` };
+  if (ph === 'burn') {
+    if (!spinning) return { p: 'burn', chip: 'Burn', t: 'Burning with no spin: the stage starts to tumble', s: `${intro} This stage is not spinning, so nothing resists the twist about ${axisName()}: the sideways turning rate grows steadily the whole burn, and the stage tumbles.`, list, watch: `The Transverse rates history: a straight line climbing without limit.` };
+    if (S.mode === 'pulse') return { p: 'burn', chip: 'Pulse', t: 'A thruster pulse is twisting the stage', s: `${intro} ${S.dt * Math.abs(P.Om) > 0.3 ? `The pulse lasts ${fg(S.dt, 3)} s, which is long compared with how fast the stage wobbles, so it is not a sudden kick: the stage turns while it is being pushed, and the result depends on how long the pulse lasts.` : `The pulse lasts only ${fg(S.dt, 3)} s, short compared with how fast the stage wobbles, so it acts almost like a sudden kick.`}`, list, watch: `The pointing pane: the kick starts a coning motion around a new direction.` };
+    return { p: 'burn', chip: 'Burn', t: 'Engine burning: the spin keeps the wobble small', s: `${intro} The twist about ${axisName()} is turned round and round by the spin, so its effect keeps reversing instead of adding up. The axis therefore traces a looping, flower-like curve (an epicycloid), taking ${fg(TAU / Math.abs(P.Om), 3)} s per loop, and the sideways turning rate stays inside a fixed band.`, list, watch: `The pointing pane: the simulated loops (blue) follow the epicycloid formula (dashed). In the Transverse rates history, the dashed red line is the same burn with no spin, climbing without limit.` };
+  }
+  if (simT < P.tIgn) return { p: 'coast', chip: 'Coast', t: 'Waiting for ignition', s: `${intro} The engine has not started yet.`, list, watch: '' };
+  if (!spinning && wt > 0) return { p: 'coast', chip: 'Coast', t: 'Engine off, still tumbling', s: `${intro} With no spin, the stage keeps the ${fg(wt, 4)} rad/s of sideways turning it picked up, so its pointing error grows forever.`, list, watch: `The Pointing error history: it never stops growing.` };
+  if (S.mode === 'impulse') return { p: 'coast', chip: 'Coast', t: 'After a sudden kick: steady coning', s: `${intro} The kick changed the sideways turning rate at once, by ${fg(S.H / P.It, 4)} rad/s. Since then nothing twists the stage, so its axis circles (cones around) its angular momentum at a fixed ${fg(gam, 3)}°.`, list, watch: `The pointing pane: a circle around the new direction of h̄.` };
+  return { p: 'coast', chip: 'Coast', t: 'Engine off: steady coning, with an error left over', s: `${intro} Once the engine stops, nothing twists the stage. Its angular momentum ${SYM('h̄')} now stays fixed, tilted from where it started, and the spin axis circles it at a constant ${fg(gam, 3)}°. That tilt and that circle are the pointing error the burn leaves behind.`, list, watch: `The pointing pane: the trace switches from loops to a plain circle (dashed) around the new direction of ${SYM('h̄')}.` };
 }
 function setChecks() {
   const items = [];
@@ -1613,10 +1663,11 @@ function updateReadouts() {
   el('ppRead').innerHTML = `θ1 ${fs(a[0] * R2D, 3)}°<br>θ2 ${fs(a[1] * R2D, 3)}°`;
   const pt = phaseText();
   const key = pt.t + '|' + (cut ? 1 : 0) + '|' + (ign ? 1 : 0);
-  if (key !== lastPhaseKey || pt.p === 'coast') {
-    el('phTitle').innerHTML = pt.t; el('phSub').innerHTML = pt.s;
+  const ptKey = key + pt.s + pt.list.join('') + pt.watch;
+  if (ptKey !== lastPhaseKey) {
+    el('phTitle').innerHTML = pt.t; el('phSub').innerHTML = pt.s; el('phList').innerHTML = (pt.list || []).map((x) => `<li>${x}</li>`).join(''); el('phList').hidden = !(pt.list || []).length; el('phWatch').innerHTML = pt.watch ? `<span class="lbl">Watch</span>${pt.watch}` : ''; el('phWatch').hidden = !pt.watch;
     const chip = el('phaseChip'); chip.textContent = pt.chip; chip.dataset.p = pt.p;
-    lastPhaseKey = key;
+    lastPhaseKey = ptKey;
   }
   setChecks();
 }
