@@ -221,6 +221,21 @@ a.btn { text-decoration: none; display: inline-block; }
 /* ---------- analysis ---------- */
 .state-card { display: grid; gap: 5px; }
 .state-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.state-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .state-card .rs { font-size: 14px; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
@@ -463,6 +478,27 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
       <h2>What is happening</h2>
       <div class="rt" id="stTitle">—</div>
       <div class="rs" id="stSub"></div>
+      <ul class="vruns" id="stList"></ul>
+      <p class="vwatch" id="stWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Gimbal</dt>
+          <dd>A ring on a pivot, turned by a motor. Three nested gimbals can hold a payload at any attitude; inertial measurement units and camera mounts are built this way.</dd>
+          <dt>Euler angles <span class="sym">ψ</span>, <span class="sym">θ</span>, <span class="sym">φ</span></dt>
+          <dd>Three turns in a row about body axes. Here they are literally the three ring angles: outer, middle and inner.</dd>
+          <dt>Gimbal lock</dt>
+          <dd>The middle ring turns so that the outer and inner pivots line up. Both then turn the payload the same way, and one direction of motion is lost until the middle ring moves away.</dd>
+          <dt>Lost direction <span class="sym">n̂</span></dt>
+          <dd>At lock, the one direction no combination of ring motions can turn the payload about. It is the arrow labeled <span class="sym">n̂</span>.</dd>
+          <dt>Body rate and gimbal rates</dt>
+          <dd>The body rate is how fast the payload itself turns. The gimbal rates are how fast each ring must turn to produce it; near lock a small body rate needs enormous gimbal rates.</dd>
+          <dt>Rate limit (saturation)</dt>
+          <dd>A real motor has a top speed. When the needed gimbal rate is higher, the motor saturates and the payload falls behind where it was told to point.</dd>
+          <dt>Quaternion</dt>
+          <dd>Four numbers describing the attitude with no singular attitudes at all. The payload's quaternion stays smooth even through lock, which is why flight software uses quaternions.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -1322,29 +1358,43 @@ function buildSGrid() {
   el('Sout').innerHTML = h;
 }
 const ST_LABEL = { ok: 'ok', warn: 'near', bad: 'locked' };
+/* the "What is happening" card, in plain words: the idea, one line per ring, and where to look */
 function statusText(sq, geo, m, st) {
-  const thDeg = wrapDeg(SIM.a[1] * R2D), sing = sq.sym ? '0° or 180°' : '±90°';
+  const thDeg = wrapDeg(SIM.a[1] * R2D), sing = sq.sym ? '0° or 180°' : '±90°', marg = marginDeg(sq, thDeg);
   const comb = singComb(sq, SIM.a[1]) > 0 ? `${SYM('ψ')} + ${SYM('φ')}` : `${SYM('φ')} − ${SYM('ψ')}`;
+  const running = S.playing || (SIM.t > 0 && !SIM.done);
+  // one line per ring: what it does, with its live angle and rate
+  const role = [
+    `turns on the fixed base, about axis ${sq.i}.`,
+    `turns inside the outer ring, about axis ${sq.j}. <b>Its angle decides how close the mechanism is to lock</b>: lock comes at ${SYM('θ')} = ${sing}.`,
+    `turns inside the middle ring, about axis ${sq.k}, and carries the payload.`,
+  ];
+  const names = ['Outer ring', 'Middle ring', 'Inner ring'];
+  const list = [0, 1, 2].map((k) => {
+    const rate = SIM.ach[k] * R2D, need = SIM.req[k] * R2D, capped = S.limit && Math.abs(need) > S.lim + 1e-6;
+    const nowTxt = `${['ψ', 'θ', 'φ'][k]} = ${fs(wrapDeg(SIM.a[k] * R2D), 1)}°` + (running && SIM.wig < 0 ? `, turning at ${fs(rate, 1)}°/s${capped ? ` (needs ${fs(need, 0)}°/s: saturated)` : ''}` : '');
+    return `<span class="sw" style="--sw:var(--e${k + 1})"></span><span><span class="nm" style="--c:var(--e${k + 1})">${names[k]}, ${SYM(['ψ', 'θ', 'φ'][k])}:</span> ${role[k]}<span class="now">${nowTxt}</span></span>`;
+  });
+  const base = `A payload (the small spacecraft) sits inside three nested rings, each turned by its own motor. The three ring angles are a set of ${sq.name} Euler angles, so this mechanism shows what Euler angles do as the payload turns.`;
   if (SIM.wig >= 0) {
     return st === 'bad'
-      ? { t: 'Moving two gimbals, the payload stays put', s: `The ${SYM('ψ')} and ${SYM('φ')} gimbals turn by equal and opposite amounts, so ${comb} never changes. At lock that is the only thing the attitude depends on, so the rings move and the payload does not. One degree of freedom of the mechanism has become useless.` }
-      : { t: 'Away from lock the payload moves', s: `The same opposite motion of ${SYM('ψ')} and ${SYM('φ')} now turns the payload, because the outer and inner axes are ${fx(Math.acos(clamp(Math.abs(dot(geo.ap, geo.af)), 0, 1)) * R2D, 1)}° apart. Try it again from the Sitting in lock preset.` };
+      ? { t: 'Turning two rings, and the payload does not move', s: `${base} Here the outer and inner rings turn by equal and opposite amounts. At gimbal lock their pivots lie on the same line, so the two motions cancel: the rings move and the payload stays perfectly still. Only the combination ${comb} matters, and one motor has become useless.`, list, watch: `The payload in the 3D view, and the quaternion plot: both stay flat while the ring angles swing.` }
+      : { t: 'Away from lock the same motion turns the payload', s: `${base} The same equal and opposite motion of the outer and inner rings now turns the payload, because their pivots are ${fx(Math.acos(clamp(Math.abs(dot(geo.ap, geo.af)), 0, 1)) * R2D, 1)}° apart instead of lined up.`, list, watch: `Compare with the "Sitting in lock" preset, where the payload does not move at all.` };
   }
-  const running = S.playing || (SIM.t > 0 && !SIM.done);
   if (st === 'bad') {
-    return { t: 'Gimbal lock', s: `${SYM('θ')} = ${fx(thDeg, 1)}°: the ${SYM('ψ')} and ${SYM('φ')} axes are collinear, so the three gimbal axes span only a plane. Only ${comb} is defined, and no gimbal rates can turn the payload about ${SYM('n̂')}.${running && SIM.err > 1 ? ` The payload is ${fx(SIM.err, 1)}° behind its command.` : ''}` };
+    return { t: 'Gimbal lock: two rings line up, and one direction is lost', s: `${base} With the middle ring at ${SYM('θ')} = ${fx(thDeg, 1)}°, the outer and inner pivots point along the same line, so they both turn the payload the same way. Three motors now give only two directions of motion: <b>nothing can turn the payload about the direction ${SYM('n̂')}, the arrow labeled n̂</b>. The payload's attitude is ordinary; only the mechanism (and the Euler angles) are stuck.${running && SIM.err > 1 ? ` The payload is ${fx(SIM.err, 1)}° behind where it was told to point.` : ''}`, list, watch: `The arrow ${SYM('n̂')} in the 3D view, and the Gimbal rates plot, where the needed rates spike as the middle ring passes through lock.` };
   }
   if (SIM.sat && running) {
     const w = SIM.req.map((x) => Math.abs(x) * R2D), k = w.indexOf(Math.max(...w));
-    return { t: 'Motors saturated', s: `Holding the commanded rate needs ${DOT(['ψ', 'θ', 'φ'][k])} = ${fx(w[k], 0)}°/s, beyond the ${fx(S.lim, 0)}°/s limit. ${SYM('θ')} is ${fx(marginDeg(sq, thDeg), 1)}° from ${sing}, so a modest body rate about ${SYM('n̂')} needs a large gimbal rate. The payload falls ${fx(SIM.err, 1)}° behind.` };
+    return { t: 'The motors cannot keep up', s: `${base} The payload is commanded to turn at a steady ${fx(S.rate, 0)}°/s, which is easy far from lock. But the middle ring is only ${fx(marg, 1)}° from lock, and near lock even a slow turn of the payload needs very fast ring motion. The ${names[k].toLowerCase()} would need ${fx(w[k], 0)}°/s, more than its motor's ${fx(S.lim, 0)}°/s top speed, so <b>the payload falls ${fx(SIM.err, 1)}° behind</b>.`, list, watch: `The Gimbal rates plot: the needed rates shoot past the dashed motor limits. Then Error and margin: the pointing error grows only while the motors are saturated.` };
   }
   if (st === 'warn') {
-    return { t: 'Near gimbal lock', s: `${SYM('θ')} is ${fx(marginDeg(sq, thDeg), 1)}° from ${sing}. A body rate about ${SYM('n̂')} now needs gimbal rates about 1/|det ${SYM('S')}| = ${fx(1 / m, 1)} times larger.` };
+    return { t: 'Getting close to gimbal lock', s: `${base} The middle ring is ${fx(marg, 1)}° from lock at ${sing}. The outer and inner pivots are nearly lined up, so turning the payload about the direction ${SYM('n̂')} (the arrow labeled n̂) now needs ring rates about ${fx(1 / m, 1)} times larger than the payload's own rate.`, list, watch: `The ring rates in the list above, and the Lock meter below: the closer to lock, the faster the rings must spin for the same payload motion.` };
   }
   if (SIM.done && SIM.maxErr > 1) {
-    return { t: 'Slew finished, with a lag', s: `The payload fell up to ${fx(SIM.maxErr, 1)}° behind its command while the motors were saturated, and the pointing loop then pulled it back. Turn off the limit to see the gimbal rates the slew really needed: ${fx(SIM.peak, 0)}°/s.` };
+    return { t: 'Slew finished, but the payload lagged behind', s: `${base} While the middle ring passed near lock the motors hit their top speed, and the payload fell up to ${fx(SIM.maxErr, 1)}° behind its command before catching up. Without the speed limit the rings would have needed ${fx(SIM.peak, 0)}°/s.`, list, watch: `The Error and margin plot: the error appears only near lock. Untick "Limit each gimbal rate" and restart to see the rates the slew really needed.` };
   }
-  return { t: 'Healthy', s: `The three gimbal axes span every direction, so any body rate can be produced. ${SYM('θ')} is ${fx(marginDeg(sq, thDeg), 1)}° from the ${sq.name} singular values at ${sing}.${SIM.done ? ` Peak gimbal rate this slew: ${fx(SIM.peak, 1)}°/s.` : ''}` };
+  return { t: SIM.done ? 'Slew finished, no trouble' : 'Healthy: the rings can turn the payload any way', s: `${base} Here the three pivots point in three different directions, so some combination of ring motions can turn the payload in any direction. The middle ring is ${fx(marg, 1)}° from lock at ${sing}.${SIM.done ? ` The fastest any ring had to turn during this slew was ${fx(SIM.peak, 1)}°/s.` : ''}`, list, watch: running ? `The Gimbal angles plot: smooth curves while the middle ring stays well away from ${sing}.` : `Press Play to run the slew, or try the "Straight through" preset to drive the middle ring through lock.` };
 }
 let lastStKey = '';
 function updateReadouts(geo) {
@@ -1356,8 +1406,8 @@ function updateReadouts(geo) {
   const chip = el('lockChip');
   const sat = SIM.sat && S.playing;
   chip.dataset.s = sat ? 'bad' : st; chip.textContent = sat ? 'Saturated' : st === 'bad' ? 'Gimbal lock' : st === 'warn' ? 'Near lock' : 'Healthy';
-  const tx = statusText(sq, geo, m, st), key = tx.t + tx.s;
-  if (key !== lastStKey) { el('stTitle').innerHTML = tx.t; el('stSub').innerHTML = tx.s; lastStKey = key; }
+  const tx = statusText(sq, geo, m, st), key = tx.t + tx.s + (tx.list || []).join('') + (tx.watch || '');
+  if (key !== lastStKey) { el('stTitle').innerHTML = tx.t; el('stSub').innerHTML = tx.s; el('stList').innerHTML = (tx.list || []).map((x) => `<li>${x}</li>`).join(''); el('stList').hidden = !(tx.list || []).length; el('stWatch').innerHTML = tx.watch ? `<span class="lbl">Watch</span>${tx.watch}` : ''; el('stWatch').hidden = !tx.watch; lastStKey = key; }
   // lock meter
   const bar = el('meterBar'); bar.style.width = clamp(marg / 90 * 100, 0, 100) + '%'; bar.dataset.s = st;
   el('o_th').textContent = fs(thDeg, 2);
