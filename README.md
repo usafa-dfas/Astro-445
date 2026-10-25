@@ -35,3 +35,17 @@ One-time setup:
 7. **Make this repo private.** In `Astro-445`, first turn off its Pages site (Settings → Pages), then open Settings → General → Danger Zone → Change visibility → Private. The old address https://usafa-dfas.github.io/Astro-445/ stops working; share the new one.
 
 If the workflow fails, its log says why. The usual causes are a missing secret, a deploy key added without write access, or an organization policy that disables deploy keys or Actions on private repos.
+
+### Publishing from your own computer
+If Actions can't run (for example, while the organization's billing is locked), publish by hand with a script in `tools/`. It fetches `main` from GitHub, copies the same files the workflow would, and pushes one commit to the public repo. You don't need a local copy of either repo, and nothing on your computer is changed. It signs in to GitHub as you, so you need write access to `astro-445-apps`, and it needs [git](https://git-scm.com/downloads).
+
+1. **Merge your changes into `main` first.** The script publishes `main` exactly as it is on GitHub.
+2. **Download the script.** On GitHub, open `tools/publish.ps1` (Windows) or `tools/publish.sh` (Mac/Linux) and use "Download raw file".
+3. **Run it from the folder you saved it to.**
+   - Windows (PowerShell): `powershell -ExecutionPolicy Bypass -File publish.ps1`
+   - Mac/Linux: `bash publish.sh`
+
+   The first time, git opens a browser window to sign in to GitHub.
+4. **Wait for Pages.** It refreshes the site a minute or two after the push.
+
+Add `-DryRun` (Windows) or `--dry-run` (Mac/Linux) to see what would change without pushing. If git says it doesn't know who you are, run `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"` once.

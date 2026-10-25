@@ -1,4 +1,5 @@
 # Copies the lecture apps from this (private) repo to the public repo that serves them on GitHub Pages.
+# tools/publish.ps1 and tools/publish.sh do the same from your own computer; keep their exclude lists in step.
 # Setup: README.md, "Publishing". Needs the secret PUBLIC_DEPLOY_KEY: the private half of a deploy key
 # with write access on the public repo.
 name: Publish apps to the public site
@@ -54,7 +55,7 @@ jobs:
           find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           # everything except the repo's own docs, settings and history
           tar -C source \
-            --exclude=./.git --exclude=./.github --exclude=./.claude \
+            --exclude=./.git --exclude=./.github --exclude=./.claude --exclude=./tools \
             --exclude=./.gitattributes --exclude=./README.md --exclude=./CLAUDE.md \
             -cf - . | tar -C public -xf -
           cat > public/README.md <<'EOF'
