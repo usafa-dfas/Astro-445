@@ -1,0 +1,1631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gimbal Lock Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the other lesson apps). Control rail | gimbal viewport over time-history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --c1: #1b8655;
+  --c2: #7340c2;
+  --c3: #08808f;
+  --axis: #6a7582;
+  --e1: #cc2b26;
+  --e2: #2257c2;
+  --e3: #b02a6b;
+  --lost: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-alt: #2c3540;
+  --wing: #2f5a9e;
+  --metal: #39424d;
+  --stand: #8d99a6;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+    --axis: #7f8a97; --e1: #ff5d51; --e2: #5b96ff; --e3: #ff6fb0; --lost: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-alt: #d5dbe2; --wing: #4f7fd0; --metal: #aab4bf; --stand: #5d6977;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --c1: #45c58c; --c2: #ac8dff; --c3: #35c3cc;
+  --axis: #7f8a97; --e1: #ff5d51; --e2: #5b96ff; --e3: #ff6fb0; --lost: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-alt: #d5dbe2; --wing: #4f7fd0; --metal: #aab4bf; --stand: #5d6977;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 316px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 80ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+.ac { position: relative; display: inline-block; }
+.ac::after { content: ""; position: absolute; left: 52%; top: .06em; width: .18em; height: .18em; border-radius: 50%; transform: translateX(-50%); background: currentColor; pointer-events: none; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 44px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.slider[hidden] { display: none !important; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number], select {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+select { width: auto; padding-right: 4px; }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 44px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.viewport { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.hint { left: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 150px; flex: 0 1 200px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.phase-chip[data-s="ok"] { color: var(--good); border-color: var(--good); }
+.phase-chip[data-s="warn"] { color: var(--warn); border-color: var(--warn); }
+.phase-chip[data-s="bad"] { color: var(--bad); border-color: var(--bad); }
+.tclock { margin-left: auto; display: flex; gap: 14px; }
+.tclock .sym { font-size: 15px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn { padding: 3px 9px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.hleg .sym { color: var(--ink); }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.state-card { display: grid; gap: 5px; }
+.state-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.state-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.state-card .rs { font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.kv dd.v { grid-column: 1 / -1; margin-top: -3px; }
+.meter { height: 8px; border-radius: 4px; background: var(--view); border: 1px solid var(--rule); overflow: hidden; }
+.meter .bar { height: 100%; width: 0; background: var(--good); }
+.meter .bar[data-s="warn"] { background: var(--warn); }
+.meter .bar[data-s="bad"] { background: var(--bad); }
+.mat { display: grid; grid-template-columns: 34px repeat(3, minmax(0, 1fr)); gap: 3px 4px; align-items: center; }
+.mat .hd { font-family: var(--f-math); font-style: italic; color: var(--muted); text-align: center; font-size: 15px; }
+.mat .hd sub { font-style: normal; font-size: .72em; }
+.mat .cell { text-align: right; padding: 3px 6px; border-radius: 4px; background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.cmp th { text-align: left; font-weight: 700; color: var(--muted); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; padding: 0 4px 4px; }
+table.cmp td { padding: 3px 4px; border-top: 1px solid var(--rule); }
+table.cmp td.n { font-family: var(--f-num); font-size: 12.5px; text-align: right; }
+table.cmp tr.cur td { background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+a.inl { color: var(--accent); font-weight: 600; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: 400px auto 230px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 4 · Euler-angle singularities</div>
+      <h1>Gimbal Lock Explorer</h1>
+    </div>
+    <p class="lede">Three nested gimbals whose angles are exactly a set of Euler angles. When the middle gimbal reaches its singular value, the outer and inner axes line up, the three axes span only a plane, and the payload can no longer turn in one direction. The payload's motion stays smooth; the angles that describe it do not.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause the slew</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart the slew</dd>
+            <dt><kbd>W</kbd></dt><dd>Wiggle the outer and inner gimbals</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt>3D view</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="skim">Skim past lock<small>3-1-3, 5° miss</small></button>
+        <button class="btn" type="button" data-preset="through">Straight through<small>3-1-3, θ to −θ</small></button>
+        <button class="btn" type="button" data-preset="start">Aligned start<small>3-1-3, θ = 0</small></button>
+        <button class="btn" type="button" data-preset="pitch">Pitch past 90°<small>1-2-3 loop</small></button>
+        <button class="btn" type="button" data-preset="locked">Sitting in lock<small>wiggle ψ, φ</small></button>
+        <button class="btn" type="button" data-preset="far">Far from lock<small>3-2-1</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Gimbal sequence <span class="pill" id="seqPill">symmetric</span></h2>
+      <div class="row"><span class="lbl">Sequence</span>
+        <select id="seqSel" aria-label="Euler angle sequence">
+          <optgroup label="Symmetric (first axis repeats)">
+            <option value="121">1-2-1</option><option value="131">1-3-1</option><option value="212">2-1-2</option>
+            <option value="232">2-3-2</option><option value="313">3-1-3 (this course)</option><option value="323">3-2-3</option>
+          </optgroup>
+          <optgroup label="Asymmetric (three different axes)">
+            <option value="123">1-2-3 (roll, pitch, yaw)</option><option value="132">1-3-2</option><option value="213">2-1-3</option>
+            <option value="231">2-3-1</option><option value="312">3-1-2</option><option value="321">3-2-1</option>
+          </optgroup>
+        </select>
+      </div>
+      <p class="note" id="seqNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Gimbal angles <span class="unit">start of the slew</span></h2>
+      <div class="slider">
+        <label for="psR"><span class="sym" style="color:var(--e1)">ψ</span><span class="u">outer</span></label>
+        <input type="range" id="psR" min="-180" max="180" step="0.5" aria-label="Outer gimbal angle psi slider">
+        <input type="number" id="psN" step="any" aria-label="Outer gimbal angle psi, degrees">
+      </div>
+      <div class="slider">
+        <label for="thR"><span class="sym" style="color:var(--e2)">θ</span><span class="u">middle</span></label>
+        <input type="range" id="thR" min="-180" max="180" step="0.5" aria-label="Middle gimbal angle theta slider">
+        <input type="number" id="thN" step="any" aria-label="Middle gimbal angle theta, degrees">
+      </div>
+      <div class="slider">
+        <label for="phR"><span class="sym" style="color:var(--e3)">φ</span><span class="u">inner</span></label>
+        <input type="range" id="phR" min="-180" max="180" step="0.5" aria-label="Inner gimbal angle phi slider">
+        <input type="number" id="phN" step="any" aria-label="Inner gimbal angle phi, degrees">
+      </div>
+      <div class="row"><button class="btn" type="button" id="wiggleBtn">Wiggle <span class="sym">ψ</span> and <span class="sym">φ</span> together</button></div>
+      <p class="note" id="wiggleNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Slew command</h2>
+      <div class="row"><span class="lbl">About</span>
+        <div class="seg" role="group" aria-label="Body axis to turn about" id="axSeg">
+          <button class="btn" type="button" data-ax="1"><span class="sym">b̂</span><sub class="n">1</sub></button>
+          <button class="btn" type="button" data-ax="2"><span class="sym">b̂</span><sub class="n">2</sub></button>
+          <button class="btn" type="button" data-ax="3"><span class="sym">b̂</span><sub class="n">3</sub></button>
+        </div>
+      </div>
+      <div class="slider">
+        <label for="rateR"><span class="sym">ω</span><span class="u">deg/s</span></label>
+        <input type="range" id="rateR" min="-30" max="30" step="0.5" aria-label="Commanded rate slider">
+        <input type="number" id="rateN" step="any" aria-label="Commanded rate, degrees per second">
+      </div>
+      <div class="slider">
+        <label for="durR"><span class="sym">T</span><span class="u">s</span></label>
+        <input type="range" id="durR" min="2" max="30" step="0.5" aria-label="Slew duration slider">
+        <input type="number" id="durN" min="0.5" step="any" aria-label="Slew duration, seconds">
+      </div>
+      <p class="note">The payload is told to turn at a steady rate about one of its own axes for <span class="sym">T</span> seconds, then hold still.</p>
+    </section>
+
+    <section class="group">
+      <h2>Gimbal motors</h2>
+      <label class="check"><input type="checkbox" id="chkLimit"> Limit each gimbal rate</label>
+      <div class="slider" id="limRow">
+        <label for="limR"><span class="sym">ȧ</span><sub class="n">max</sub><span class="u">deg/s</span></label>
+        <input type="range" id="limR" min="10" max="360" step="5" aria-label="Gimbal rate limit slider">
+        <input type="number" id="limN" min="1" step="any" aria-label="Gimbal rate limit, degrees per second">
+      </div>
+      <p class="note">A pointing loop turns the commanded body rate into gimbal rates through the inverse of <span class="sym">S</span>, plus a small correction toward the commanded attitude. Each motor saturates on its own.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkZone"> Lock zones: where <span class="sym">b̂</span><sub class="n" id="zoneK">3</sub> lines up with <span class="sym">â</span><sub class="n" id="zoneI">3</sub></label>
+        <label class="check"><input type="checkbox" id="chkTrace"> Trace of <span class="sym">b̂</span><sub class="n" id="traceK">3</sub></label>
+        <label class="check"><input type="checkbox" id="chkFrameA"> Frame A axes</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="viewport" id="viewport">
+      <canvas id="gl" aria-label="3D view of three nested gimbals holding a payload"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="overlay vtitle">Frame A (the base)</div>
+      <div class="overlay legend" role="group" aria-label="Show or hide in 3D">
+        <button class="chip" type="button" data-show="rings" style="--sw:var(--e1)" aria-pressed="true"><span class="sw"></span>Gimbal rings</button>
+        <button class="chip" type="button" data-show="gaxes" style="--sw:var(--e2)" aria-pressed="true"><span class="sw"></span>Gimbal axes</button>
+        <button class="chip" type="button" data-show="lost" style="--sw:var(--lost)" aria-pressed="true"><span class="sw"></span>Lost direction <span class="sym">n̂</span></button>
+        <button class="chip" type="button" data-show="payload" style="--sw:var(--c1)" aria-pressed="true"><span class="sw"></span>Payload and <span class="sym">b̂</span> axes</button>
+      </div>
+      <div class="overlay viewbar">
+        <div class="seg" role="group" aria-label="View direction">
+          <button class="btn" type="button" data-view="iso">Iso</button>
+          <button class="btn" type="button" data-view="top">Top</button>
+          <button class="btn" type="button" data-view="side">Side</button>
+        </div>
+        <button class="btn" type="button" id="fitBtn">Fit</button>
+      </div>
+      <div class="overlay hint" id="hint">Drag to rotate · Right-drag to pan · Scroll to zoom</div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="-1" max="0.6" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="lockChip" data-s="ok">Healthy</span>
+      <div class="tclock"><span><span class="sym">t</span> = <span id="tOut">0.00</span> s</span><span id="errOut"></span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="ang" aria-pressed="true">Gimbal angles</button>
+          <button class="btn" type="button" data-q="rate" aria-pressed="false">Gimbal rates</button>
+          <button class="btn" type="button" data-q="quat" aria-pressed="false">Quaternion</button>
+          <button class="btn" type="button" data-q="err" aria-pressed="false">Error and margin</button>
+        </div>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="Time history plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group state-card">
+      <h2>What is happening</h2>
+      <div class="rt" id="stTitle">—</div>
+      <div class="rs" id="stSub"></div>
+      <ul class="vruns" id="stList"></ul>
+      <p class="vwatch" id="stWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Gimbal</dt>
+          <dd>A ring on a pivot, turned by a motor. Three nested gimbals can hold a payload at any attitude; inertial measurement units and camera mounts are built this way.</dd>
+          <dt>Euler angles <span class="sym">ψ</span>, <span class="sym">θ</span>, <span class="sym">φ</span></dt>
+          <dd>Three turns in a row about body axes. Here they are literally the three ring angles: outer, middle and inner.</dd>
+          <dt>Gimbal lock</dt>
+          <dd>The middle ring turns so that the outer and inner pivots line up. Both then turn the payload the same way, and one direction of motion is lost until the middle ring moves away.</dd>
+          <dt>Lost direction <span class="sym">n̂</span></dt>
+          <dd>At lock, the one direction no combination of ring motions can turn the payload about. It is the arrow labeled <span class="sym">n̂</span>.</dd>
+          <dt>Body rate and gimbal rates</dt>
+          <dd>The body rate is how fast the payload itself turns. The gimbal rates are how fast each ring must turn to produce it; near lock a small body rate needs enormous gimbal rates.</dd>
+          <dt>Rate limit (saturation)</dt>
+          <dd>A real motor has a top speed. When the needed gimbal rate is higher, the motor saturates and the payload falls behind where it was told to point.</dd>
+          <dt>Quaternion</dt>
+          <dd>Four numbers describing the attitude with no singular attitudes at all. The payload's quaternion stays smooth even through lock, which is why flight software uses quaternions.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Lock meter</h2>
+      <div class="meter" aria-hidden="true"><div class="bar" id="meterBar"></div></div>
+      <dl class="kv">
+        <dt>Middle gimbal <span class="sym">θ</span></dt><dd><span id="o_th"></span><span class="u">deg</span></dd>
+        <dt id="o_singL">Distance to 0° or 180°</dt><dd><span id="o_marg"></span><span class="u">deg</span></dd>
+        <dt id="o_detL">|det <span class="sym">S</span>| = |sin <span class="sym">θ</span>|</dt><dd><span id="o_det"></span> <span class="st" id="o_detSt"></span></dd>
+        <dt>Angle, <span class="sym">ψ</span> axis to <span class="sym">φ</span> axis</dt><dd><span id="o_ang"></span><span class="u">deg</span></dd>
+        <dt>Condition number of <span class="sym">S</span></dt><dd id="o_cond"></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>Kinematics <span class="unit">ω = S ȧ</span></h2>
+      <div class="mat" id="Sout"></div>
+      <dl class="kv">
+        <dt>Commanded <span class="sym">ω</span>, body</dt><dd class="v"><span id="o_wc"></span><span class="u">deg/s</span></dd>
+        <dt>Needed <span class="sym"><span class="ac">ψ</span></span>, <span class="sym"><span class="ac">θ</span></span>, <span class="sym"><span class="ac">φ</span></span></dt><dd class="v"><span id="o_req"></span><span class="u" id="o_reqU">deg/s</span></dd>
+        <dt>Peak needed this slew</dt><dd><span id="o_peak"></span><span class="u">deg/s</span></dd>
+        <dt>Motor limit</dt><dd id="o_lim"></dd>
+        <dt>Largest tracking error</dt><dd><span id="o_maxErr"></span><span class="u">deg</span></dd>
+      </dl>
+    </section>
+
+    <section class="group">
+      <h2>The lost direction <span class="sym" style="text-transform:none">n̂</span></h2>
+      <dl class="kv">
+        <dt><span class="sym">n̂</span> in A</dt><dd class="v" id="o_nA"></dd>
+        <dt><span class="sym">n̂</span> in B</dt><dd class="v" id="o_nB"></dd>
+        <dt><span class="sym">φ</span> axis · <span class="sym">n̂</span> = det <span class="sym">S</span></dt><dd id="o_nDot"></dd>
+      </dl>
+      <p class="note"><span class="sym">n̂</span> is perpendicular to the outer two gimbal axes, which are always perpendicular to each other. The inner axis has a component of det <span class="sym">S</span> along <span class="sym">n̂</span>. At lock that is zero: no combination of gimbal rates turns the payload about <span class="sym">n̂</span>.</p>
+    </section>
+
+    <section class="group">
+      <h2>This attitude, all 12 sequences</h2>
+      <table class="cmp">
+        <thead><tr><th>Sequence</th><th style="text-align:right">θ</th><th style="text-align:right">Margin</th><th></th></tr></thead>
+        <tbody id="allSeq"></tbody>
+      </table>
+      <p class="note">Every sequence has a singularity somewhere, but no attitude is singular in all of them. Gimbal lock belongs to the description, not to the attitude.</p>
+    </section>
+
+    <section class="group">
+      <h2>How it is avoided</h2>
+      <p class="note">Flight software carries the attitude as a quaternion, which has no singularity, and converts to Euler angles only for display (Lesson 4, App. A). Hardware gimbal platforms either add a fourth gimbal or keep the vehicle's maneuvers away from the lock attitude. The Apollo guidance platform had three gimbals and warned the crew as the middle gimbal angle approached lock.</p>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Euler angles, sequence <i>i-j-k</i></div>
+          <div class="box"><i>C</i><sub>B/A</sub> = <i>ROT</i><sub><i>k</i></sub>(<i>φ</i>) <i>ROT</i><sub><i>j</i></sub>(<i>θ</i>) <i>ROT</i><sub><i>i</i></sub>(<i>ψ</i>)</div>
+        </div>
+        <div>
+          <div class="lab">Body rate from gimbal rates</div>
+          <div class="box"><i>ω</i> = <span class="ac"><i>ψ</i></span> <i>ROT</i><sub><i>k</i></sub>(<i>φ</i>)<i>ROT</i><sub><i>j</i></sub>(<i>θ</i>)<i>e</i><sub><i>i</i></sub> + <span class="ac"><i>θ</i></span> <i>ROT</i><sub><i>k</i></sub>(<i>φ</i>)<i>e</i><sub><i>j</i></sub> + <span class="ac"><i>φ</i></span> <i>e</i><sub><i>k</i></sub> = <i>S</i>(<i>θ</i>, <i>φ</i>) [<span class="ac"><i>ψ</i></span> <span class="ac"><i>θ</i></span> <span class="ac"><i>φ</i></span>]<sup>T</sup></div>
+          <div>det <i>S</i> = ±sin <i>θ</i> for symmetric sequences, ±cos <i>θ</i> for asymmetric ones</div>
+        </div>
+        <div>
+          <div class="lab">Quaternion kinematics (Lesson 5)</div>
+          <div><span class="ac"><i>q̄</i></span> = ½ <i>q̄</i> ⊗ (0, <i>ω</i>)</div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">The commanded attitude is integrated as a quaternion and never misbehaves. The gimbal angles are integrated from <i>ȧ</i> = <i>S</i><sup>−1</sup>(<i>ω</i> + 2<i>e</i>), where <i>e</i> is the small rotation from the gimbal attitude to the commanded one, using a damped inverse so that exact lock gives a finite answer. Steps shrink so that no gimbal turns more than 0.5° per step. The dashed angles in the strip are taken from the commanded DCM with <i>θ</i> in its standard range, as a MATLAB script would.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 6));
+}
+const fvec = (v, d = 4) => '[' + v.map((c) => fs(c, d)).join(' ') + ']';
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const DOT = (s) => `<span class="sym"><span class="ac">${s}</span></span>`;
+const SUBD = ['₁', '₂', '₃'];
+const wrapDeg = (a) => a - 360 * Math.floor((a + 180) / 360);
+const unwrapNear = (a, ref) => a + 360 * Math.round((ref - a) / 360);
+
+/* =========================================================
+   Physics: Euler angles, gimbal kinematics
+   Same conventions as the lesson notes and the Attitude Parameter Explorer:
+   C_B/A = ROT_k(phi) ROT_j(theta) ROT_i(psi); q scalar first; q_dot = 1/2 q (x) (0, omega).
+   ========================================================= */
+const E = [null, [1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const unit = (a) => { const n = norm(a); return n > 0 ? [a[0] / n, a[1] / n, a[2] / n] : [0, 0, 0]; };
+function rot(n, a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  if (n === 1) return [[1, 0, 0], [0, c, s], [0, -s, c]];
+  if (n === 2) return [[c, 0, -s], [0, 1, 0], [s, 0, c]];
+  return [[c, s, 0], [-s, c, 0], [0, 0, 1]];
+}
+function mmul(A, B) {
+  const R = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R[i][j] = A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j];
+  return R;
+}
+const mT = (A) => [[A[0][0], A[1][0], A[2][0]], [A[0][1], A[1][1], A[2][1]], [A[0][2], A[1][2], A[2][2]]];
+const mv = (A, v) => [dot(A[0], v), dot(A[1], v), dot(A[2], v)];
+const det3 = (A) => dot(A[0], cross(A[1], A[2]));
+const SYMSEQ = ['121', '131', '212', '232', '313', '323'];
+const ALLSEQ = SYMSEQ.concat(['123', '132', '213', '231', '312', '321']);
+function seqOf(s) {
+  const i = +s[0], j = +s[1], k = +s[2];
+  return { i, j, k, sym: i === k, name: `${i}-${j}-${k}`, key: s };
+}
+const levi = (a, b) => ((b - a + 3) % 3 === 1 ? 1 : -1);
+function dcmEuler(sq, a) { return mmul(rot(sq.k, a[2]), mmul(rot(sq.j, a[1]), rot(sq.i, a[0]))); }
+function eulerFromDcm(sq, C, prev) {
+  const i = sq.i - 1, j = sq.j - 1, k = sq.k - 1;
+  let th, ps, ph, m;
+  if (sq.sym) {
+    const r = 3 - i - j, sg = levi(sq.i, sq.j);
+    const sp = C[i][j], cp = -sg * C[i][r];
+    m = Math.hypot(sp, cp);
+    th = Math.atan2(m, C[i][i]);
+    ps = Math.atan2(sp, cp);
+    ph = Math.atan2(C[j][i], sg * C[r][i]);
+  } else {
+    const sg = levi(sq.i, sq.j);
+    m = Math.hypot(C[k][j], C[k][k]);
+    th = Math.atan2(sg * C[k][i], m);
+    ps = Math.atan2(-sg * C[k][j], C[k][k]);
+    ph = Math.atan2(-sg * C[j][i], C[i][i]);
+  }
+  const sing = m < 1e-9;
+  if (sing) {
+    th = sq.sym ? (C[i][i] > 0 ? 0 : Math.PI) : (th > 0 ? Math.PI / 2 : -Math.PI / 2);
+    ps = prev ? prev[0] : 0;
+    const R = mmul(mmul(C, mT(rot(sq.i, ps))), mT(rot(sq.j, th)));
+    const a = sq.k % 3, b = (sq.k + 1) % 3;
+    ph = Math.atan2(R[a][b], R[a][a]);
+  }
+  return { a: [ps, th, ph], sing, m };
+}
+function singComb(sq, th) {
+  const A = dcmEuler(sq, [0.3, th, 0]), B = dcmEuler(sq, [0, th, 0.3]);
+  let m = 0; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) m = Math.max(m, Math.abs(A[i][j] - B[i][j]));
+  return m < 1e-9 ? 1 : -1;
+}
+function qmul(p, q) {
+  return [
+    p[0] * q[0] - p[1] * q[1] - p[2] * q[2] - p[3] * q[3],
+    p[0] * q[1] + p[1] * q[0] + p[2] * q[3] - p[3] * q[2],
+    p[0] * q[2] - p[1] * q[3] + p[2] * q[0] + p[3] * q[1],
+    p[0] * q[3] + p[1] * q[2] - p[2] * q[1] + p[3] * q[0],
+  ];
+}
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qneg = (q) => q.map((x) => -x);
+function qnormalize(q) { const n = Math.hypot(q[0], q[1], q[2], q[3]); return q.map((x) => x / n); }
+function qAxis(e, a) { const s = Math.sin(a / 2); return [Math.cos(a / 2), e[0] * s, e[1] * s, e[2] * s]; }
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function dcmQ(q) {
+  const n = q[0], a = q[1], b = q[2], c = q[3], d = n * n - (a * a + b * b + c * c);
+  return [
+    [d + 2 * a * a, 2 * (a * b + n * c), 2 * (a * c - n * b)],
+    [2 * (a * b - n * c), d + 2 * b * b, 2 * (b * c + n * a)],
+    [2 * (a * c + n * b), 2 * (b * c - n * a), d + 2 * c * c],
+  ];
+}
+function quatEuler(sq, a) { return qmul(qmul(qAxis(E[sq.i], a[0]), qAxis(E[sq.j], a[1])), qAxis(E[sq.k], a[2])); }
+/* columns of S: the psi, theta and phi gimbal axes resolved in the body frame */
+function Smat(sq, a) {
+  const Rk = rot(sq.k, a[2]), Rj = rot(sq.j, a[1]);
+  const cp = mv(mmul(Rk, Rj), E[sq.i]), ct = mv(Rk, E[sq.j]), cf = E[sq.k];
+  return [[cp[0], ct[0], cf[0]], [cp[1], ct[1], cf[1]], [cp[2], ct[2], cf[2]]];
+}
+function solve3(A, b) {
+  const d = det3(A);
+  const col = (n) => A.map((row, r) => row.map((v, c) => (c === n ? b[r] : v)));
+  return [det3(col(0)) / d, det3(col(1)) / d, det3(col(2)) / d];
+}
+/* damped least squares: (S^T S + lam^2 I)^-1 S^T w, finite even at exact lock */
+function solveDLS(M, w, lam) {
+  const Mt = mT(M), A = mmul(Mt, M);
+  for (let n = 0; n < 3; n++) A[n][n] += lam * lam;
+  return solve3(A, mv(Mt, w));
+}
+function eigSym3(A) {
+  const p1 = A[0][1] * A[0][1] + A[0][2] * A[0][2] + A[1][2] * A[1][2];
+  const q = (A[0][0] + A[1][1] + A[2][2]) / 3;
+  const p2 = (A[0][0] - q) ** 2 + (A[1][1] - q) ** 2 + (A[2][2] - q) ** 2 + 2 * p1;
+  const p = Math.sqrt(p2 / 6);
+  if (p < 1e-15) return [q, q, q];
+  const B = A.map((row, r) => row.map((v, c) => (v - (r === c ? q : 0)) / p));
+  const rr = clamp(det3(B) / 2, -1, 1), phi = Math.acos(rr) / 3;
+  const e1 = q + 2 * p * Math.cos(phi), e3 = q + 2 * p * Math.cos(phi + TAU / 3);
+  return [e1, 3 * q - e1 - e3, e3];
+}
+function condS(M) { const ev = eigSym3(mmul(mT(M), M)); return ev[2] > 1e-14 ? Math.sqrt(ev[0] / ev[2]) : Infinity; }
+function lockMeasure(sq, th) { return sq.sym ? Math.abs(Math.sin(th)) : Math.abs(Math.cos(th)); }
+function marginDeg(sq, thDeg) {
+  const t = wrapDeg(thDeg);
+  if (sq.sym) return Math.min(Math.abs(t), 180 - Math.abs(t));
+  return Math.abs(90 - Math.abs(t));
+}
+const lockState = (m) => (m < 1e-6 ? 'bad' : m < Math.sin(10 * D2R) ? 'warn' : 'ok');
+/* the three gimbal axes in frame A, and the lost direction */
+function gimbalGeom(sq, a) {
+  const qo = qAxis(E[sq.i], a[0]), qm = qmul(qo, qAxis(E[sq.j], a[1])), qb = qmul(qm, qAxis(E[sq.k], a[2]));
+  const ap = E[sq.i], at = qrot(qo, E[sq.j]), af = qrot(qm, E[sq.k]);
+  const n = unit(cross(ap, at));
+  return { qo, qm, qb, ap, at, af, n };
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const S = {
+  seq: '313',
+  g0: [0, 40, 7.8],            // gimbal angles at the start of the slew, deg
+  ax: 1, rate: -10, dur: 9,    // commanded body rate: about b_ax, deg/s, for dur s
+  limit: true, lim: 60,        // gimbal rate limit, deg/s
+  speed: 1, playing: false,
+  show: { rings: true, gaxes: true, lost: true, payload: true, zone: true, trace: true, frameA: true, labels: true },
+};
+const K_LOOP = 2;              // pointing-loop gain, 1/s
+const HOLD = 3;                // s of hold after the slew
+const SIM = { t: 0, a: [0, 0, 0], q: [1, 0, 0, 0], req: [0, 0, 0], ach: [0, 0, 0], err: 0, peak: 0, maxErr: 0, sat: false, wig: -1, done: false, noSol: false };
+const SQ = () => seqOf(S.seq);
+const tEnd = () => S.dur + HOLD;
+const wCmd = (t) => (t < S.dur ? E[S.ax].map((c) => c * S.rate * D2R) : [0, 0, 0]);
+
+/* gimbal rates for the pointing loop, needed and after the motor limit */
+function gimbalRates(a, q, t) {
+  const sq = SQ();
+  let qe = qmul(qconj(quatEuler(sq, a)), q);
+  if (qe[0] < 0) qe = qneg(qe);
+  const wc = wCmd(t);
+  const wd = [wc[0] + 2 * K_LOOP * qe[1], wc[1] + 2 * K_LOOP * qe[2], wc[2] + 2 * K_LOOP * qe[3]];
+  const req = solveDLS(Smat(sq, a), wd, 1e-4);
+  const L = S.limit ? S.lim * D2R : Infinity;
+  const ach = req.map((x) => clamp(x, -L, L));
+  return { req, ach, err: 2 * Math.acos(clamp(Math.abs(qe[0]), 0, 1)) };
+}
+function stepSim(dt) {
+  let left = dt, guard = 0;
+  while (left > 1e-12 && guard++ < 4000) {
+    const r0 = gimbalRates(SIM.a, SIM.q, SIM.t);
+    const mx = Math.max(Math.abs(r0.ach[0]), Math.abs(r0.ach[1]), Math.abs(r0.ach[2]));
+    let h = Math.min(left, 1 / 240, mx > 0 ? (0.5 * D2R) / mx : Infinity);
+    if (SIM.t < S.dur && SIM.t + h > S.dur) h = S.dur - SIM.t;   // land exactly on the end of the slew
+    h = Math.max(h, 1e-7);
+    // the commanded attitude turns at a constant body rate: exact update
+    const wc = wCmd(SIM.t), wn = norm(wc);
+    const qNext = wn > 0 ? qnormalize(qmul(SIM.q, qAxis(wc.map((c) => c / wn), wn * h))) : SIM.q;
+    // gimbal angles: midpoint (RK2) with the commanded attitude halfway along
+    const qMid = wn > 0 ? qnormalize(qmul(SIM.q, qAxis(wc.map((c) => c / wn), wn * h / 2))) : SIM.q;
+    const aMid = SIM.a.map((v, n) => v + 0.5 * h * r0.ach[n]);
+    const r1 = gimbalRates(aMid, qMid, SIM.t + h / 2);
+    SIM.a = SIM.a.map((v, n) => v + h * r1.ach[n]);
+    SIM.q = qNext; SIM.t += h; left -= h;
+    SIM.req = r1.req; SIM.ach = r1.ach;
+    const pk = Math.max(Math.abs(r1.req[0]), Math.abs(r1.req[1]), Math.abs(r1.req[2])) * R2D;
+    if (pk > SIM.peak) SIM.peak = pk;
+    SIM.sat = r1.req.some((x, n) => Math.abs(x - r1.ach[n]) > 1e-12);
+    const r2 = gimbalRates(SIM.a, SIM.q, SIM.t);
+    SIM.err = r2.err * R2D;
+    if (SIM.err > SIM.maxErr) SIM.maxErr = SIM.err;
+    record(false);
+    if (SIM.t >= tEnd() - 1e-9) { SIM.done = true; break; }
+  }
+}
+
+/* ---------- history ---------- */
+const HCAP = 6000;
+const Ht = new Float64Array(HCAP);
+const HQ = {
+  ang: [0, 1, 2].map(() => new Float32Array(HCAP)), angX: [0, 1, 2].map(() => new Float32Array(HCAP)),
+  rate: [0, 1, 2].map(() => new Float32Array(HCAP)), quat: [0, 1, 2, 3].map(() => new Float32Array(HCAP)),
+  err: [0, 1].map(() => new Float32Array(HCAP)),
+};
+let hN = 0, hLast = -Infinity, prevX = null, prevXd = null, prevA = null;
+const HDT = 0.02;
+function histClear() { hN = 0; hLast = -Infinity; prevX = null; prevXd = null; prevA = null; }
+function record(force) {
+  if (!force && SIM.t - hLast < HDT - 1e-9) return;
+  if (hN >= HCAP) return;
+  const sq = SQ(), i = hN++;
+  hLast = SIM.t; Ht[i] = SIM.t;
+  // mechanical gimbal angles, kept continuous
+  let a = SIM.a.map((v) => v * R2D);
+  if (prevA) a = a.map((v, n) => unwrapNear(v, prevA[n])); else a = a.map(wrapDeg);
+  prevA = a;
+  // angles from the commanded DCM, standard range, only the 360 deg wrap removed
+  const ex = eulerFromDcm(sq, dcmQ(SIM.q), prevX);
+  let x = ex.a.map((v) => v * R2D);
+  if (prevXd) { x[0] = unwrapNear(x[0], prevXd[0]); x[2] = unwrapNear(x[2], prevXd[2]); }
+  prevX = ex.a; prevXd = x;
+  for (let n = 0; n < 3; n++) { HQ.ang[n][i] = a[n]; HQ.angX[n][i] = x[n]; HQ.rate[n][i] = SIM.req[n] * R2D; }
+  for (let n = 0; n < 4; n++) HQ.quat[n][i] = SIM.q[n];
+  HQ.err[0][i] = SIM.err; HQ.err[1][i] = marginDeg(sq, SIM.a[1] * R2D);
+}
+
+/* =========================================================
+   3D scene
+   ========================================================= */
+const vp = el('viewport');
+let G = null;
+let vpW = 1, vpH = 1;
+const FIT_R = 1.95;
+const R_OUT = 1.45, R_MID = 1.2, R_IN = 0.95, R_STAND = 1.72, B_LEN = 1.0;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const TRAIL_MAX = 3000;
+const trail = { buf: new Float32Array(TRAIL_MAX * 3), n: 0 };
+
+const indexCache = new Map();
+function tubeIndex(maxPts, radial) {
+  const key = maxPts + ':' + radial;
+  if (indexCache.has(key)) return indexCache.get(key);
+  const idx = new Uint32Array((maxPts - 1) * radial * 6);
+  let q = 0;
+  for (let i = 0; i < maxPts - 1; i++) for (let j = 0; j < radial; j++) {
+    const j1 = (j + 1) % radial, a = i * radial + j, b = i * radial + j1, c = (i + 1) * radial + j, d = (i + 1) * radial + j1;
+    idx[q++] = a; idx[q++] = b; idx[q++] = c; idx[q++] = b; idx[q++] = d; idx[q++] = c;
+  }
+  const attr = new THREE.BufferAttribute(idx, 1);
+  indexCache.set(key, attr);
+  return attr;
+}
+class Tube {
+  constructor(maxPts, radial, material) {
+    this.max = maxPts; this.rad = radial;
+    const nv = maxPts * radial;
+    this.pos = new Float32Array(nv * 3); this.nor = new Float32Array(nv * 3);
+    const g = new THREE.BufferGeometry();
+    this.pa = new THREE.BufferAttribute(this.pos, 3); this.pa.setUsage(THREE.DynamicDrawUsage);
+    this.na = new THREE.BufferAttribute(this.nor, 3); this.na.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.pa); g.setAttribute('normal', this.na);
+    g.setIndex(tubeIndex(maxPts, radial));
+    g.setDrawRange(0, 0);
+    this.geo = g;
+    this.mesh = new THREE.Mesh(g, material);
+    this.mesh.frustumCulled = false;
+    this.cs = [];
+    for (let j = 0; j < radial; j++) { const t = TAU * j / radial; this.cs.push(Math.cos(t), Math.sin(t)); }
+  }
+  hide() { this.geo.setDrawRange(0, 0); this.mesh.visible = false; }
+  set(P, n, radius) {
+    if (n < 2) { this.hide(); return; }
+    const m = Math.min(n, this.max);
+    const idx = (k) => (m === n ? k : Math.round(k * (n - 1) / (m - 1)));
+    const pos = this.pos, nor = this.nor, rad = this.rad, cs = this.cs;
+    let nx = 0, ny = 0, nz = 0, tx = 1, ty = 0, tz = 0;
+    for (let k = 0; k < m; k++) {
+      const i = idx(k);
+      const ia = k === 0 ? 0 : idx(k - 1), ib = k === m - 1 ? i : idx(k + 1);
+      const ux = P[ib * 3] - P[ia * 3], uy = P[ib * 3 + 1] - P[ia * 3 + 1], uz = P[ib * 3 + 2] - P[ia * 3 + 2];
+      const ul = Math.hypot(ux, uy, uz);
+      if (ul > 1e-14) { tx = ux / ul; ty = uy / ul; tz = uz / ul; }
+      if (k === 0) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz;
+      } else {
+        const d = nx * tx + ny * ty + nz * tz;
+        nx -= d * tx; ny -= d * ty; nz -= d * tz;
+      }
+      let nl = Math.hypot(nx, ny, nz);
+      if (nl < 1e-9) {
+        const ax = Math.abs(tx), ay = Math.abs(ty), az = Math.abs(tz);
+        let ex = 0, ey = 0, ez = 0;
+        if (ax <= ay && ax <= az) ex = 1; else if (ay <= az) ey = 1; else ez = 1;
+        const d = ex * tx + ey * ty + ez * tz;
+        nx = ex - d * tx; ny = ey - d * ty; nz = ez - d * tz; nl = Math.hypot(nx, ny, nz);
+      }
+      nx /= nl; ny /= nl; nz /= nl;
+      const bx = ty * nz - tz * ny, by = tz * nx - tx * nz, bz = tx * ny - ty * nx;
+      const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2];
+      for (let j = 0; j < rad; j++) {
+        const c = cs[2 * j], s = cs[2 * j + 1];
+        const dx = c * nx + s * bx, dy = c * ny + s * by, dz = c * nz + s * bz;
+        const o = (k * rad + j) * 3;
+        pos[o] = px + radius * dx; pos[o + 1] = py + radius * dy; pos[o + 2] = pz + radius * dz;
+        nor[o] = dx; nor[o + 1] = dy; nor[o + 2] = dz;
+      }
+    }
+    this.pa.updateRange.offset = 0; this.pa.updateRange.count = m * rad * 3;
+    this.na.updateRange.offset = 0; this.na.updateRange.count = m * rad * 3;
+    this.pa.needsUpdate = true; this.na.needsUpdate = true;
+    this.geo.setDrawRange(0, (m - 1) * rad * 6);
+    this.mesh.visible = true;
+  }
+}
+
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const persp = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  persp.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(persp, canvas);
+  controls.enableDamping = !reduceMotion;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.zoomSpeed = 1.1;
+  controls.minDistance = 0.5; controls.maxDistance = 40;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.66);
+  scene.add(hemi, sun, sun.target);
+
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); (parent || scene).add(g);
+    return { g, shaft, head };
+  }
+  const phong = (sh = 40) => new THREE.MeshPhongMaterial({ shininess: sh });
+
+  const axisMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.7 });
+  const aAxes = [0, 1, 2].map(() => makeArrow(axisMat));
+
+  // gimbal groups: their geometry is rebuilt whenever the sequence changes
+  const outer = new THREE.Group(), middle = new THREE.Group(), inner = new THREE.Group();
+  const stand = new THREE.Group();
+  scene.add(stand, outer, middle, inner);
+  const ringMats = [phong(70), phong(70), phong(70)];
+  const standMat = phong(30);
+
+  // payload
+  const hullA = phong(), hullB = phong(), wingMat = phong(), metal = phong(80);
+  hullB.side = THREE.DoubleSide; metal.side = THREE.DoubleSide;
+  const model = new THREE.Group();
+  {
+    const bus = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.4, 0.36), hullA);
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 10), metal); boom.position.set(0, 0.27, 0);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.36, 0.012), wingMat); wing.position.set(0, 0.52, 0);
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.05, 0.05, 28, 1, true).rotateX(Math.PI / 2), hullB); dish.position.set(0, 0, 0.205);
+    const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.12, 8).rotateX(Math.PI / 2), metal); feed.position.set(0, 0, 0.24);
+    const tracker = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.08, 16).rotateZ(Math.PI / 2), hullB); tracker.position.set(0.27, -0.1, 0.08);
+    model.add(bus, boom, wing, dish, feed, tracker);
+    model.scale.setScalar(0.85);
+  }
+  inner.add(model);
+  const bMats = [phong(), phong(), phong()];
+  const bAxes = [0, 1, 2].map((n) => makeArrow(bMats[n], inner));
+
+  // gimbal axes through the origin, and the lost direction
+  const gMats = [phong(), phong(), phong()];
+  const gAxes = [0, 1, 2].map((n) => makeArrow(gMats[n]));
+  const gTails = [0, 1, 2].map((n) => { const m = new THREE.Mesh(cylGeo, gMats[n]); scene.add(m); return m; });
+  const lostMat = phong();
+  const lost = makeArrow(lostMat);
+  const lostRingMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+  const lostRing = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.2, 48), lostRingMat); scene.add(lostRing);
+
+  // lock zones: small circles about +a_i and -a_i at the radius of the body axes
+  const zoneMat = new THREE.LineDashedMaterial({ dashSize: 0.025, gapSize: 0.02 });
+  const zones = [0, 1].map(() => {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(97 * 3), 3));
+    const l = new THREE.Line(geo, zoneMat); l.frustumCulled = false; scene.add(l); return l;
+  });
+
+  // trace of the inner pivot axis tip
+  const traceMat = phong(30);
+  const tube = new Tube(TRAIL_MAX, 6, traceMat); scene.add(tube.mesh);
+
+  return { renderer, scene, persp, controls, cam: persp, hemi, sun, cylGeo, axisMat, aAxes, outer, middle, inner, stand, ringMats, standMat, model, hullA, hullB, wingMat, metal, bMats, bAxes, gMats, gAxes, gTails, lostMat, lost, lostRing, lostRingMat, zoneMat, zones, traceMat, tube };
+}
+
+const qTmp = HAS3D ? new THREE.Quaternion() : null;
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qTmp.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qTmp); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qTmp); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+function setRod(mesh, a, b, r) {
+  const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+  qTmp.setFromUnitVectors(Y_AXIS, d.clone().normalize());
+  mesh.quaternion.copy(qTmp); mesh.position.copy(a); mesh.scale.set(r, len, r);
+}
+/* a ring in the plane of local axes u and v (indices 1..3) of its gimbal group, with pins along +-u reaching out to rOut */
+function makeRing(group, radius, u, v, mat, rOut, pinMat) {
+  while (group.children.length) { const c = group.children.pop(); if (c.geometry && c.geometry !== G.cylGeo) c.geometry.dispose(); }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.028, 14, 120), mat);
+  const U = V3(E[u]), Vv = V3(E[v]), W = new THREE.Vector3().crossVectors(U, Vv);
+  ring.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(U, Vv, W));
+  group.add(ring);
+  for (const s of [1, -1]) {
+    const pin = new THREE.Mesh(G.cylGeo, pinMat || mat);
+    setRod(pin, U.clone().multiplyScalar(s * (radius - 0.02)), U.clone().multiplyScalar(s * (rOut + 0.02)), 0.022);
+    group.add(pin);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 12), pinMat || mat);
+    cap.position.copy(U.clone().multiplyScalar(s * radius)); group.add(cap);
+  }
+}
+const otherAxis = (a, b) => 6 - a - b;
+function buildMechanism() {
+  if (!G) return;
+  const sq = SQ();
+  // outer ring: pivots about a_i on the stand, holds the middle ring on its own j axis
+  makeRing(G.outer, R_OUT, sq.i, sq.j, G.ringMats[0], R_STAND, G.standMat);
+  // middle ring: pivots about j, holds the inner ring on its own k axis (k = i for symmetric sequences)
+  makeRing(G.middle, R_MID, sq.j, sq.k, G.ringMats[1], R_OUT, G.ringMats[0]);
+  // inner ring: pivots about k, carries the payload
+  const innerV = sq.sym ? otherAxis(sq.i, sq.j) : sq.i;
+  const innerRing = new THREE.Group();
+  G.inner.children.filter((c) => c.userData.ring).forEach((c) => G.inner.remove(c));
+  makeRing(innerRing, R_IN, sq.k, innerV, G.ringMats[2], R_MID, G.ringMats[1]);
+  innerRing.userData.ring = true;
+  G.inner.add(innerRing);
+  // the fixed stand: a half ring around the back, joining the two outer pivots
+  while (G.stand.children.length) { const c = G.stand.children.pop(); if (c.geometry && c.geometry !== G.cylGeo) c.geometry.dispose(); }
+  const back = sq.i === 1 ? 2 : 1;
+  const half = new THREE.Mesh(new THREE.TorusGeometry(R_STAND, 0.035, 12, 80, Math.PI), G.standMat);
+  const U = V3(E[sq.i]), Vv = V3(E[back].map((c) => -c)), W = new THREE.Vector3().crossVectors(U, Vv);
+  half.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(U, Vv, W));
+  const foot = new THREE.Mesh(G.cylGeo, G.standMat);
+  setRod(foot, Vv.clone().multiplyScalar(R_STAND), Vv.clone().multiplyScalar(R_STAND + 0.35), 0.035);
+  G.stand.add(half, foot);
+  // lock zones about +-a_i
+  const zr = 9 * D2R;
+  G.zones.forEach((z, s) => {
+    const c = E[sq.i].map((v) => v * (s ? -1 : 1));
+    const ref = Math.abs(c[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    const u = unit(cross(c, ref)), w = cross(c, u);
+    const arr = z.geometry.attributes.position.array;
+    for (let k = 0; k <= 96; k++) {
+      const t = TAU * k / 96;
+      for (let m = 0; m < 3; m++) arr[3 * k + m] = B_LEN * (Math.cos(zr) * c[m] + Math.sin(zr) * (Math.cos(t) * u[m] + Math.sin(t) * w[m]));
+    }
+    z.geometry.attributes.position.needsUpdate = true; z.computeLineDistances();
+  });
+}
+
+/* ---------- labels ---------- */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const L = {
+  a: [1, 2, 3].map((n) => mkLabel(`${SYM('â')}<sub class="n">${n}</sub>`, 'var(--axis)', 'small')),
+  b: [1, 2, 3].map((n) => mkLabel(`${SYM('b̂')}<sub class="n">${n}</sub>`, `var(--c${n})`, 'small')),
+  g: ['ψ', 'θ', 'φ'].map((s, n) => mkLabel(`${SYM(s)} axis`, `var(--e${n + 1})`)),
+  n: mkLabel(SYM('n̂'), 'var(--lost)'),
+};
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.15 || Math.abs(tmpV.y) > 1.15) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+
+/* ---------- theme ---------- */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'c1', 'c2', 'c3', 'axis', 'e1', 'e2', 'e3', 'lost', 'good', 'warn', 'bad', 'hull', 'hull-alt', 'wing', 'metal', 'stand', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]);
+    const glow = (m, n, k) => { m.color = C(n); m.emissive = C(n).multiplyScalar(k); };
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G.axisMat.color = C('axis');
+    for (let n = 0; n < 3; n++) { glow(G.ringMats[n], 'e' + (n + 1), 0.18); glow(G.gMats[n], 'e' + (n + 1), 0.3); glow(G.bMats[n], 'c' + (n + 1), 0.25); }
+    G.standMat.color = C('stand');
+    G.hullA.color = C('hull'); G.hullB.color = C('hull-alt'); G.wingMat.color = C('wing'); G.metal.color = C('metal');
+    glow(G.lostMat, 'lost', 0.3); G.lostRingMat.color = C('lost'); G.zoneMat.color = C('lost');
+    glow(G.traceMat, 'c' + SQ().k, 0.3);
+  }
+  drawPlot();
+}
+
+/* ---------- camera ---------- */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.persp.aspect = vpW / vpH; G.persp.updateProjectionMatrix();
+}
+const ISO_DIR = HAS3D ? new THREE.Vector3(1.0, 0.62, 0.55).normalize() : null;
+const VIEW_CENTER = HAS3D ? new THREE.Vector3(0, 0, 0) : null;
+function currentDir() {
+  const d = new THREE.Vector3().subVectors(G.cam.position, G.controls.target);
+  return d.lengthSq() > 0 ? d.normalize() : ISO_DIR.clone();
+}
+function fit(dir) {
+  if (!G) return;
+  dir = (dir || currentDir()).clone().normalize();
+  const a = vpW / vpH, vf = G.persp.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = FIT_R / Math.sin(Math.min(vf, hf) / 2);
+  G.controls.target.copy(VIEW_CENTER);
+  G.persp.position.copy(VIEW_CENTER).addScaledVector(dir, d);
+  G.persp.near = d * 0.01; G.persp.far = d * 30; G.persp.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(which) {
+  if (which === 'top') return new THREE.Vector3(0.0, -1e-4, 1).normalize();
+  if (which === 'side') return new THREE.Vector3(1, 0, 0.0001).normalize();
+  return ISO_DIR.clone();
+}
+
+/* ---------- scene updates ---------- */
+const ORIGIN = HAS3D ? new THREE.Vector3() : null;
+function updateScene(geo) {
+  const sh = S.show, sq = SQ();
+  G.aAxes.forEach((A, n) => { A.g.visible = sh.frameA; if (sh.frameA) setArrow(A, ORIGIN, V3(E[n + 1].map((c) => c * 2.05)), 0.005, 0.024, 0.08); });
+  const tq = (o, q) => o.quaternion.set(q[1], q[2], q[3], q[0]);
+  tq(G.outer, geo.qo); tq(G.middle, geo.qm); tq(G.inner, geo.qb);
+  G.outer.visible = G.middle.visible = G.stand.visible = sh.rings;
+  G.inner.children.forEach((c) => { if (c.userData.ring) c.visible = sh.rings; });
+  G.model.visible = sh.payload;
+  G.bAxes.forEach((A, n) => { A.g.visible = sh.payload; if (sh.payload) setArrow(A, ORIGIN, V3(E[n + 1].map((c) => c * B_LEN)), 0.011, 0.032, 0.09); });
+  // gimbal axes, full length through the origin
+  const ax = [geo.ap, geo.at, geo.af];
+  for (let n = 0; n < 3; n++) {
+    const on = sh.gaxes;
+    G.gAxes[n].g.visible = on; G.gTails[n].visible = on;
+    if (!on) continue;
+    const r = n === 2 ? 0.016 : 0.012;
+    setArrow(G.gAxes[n], ORIGIN, V3(ax[n].map((c) => c * 1.92)), r, r * 2.8, 0.11);
+    setRod(G.gTails[n], ORIGIN, V3(ax[n].map((c) => c * -1.92)), r * 0.7);
+  }
+  // the lost direction: always perpendicular to the outer two axes; it matters as det S goes to zero
+  const m = Math.abs(dot(geo.af, geo.n)), st = lockState(m);
+  const showLost = sh.lost && st !== 'ok';
+  G.lost.g.visible = showLost; G.lostRing.visible = showLost && st === 'bad';
+  if (showLost) {
+    const k = st === 'bad' ? 1 : 0.75;
+    setArrow(G.lost, ORIGIN, V3(geo.n.map((c) => c * 1.7 * k)), 0.016, 0.05, 0.12);
+    G.lostRing.position.set(geo.n[0] * 1.25, geo.n[1] * 1.25, geo.n[2] * 1.25);
+    qTmp.setFromUnitVectors(new THREE.Vector3(0, 0, 1), V3(geo.n)); G.lostRing.quaternion.copy(qTmp);
+  }
+  G.zones.forEach((z) => { z.visible = sh.zone; });
+  if (sh.trace && trail.n > 1) G.tube.set(trail.buf, trail.n, 0.007); else G.tube.hide();
+  return { showLost, st };
+}
+function updateLabels(geo, info) {
+  const on = S.show.labels;
+  for (let n = 0; n < 3; n++) {
+    if (on && S.show.frameA) placeLabel(L.a[n], E[n + 1].map((c) => c * 2.18)); else L.a[n].hidden = true;
+    if (on && S.show.payload) placeLabel(L.b[n], qrot(geo.qb, E[n + 1]).map((c) => c * (B_LEN + 0.1))); else L.b[n].hidden = true;
+  }
+  const ax = [geo.ap, geo.at, geo.af];
+  for (let n = 0; n < 3; n++) {
+    if (on && S.show.gaxes) placeLabel(L.g[n], ax[n].map((c) => c * 2.06), n === 2 ? 0 : 0, n === 2 ? 16 : 0); else L.g[n].hidden = true;
+  }
+  if (on && info.showLost) placeLabel(L.n, geo.n.map((c) => c * (info.st === 'bad' ? 1.84 : 1.4))); else L.n.hidden = true;
+}
+function recordTrail(geo) {
+  const sq = SQ(), p = qrot(geo.qb, E[sq.k]).map((c) => c * B_LEN);
+  if (trail.n > 0) {
+    const o = (trail.n - 1) * 3;
+    if (Math.hypot(p[0] - trail.buf[o], p[1] - trail.buf[o + 1], p[2] - trail.buf[o + 2]) < 0.004) return;
+  }
+  if (trail.n >= TRAIL_MAX) { trail.buf.copyWithin(0, 3); trail.n--; }
+  trail.buf.set(p, trail.n * 3); trail.n++;
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot');
+const pctx = plotCv.getContext('2d');
+const PL = { q: 'ang', hoverX: null, m: { l: 52, r: 16, t: 20, b: 24 }, W: 1, H: 1 };
+const TABS = {
+  ang: { arrs: () => HQ.ang, dashed: () => HQ.angX, names: ['ψ', 'θ', 'φ'], cols: ['e1', 'e2', 'e3'], unit: 'deg',
+    legend: () => `${['ψ', 'θ', 'φ'].map((s, n) => `<span class="hleg"><span class="ln" style="--c:var(--e${n + 1})"></span>${SYM(s)}</span>`).join('')}<span class="hleg"><span class="ln" style="--c:var(--muted)"></span>gimbals</span><span class="hleg"><span class="ln dash" style="--c:var(--muted)"></span>from <span class="sym">C</span>, standard range</span>` },
+  rate: { arrs: () => HQ.rate, names: ['dψ/dt', 'dθ/dt', 'dφ/dt'], cols: ['e1', 'e2', 'e3'], unit: 'deg/s',
+    legend: () => `${['ψ', 'θ', 'φ'].map((s, n) => `<span class="hleg"><span class="ln" style="--c:var(--e${n + 1})"></span>${DOT(s)} needed</span>`).join('')}${S.limit ? `<span class="hleg"><span class="ln dash" style="--c:var(--bad)"></span>motor limit</span>` : ''}` },
+  quat: { arrs: () => HQ.quat, names: ['η', 'ε₁', 'ε₂', 'ε₃'], cols: ['accent', 'c1', 'c2', 'c3'], unit: '',
+    legend: () => [[SYM('η'), 'accent'], [`${SYM('ε')}<sub class="n">1</sub>`, 'c1'], [`${SYM('ε')}<sub class="n">2</sub>`, 'c2'], [`${SYM('ε')}<sub class="n">3</sub>`, 'c3']].map(([h, c]) => `<span class="hleg"><span class="ln" style="--c:var(--${c})"></span>${h}</span>`).join('') + '<span class="hleg">of the commanded attitude</span>' },
+  err: { arrs: () => HQ.err, names: ['error', 'margin'], cols: ['bad', 'e2'], unit: 'deg',
+    legend: () => `<span class="hleg"><span class="ln" style="--c:var(--bad)"></span>tracking error</span><span class="hleg"><span class="ln" style="--c:var(--e2)"></span>${SYM('θ')} distance to its singular value</span>` },
+};
+function setLegend() { el('hlegs').innerHTML = TABS[PL.q].legend(); }
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  const d = Math.max(0, Math.ceil(-Math.log10(s) - 1e-9));
+  return { v: out, d };
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  if (pw < 30 || ph < 30) return;
+  const T = TABS[PL.q], arrs = T.arrs(), dash = T.dashed ? T.dashed() : null, n = hN;
+  const x0 = 0, x1 = tEnd();
+  let y0, y1;
+  if (PL.q === 'quat') { y0 = -1.08; y1 = 1.08; }
+  else {
+    let mn = Infinity, mx = -Infinity;
+    const scan = (A) => { for (let i = 0; i < n; i++) { const v = A[i]; if (v < mn) mn = v; if (v > mx) mx = v; } };
+    arrs.forEach(scan); if (dash) dash.forEach(scan);
+    if (PL.q === 'rate' && S.limit) { mn = Math.min(mn, -S.lim); mx = Math.max(mx, S.lim); }
+    if (PL.q === 'err') { mn = 0; mx = Math.max(mx, 10); }
+    if (!isFinite(mn)) { mn = -10; mx = 10; }
+    const span = Math.max(mx - mn, 10);
+    y0 = PL.q === 'err' ? 0 : mn - 0.08 * span; y1 = mx + 0.08 * span;
+  }
+  const sx = pw / (x1 - x0), sy = ph / (y1 - y0);
+  const X = (v) => l + (v - x0) * sx, Y = (v) => t + (y1 - v) * sy;
+  const monoFont = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  ctx.lineWidth = 1; ctx.font = monoFont; ctx.textBaseline = 'middle';
+  const xt = ticksOf(x0, x1, pw / 80), yt = ticksOf(y0, y1, ph / 30);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yt.v.forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted;
+  ctx.textAlign = 'center'; xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), l - 6, Y(v)));
+  if (y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Y(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Y(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  if (T.unit) ctx.fillText(T.unit, 6, 9);
+  ctx.fillText('t, s', 6, t + ph + 12);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  // end of the slew, and the motor limits
+  const xs = Math.round(X(S.dur)) + 0.5;
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xs, t); ctx.lineTo(xs, t + ph); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.fillText('hold', xs + 4, t + 8);
+  if (PL.q === 'rate' && S.limit) {
+    ctx.strokeStyle = COL.bad; ctx.setLineDash([6, 4]);
+    [S.lim, -S.lim].forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); });
+  }
+  ctx.setLineDash([]);
+  const line = (A, col, dsh, w) => {
+    if (n < 2) return;
+    ctx.strokeStyle = COL[col]; ctx.lineWidth = w; ctx.setLineDash(dsh ? [5, 4] : []);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const px = X(Ht[i]), py = Y(A[i]); if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if (dash) dash.forEach((A, k) => line(A, T.cols[k], true, 1.4));
+  arrs.forEach((A, k) => line(A, T.cols[k], false, 1.9));
+  if (SIM.t >= x0 && SIM.t <= x1) {
+    const x = Math.round(X(SIM.t)) + 0.5;
+    ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x, t); ctx.lineTo(x, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && n > 0) {
+    const tv = x0 + (PL.hoverX - l) / sx;
+    let lo = 0, hi = n; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, n - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    arrs.forEach((A, k) => { ctx.fillStyle = COL[T.cols[k]]; ctx.beginPath(); ctx.arc(x, Y(A[i]), 3.5, 0, TAU); ctx.fill(); });
+    const dp = PL.q === 'quat' ? 4 : 2;
+    const lines = [`t ${fx(Ht[i], 2)} s`, ...arrs.map((A, k) => `${T.names[k]} ${fs(A[i], dp)}${dash ? `  (${fs(dash[k][i], 1)})` : ''}`)];
+    ctx.font = monoFont;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    const by = t + 4;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left';
+    lines.forEach((s2, j) => { ctx.fillStyle = j === 0 ? COL.ink : COL[T.cols[j - 1]]; ctx.fillText(s2, bx + 8, by + 12 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function buildSGrid() {
+  let h = '<span class="hd"></span>';
+  ['ψ', 'θ', 'φ'].forEach((s) => { h += `<span class="hd"><span class="ac">${s}</span></span>`; });
+  for (let r = 0; r < 3; r++) {
+    h += `<span class="hd">ω<sub>${r + 1}</sub></span>`;
+    for (let c = 0; c < 3; c++) h += `<span class="cell" id="s${r}${c}"></span>`;
+  }
+  el('Sout').innerHTML = h;
+}
+const ST_LABEL = { ok: 'ok', warn: 'near', bad: 'locked' };
+/* the "What is happening" card, in plain words: the idea, one line per ring, and where to look */
+function statusText(sq, geo, m, st) {
+  const thDeg = wrapDeg(SIM.a[1] * R2D), sing = sq.sym ? '0° or 180°' : '±90°', marg = marginDeg(sq, thDeg);
+  const comb = singComb(sq, SIM.a[1]) > 0 ? `${SYM('ψ')} + ${SYM('φ')}` : `${SYM('φ')} − ${SYM('ψ')}`;
+  const running = S.playing || (SIM.t > 0 && !SIM.done);
+  // one line per ring: what it does, with its live angle and rate
+  const role = [
+    `turns on the fixed base, about axis ${sq.i}.`,
+    `turns inside the outer ring, about axis ${sq.j}. <b>Its angle decides how close the mechanism is to lock</b>: lock comes at ${SYM('θ')} = ${sing}.`,
+    `turns inside the middle ring, about axis ${sq.k}, and carries the payload.`,
+  ];
+  const names = ['Outer ring', 'Middle ring', 'Inner ring'];
+  const list = [0, 1, 2].map((k) => {
+    const rate = SIM.ach[k] * R2D, need = SIM.req[k] * R2D, capped = S.limit && Math.abs(need) > S.lim + 1e-6;
+    const nowTxt = `${['ψ', 'θ', 'φ'][k]} = ${fs(wrapDeg(SIM.a[k] * R2D), 1)}°` + (running && SIM.wig < 0 ? `, turning at ${fs(rate, 1)}°/s${capped ? ` (needs ${fs(need, 0)}°/s: saturated)` : ''}` : '');
+    return `<span class="sw" style="--sw:var(--e${k + 1})"></span><span><span class="nm" style="--c:var(--e${k + 1})">${names[k]}, ${SYM(['ψ', 'θ', 'φ'][k])}:</span> ${role[k]}<span class="now">${nowTxt}</span></span>`;
+  });
+  const base = `A payload (the small spacecraft) sits inside three nested rings, each turned by its own motor. The three ring angles are a set of ${sq.name} Euler angles, so this mechanism shows what Euler angles do as the payload turns.`;
+  if (SIM.wig >= 0) {
+    return st === 'bad'
+      ? { t: 'Turning two rings, and the payload does not move', s: `${base} Here the outer and inner rings turn by equal and opposite amounts. At gimbal lock their pivots lie on the same line, so the two motions cancel: the rings move and the payload stays perfectly still. Only the combination ${comb} matters, and one motor has become useless.`, list, watch: `The payload in the 3D view, and the quaternion plot: both stay flat while the ring angles swing.` }
+      : { t: 'Away from lock the same motion turns the payload', s: `${base} The same equal and opposite motion of the outer and inner rings now turns the payload, because their pivots are ${fx(Math.acos(clamp(Math.abs(dot(geo.ap, geo.af)), 0, 1)) * R2D, 1)}° apart instead of lined up.`, list, watch: `Compare with the "Sitting in lock" preset, where the payload does not move at all.` };
+  }
+  if (st === 'bad') {
+    return { t: 'Gimbal lock: two rings line up, and one direction is lost', s: `${base} With the middle ring at ${SYM('θ')} = ${fx(thDeg, 1)}°, the outer and inner pivots point along the same line, so they both turn the payload the same way. Three motors now give only two directions of motion: <b>nothing can turn the payload about the direction ${SYM('n̂')}, the arrow labeled n̂</b>. The payload's attitude is ordinary; only the mechanism (and the Euler angles) are stuck.${running && SIM.err > 1 ? ` The payload is ${fx(SIM.err, 1)}° behind where it was told to point.` : ''}`, list, watch: `The arrow ${SYM('n̂')} in the 3D view, and the Gimbal rates plot, where the needed rates spike as the middle ring passes through lock.` };
+  }
+  if (SIM.sat && running) {
+    const w = SIM.req.map((x) => Math.abs(x) * R2D), k = w.indexOf(Math.max(...w));
+    return { t: 'The motors cannot keep up', s: `${base} The payload is commanded to turn at a steady ${fx(S.rate, 0)}°/s, which is easy far from lock. But the middle ring is only ${fx(marg, 1)}° from lock, and near lock even a slow turn of the payload needs very fast ring motion. The ${names[k].toLowerCase()} would need ${fx(w[k], 0)}°/s, more than its motor's ${fx(S.lim, 0)}°/s top speed, so <b>the payload falls ${fx(SIM.err, 1)}° behind</b>.`, list, watch: `The Gimbal rates plot: the needed rates shoot past the dashed motor limits. Then Error and margin: the pointing error grows only while the motors are saturated.` };
+  }
+  if (st === 'warn') {
+    return { t: 'Getting close to gimbal lock', s: `${base} The middle ring is ${fx(marg, 1)}° from lock at ${sing}. The outer and inner pivots are nearly lined up, so turning the payload about the direction ${SYM('n̂')} (the arrow labeled n̂) now needs ring rates about ${fx(1 / m, 1)} times larger than the payload's own rate.`, list, watch: `The ring rates in the list above, and the Lock meter below: the closer to lock, the faster the rings must spin for the same payload motion.` };
+  }
+  if (SIM.done && SIM.maxErr > 1) {
+    return { t: 'Slew finished, but the payload lagged behind', s: `${base} While the middle ring passed near lock the motors hit their top speed, and the payload fell up to ${fx(SIM.maxErr, 1)}° behind its command before catching up. Without the speed limit the rings would have needed ${fx(SIM.peak, 0)}°/s.`, list, watch: `The Error and margin plot: the error appears only near lock. Untick "Limit each gimbal rate" and restart to see the rates the slew really needed.` };
+  }
+  return { t: SIM.done ? 'Slew finished, no trouble' : 'Healthy: the rings can turn the payload any way', s: `${base} Here the three pivots point in three different directions, so some combination of ring motions can turn the payload in any direction. The middle ring is ${fx(marg, 1)}° from lock at ${sing}.${SIM.done ? ` The fastest any ring had to turn during this slew was ${fx(SIM.peak, 1)}°/s.` : ''}`, list, watch: running ? `The Gimbal angles plot: smooth curves while the middle ring stays well away from ${sing}.` : `Press Play to run the slew, or try the "Straight through" preset to drive the middle ring through lock.` };
+}
+let lastStKey = '';
+function updateReadouts(geo) {
+  const sq = SQ();
+  const Sm = Smat(sq, SIM.a), m = lockMeasure(sq, SIM.a[1]), st = lockState(m), thDeg = wrapDeg(SIM.a[1] * R2D);
+  const marg = marginDeg(sq, thDeg);
+  el('tOut').textContent = SIM.t.toFixed(2);
+  el('errOut').textContent = SIM.err > 0.05 ? `error ${fx(SIM.err, 1)}°` : '';
+  const chip = el('lockChip');
+  const sat = SIM.sat && S.playing;
+  chip.dataset.s = sat ? 'bad' : st; chip.textContent = sat ? 'Saturated' : st === 'bad' ? 'Gimbal lock' : st === 'warn' ? 'Near lock' : 'Healthy';
+  const tx = statusText(sq, geo, m, st), key = tx.t + tx.s + (tx.list || []).join('') + (tx.watch || '');
+  if (key !== lastStKey) { el('stTitle').innerHTML = tx.t; el('stSub').innerHTML = tx.s; el('stList').innerHTML = (tx.list || []).map((x) => `<li>${x}</li>`).join(''); el('stList').hidden = !(tx.list || []).length; el('stWatch').innerHTML = tx.watch ? `<span class="lbl">Watch</span>${tx.watch}` : ''; el('stWatch').hidden = !tx.watch; lastStKey = key; }
+  // lock meter
+  const bar = el('meterBar'); bar.style.width = clamp(marg / 90 * 100, 0, 100) + '%'; bar.dataset.s = st;
+  el('o_th').textContent = fs(thDeg, 2);
+  el('o_singL').innerHTML = sq.sym ? 'Distance to 0° or 180°' : 'Distance to ±90°';
+  el('o_marg').textContent = fx(marg, 2);
+  el('o_detL').innerHTML = sq.sym ? `|det ${SYM('S')}| = |sin ${SYM('θ')}|` : `|det ${SYM('S')}| = |cos ${SYM('θ')}|`;
+  el('o_det').textContent = fx(m, 4);
+  const ds = el('o_detSt'); ds.dataset.s = st; ds.textContent = ST_LABEL[st];
+  el('o_ang').textContent = fx(Math.acos(clamp(Math.abs(dot(geo.ap, geo.af)), 0, 1)) * R2D, 2);
+  const cn = condS(Sm); el('o_cond').textContent = cn > 1e6 ? '∞' : fg(cn, 4);
+  // kinematics
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) el(`s${r}${c}`).textContent = fs(Sm[r][c], 3);
+  el('o_wc').textContent = fvec(wCmd(Math.min(SIM.t, S.dur - 1e-9)).map((v) => v * R2D), 2);
+  const reqNow = SIM.t > 0 ? SIM.req : gimbalRates(SIM.a, SIM.q, 0).req;
+  const nB = mv(dcmQ(geo.qb), geo.n), wNow = wCmd(Math.min(SIM.t, S.dur - 1e-9));
+  const noSol = st === 'bad' && Math.abs(dot(wNow, nB)) > 1e-6 * Math.max(norm(wNow), 1e-12);
+  if (noSol) SIM.noSol = true;
+  el('o_reqU').hidden = noSol;
+  el('o_req').innerHTML = noSol ? `none: ${SYM('ω')} has a part along ${SYM('n̂')}` : fvec(reqNow.map((v) => v * R2D), 1);
+  el('o_peak').textContent = SIM.noSol ? '∞' : fx(SIM.peak, 1);
+  el('o_lim').innerHTML = S.limit ? `${fx(S.lim, 0)}<span class="u">deg/s</span>` : 'none';
+  el('o_maxErr').textContent = fx(SIM.maxErr, 2);
+  // lost direction
+  el('o_nA').textContent = fvec(geo.n, 4);
+  el('o_nB').textContent = fvec(nB, 4);
+  el('o_nDot').textContent = fs(dot(geo.af, geo.n), 4);
+  // all twelve sequences for this payload attitude
+  const C = dcmQ(geo.qb);
+  el('allSeq').innerHTML = ALLSEQ.map((s) => {
+    const q2 = seqOf(s), ex = eulerFromDcm(q2, C, null), th = ex.a[1] * R2D, mg = marginDeg(q2, th), s2 = lockState(lockMeasure(q2, ex.a[1]));
+    return `<tr${s === S.seq ? ' class="cur"' : ''}><td>${q2.name}</td><td class="n">${fs(th, 1)}°</td><td class="n">${fx(mg, 1)}°</td><td><span class="st" data-s="${s2}">${ST_LABEL[s2]}</span></td></tr>`;
+  }).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function geomNow() { return gimbalGeom(SQ(), SIM.a); }
+function resetSim() {
+  SIM.t = 0; SIM.a = S.g0.map((v) => v * D2R); SIM.q = qnormalize(quatEuler(SQ(), SIM.a));
+  SIM.req = [0, 0, 0]; SIM.ach = [0, 0, 0]; SIM.err = 0; SIM.peak = 0; SIM.maxErr = 0; SIM.sat = false; SIM.wig = -1; SIM.done = false; SIM.noSol = false;
+  const r0 = gimbalRates(SIM.a, SIM.q, 0); SIM.req = r0.req;
+  SIM.peak = Math.max(...r0.req.map((x) => Math.abs(x) * R2D));
+  histClear(); record(true);
+  trail.n = 0; recordTrail(geomNow());
+  lastStKey = '';
+}
+function rebuild(opts = {}) {
+  const sq = SQ();
+  el('seqSel').value = S.seq;
+  el('seqPill').textContent = sq.sym ? 'symmetric' : 'asymmetric';
+  el('seqNote').innerHTML = `Outer gimbal ${SYM('ψ')} turns about ${SYM('â')}<sub class="n">${sq.i}</sub> on the fixed stand, the middle gimbal ${SYM('θ')} about its own ${sq.j}-axis, and the inner gimbal ${SYM('φ')} about its own ${sq.k}-axis, which carries the payload. ${sq.sym ? `Symmetric sequences lock at ${SYM('θ')} = 0° or 180°, when ${SYM('b̂')}<sub class="n">${sq.k}</sub> lines up with ±${SYM('â')}<sub class="n">${sq.i}</sub>.` : `Asymmetric sequences lock at ${SYM('θ')} = ±90°, when ${SYM('b̂')}<sub class="n">${sq.k}</sub> lines up with ±${SYM('â')}<sub class="n">${sq.i}</sub>.`}`;
+  el('zoneK').textContent = sq.k; el('zoneI').textContent = sq.i; el('traceK').textContent = sq.k;
+  if (G) { buildMechanism(); glowTrace(); }
+  resetSim();
+  if (!opts.keepPlay) setPlaying(false);
+  syncInputs();
+  setLegend();
+  updateReadouts(geomNow());
+}
+function glowTrace() { if (G && COL.c1) { const c = new THREE.Color(COL['c' + SQ().k]); G.traceMat.color = c; G.traceMat.emissive = c.clone().multiplyScalar(0.3); } }
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v, d = 3) => (Number.isFinite(v) ? String(+v.toFixed(d)) : '');
+const PAIRS = [['psR', 'psN', (v) => { S.g0[0] = v; }, () => S.g0[0], 'ang'], ['thR', 'thN', (v) => { S.g0[1] = v; }, () => S.g0[1], 'ang'], ['phR', 'phN', (v) => { S.g0[2] = v; }, () => S.g0[2], 'ang'],
+  ['rateR', 'rateN', (v) => { S.rate = v; }, () => S.rate, 'rate'], ['durR', 'durN', (v) => { S.dur = Math.max(0.5, v); }, () => S.dur, 'dur'], ['limR', 'limN', (v) => { S.lim = Math.max(1, v); }, () => S.lim, 'lim']];
+function syncInputs() {
+  PAIRS.forEach(([r, n, , get]) => { el(r).value = get(); el(n).value = fmt(get()); });
+  $$('#axSeg [data-ax]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.ax === S.ax)));
+  el('chkLimit').checked = S.limit; el('limRow').hidden = !S.limit;
+  el('chkZone').checked = S.show.zone; el('chkTrace').checked = S.show.trace; el('chkFrameA').checked = S.show.frameA; el('chkLabels').checked = S.show.labels;
+  $$('.legend [data-show]').forEach((b) => b.setAttribute('aria-pressed', String(S.show[b.dataset.show])));
+  const sq = SQ();
+  el('wiggleNote').innerHTML = `Turns ${SYM('ψ')} and ${SYM('φ')} by opposite amounts that leave ${singComb(sq, S.g0[1] * D2R) > 0 ? `${SYM('ψ')} + ${SYM('φ')}` : `${SYM('φ')} − ${SYM('ψ')}`} unchanged. At lock the payload does not move.`;
+  syncSpeed();
+}
+PAIRS.forEach(([rid, nid, set, get, kind]) => {
+  const r = el(rid), n = el(nid);
+  const apply = (v) => { set(v); rebuild(); };
+  r.addEventListener('input', () => { n.value = fmt(+r.value); apply(+r.value); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(get()); return; }
+    if (kind === 'ang') v = wrapDeg(v);
+    set(v); n.value = fmt(get()); r.value = get(); rebuild();
+  });
+});
+$$('#axSeg [data-ax]').forEach((b) => b.addEventListener('click', () => { S.ax = +b.dataset.ax; rebuild(); }));
+el('chkLimit').addEventListener('change', (e) => { S.limit = e.target.checked; rebuild(); });
+const chk = (id, key) => el(id).addEventListener('change', (e) => { S.show[key] = e.target.checked; });
+chk('chkZone', 'zone'); chk('chkTrace', 'trace'); chk('chkFrameA', 'frameA'); chk('chkLabels', 'labels');
+$$('.legend [data-show]').forEach((b) => b.addEventListener('click', () => { const k = b.dataset.show; S.show[k] = !S.show[k]; b.setAttribute('aria-pressed', String(S.show[k])); }));
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => { PL.q = b.dataset.q; $$('#histTabs [data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); setLegend(); }));
+/* a new sequence: keep the payload attitude, find the new gimbal angles */
+el('seqSel').addEventListener('change', () => {
+  const C = dcmQ(SIM.q);
+  S.seq = el('seqSel').value;
+  const ex = eulerFromDcm(SQ(), C, null);
+  S.g0 = ex.a.map((v) => +(v * R2D).toFixed(6));
+  rebuild();
+});
+function speedText() { return (S.speed < 1 ? S.speed.toFixed(2) : S.speed.toFixed(1)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play slew';
+}
+el('playBtn').addEventListener('click', () => {
+  if (S.playing) { setPlaying(false); return; }
+  if (SIM.done || SIM.wig >= 0) resetSim();
+  setPlaying(true);
+});
+el('resetBtn').addEventListener('click', () => { resetSim(); });
+function startWiggle() { resetSim(); setPlaying(false); SIM.wig = 0; }
+el('wiggleBtn').addEventListener('click', startWiggle);
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+
+/* the skim presets miss the lock pole by 5 degrees: sin(phi0) = sin(5 deg)/sin(40 deg) */
+const SKIM_PHI = Math.asin(Math.sin(5 * D2R) / Math.sin(40 * D2R)) * R2D;
+const PRESETS = {
+  skim: { seq: '313', g0: [0, 40, +SKIM_PHI.toFixed(4)], ax: 1, rate: -10, dur: 9, limit: true, lim: 60 },
+  through: { seq: '313', g0: [0, 40, 0], ax: 1, rate: -10, dur: 8, limit: true, lim: 60 },
+  start: { seq: '313', g0: [0, 0, 0], ax: 2, rate: 10, dur: 6, limit: true, lim: 60 },
+  pitch: { seq: '123', g0: [0, 60, 0], ax: 2, rate: 15, dur: 8, limit: true, lim: 60 },
+  locked: { seq: '313', g0: [30, 0, 20], ax: 2, rate: 10, dur: 6, limit: true, lim: 60, wiggle: true },
+  far: { seq: '321', g0: [20, 10, -15], ax: 3, rate: 15, dur: 10, limit: true, lim: 60 },
+};
+function applyPreset(name) {
+  const P = PRESETS[name];
+  S.seq = P.seq; S.g0 = P.g0.slice(); S.ax = P.ax; S.rate = P.rate; S.dur = P.dur; S.limit = P.limit; S.lim = P.lim;
+  rebuild();
+  if (P.wiggle) startWiggle(); else if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (p && p.catch) p.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+if (coarse) el('hint').textContent = 'One finger to rotate · Two fingers to pan and zoom';
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') resetSim();
+  else if (k === 'w') startWiggle();
+  else if (k === 'f') fit();
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The slew, the plots and the analysis still work.';
+  vp.appendChild(d);
+}
+COL = readColors();
+buildSGrid();
+setPlaying(false);
+rebuild();
+applyTheme();
+if (G) fit(ISO_DIR.clone());
+if (!reduceMotion) setPlaying(true);
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawPlot());
+
+const WIG_T = 4, WIG_AMP = 50;
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (SIM.wig >= 0) {
+    SIM.wig += dtReal;
+    const sq = SQ(), d = WIG_AMP * Math.sin(TAU * Math.min(SIM.wig, WIG_T) / WIG_T) * D2R;
+    const s = singComb(sq, S.g0[1] * D2R);
+    SIM.a = [S.g0[0] * D2R + d, S.g0[1] * D2R, S.g0[2] * D2R - s * d];
+    SIM.q = qnormalize(quatEuler(sq, SIM.a));
+    if (SIM.wig >= WIG_T) { SIM.wig = -1; SIM.a = S.g0.map((v) => v * D2R); SIM.q = qnormalize(quatEuler(sq, SIM.a)); lastStKey = ''; }
+  } else if (S.playing) {
+    stepSim(dtReal * S.speed);
+    if (SIM.done) setPlaying(false);
+  }
+  const geo = geomNow();
+  if (S.playing || SIM.wig >= 0) recordTrail(geo);
+  if (G) {
+    const info = updateScene(geo);
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels(geo, info);
+  }
+  drawPlot();
+  roAcc += dtReal; if (roAcc > 0.1) { roAcc = 0; updateReadouts(geo); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__gimbal = { S, SIM, rot, dcmEuler, eulerFromDcm, quatEuler, dcmQ, Smat, solveDLS, condS, gimbalGeom, gimbalRates, stepSim, resetSim, rebuild, applyPreset, singComb, seqOf, ALLSEQ, marginDeg, hist: () => ({ hN, Ht, HQ }), G: () => G, setPlaying };
+})();
+</script>
+</body>
+</html>

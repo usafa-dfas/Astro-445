@@ -44,10 +44,24 @@ footer { color: var(--muted); font-size: 14px; }
 
   <section class="grid" aria-label="Lessons">
     <!-- Add a new lesson: copy this whole <a> block, change href, topic, title and text. -->
+    <a class="card" href="attitude-parameter-explorer/">
+      <span class="topic">Attitude representation · Lessons 3–5</span>
+      <h2>Attitude Parameter Explorer</h2>
+      <p>One orientation written four ways: DCM, axis and angle, Euler angles in any of the 12 sequences, and a quaternion. Set any one and the others follow, with the Euler sequence, the single rotation about ê, and the quaternion double cover animated.</p>
+      <span class="eqn">C = (η² − εᵀε)I + 2εεᵀ − 2η[ε×]</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="gimbal-lock-explorer/">
+      <span class="topic">Attitude representation · Lesson 4</span>
+      <h2>Gimbal Lock Explorer</h2>
+      <p>Three nested gimbals whose angles are a set of Euler angles. Slew the payload past the singular attitude and watch the gimbal rates blow up, the motors saturate, and one direction of rotation disappear while the quaternion stays smooth.</p>
+      <span class="eqn">ω = S(θ, φ) ȧ, &nbsp;det S = sin θ</span>
+      <span class="go">Open →</span>
+    </a>
     <a class="card" href="polhode-explorer/">
       <span class="topic">Spacecraft attitude dynamics</span>
       <h2>Polhode Explorer</h2>
-      <p>Torque-free rigid body in the principal-axis frame: energy and momentum ellipsoids, the animated angular velocity vector, and the polhode. Includes inertia and spin presets.</p>
+      <p>Torque-free rigid body in the principal-axis frame: energy and momentum ellipsoids, the animated angular velocity vector, and the polhode, beside an inertial view of a box with the same inertias turning about a fixed H. Includes inertia and spin presets.</p>
       <span class="eqn">I₁ω₁² + I₂ω₂² + I₃ω₃² = 2T</span>
       <span class="go">Open →</span>
     </a>
@@ -63,6 +77,20 @@ footer { color: var(--muted); font-size: 14px; }
       <h2>Misaligned Burn Simulator</h2>
       <p>A spin-stabilized upper stage fires with a misaligned engine: bounded transverse rates, the epicycloid of the spin axis with its rolling circles, impulse and pulse torques, and what happens with no spin.</p>
       <span class="eqn">Ω = ω<sub>3₀</sub>(I<sub>t</sub> − I<sub>a</sub>)/I<sub>t</sub></span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="nutation-damping-explorer/">
+      <span class="topic">Spin stabilization · Lesson 25</span>
+      <h2>Nutation Damping Explorer</h2>
+      <p>The same stage run three ways at once: no damper, the lesson's −bω torque, and Appendix B's rotor damper. Damping turns the epicycloid into a cone; the two damper models agree for an oblate stage, and only the internal one tumbles a prolate stage into a flat spin.</p>
+      <span class="eqn">2T = h²(sin²θ/I<sub>t</sub> + cos²θ/I<sub>a</sub>)</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="gyrostat-explorer/">
+      <span class="topic">Multispin vehicles · Lesson 26</span>
+      <h2>Gyrostat Explorer</h2>
+      <p>A platform with a momentum wheel, run with three wheel momenta side by side. Watch the wheel lift an intermediate-axis spin out of the unstable band, see a damper separate two designs with identical rigid poles, and hold a still platform with momentum bias.</p>
+      <span class="eqn">I<sub>a</sub>′ = I<sub>a</sub> + h<sub>s</sub>/ω<sub>a</sub></span>
       <span class="go">Open →</span>
     </a>
   </section>

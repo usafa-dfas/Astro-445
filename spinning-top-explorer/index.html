@@ -221,6 +221,21 @@ a.btn { text-decoration: none; display: inline-block; }
 .regime-card { display: grid; gap: 5px; }
 .regime-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
 .regime-card .rs { font-size: 14px; color: var(--muted); }
+.regime-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--trace); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
 .kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .kv dt .sym { color: var(--ink); }
@@ -476,9 +491,32 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
   <!-- ================= analysis ================= -->
   <aside class="rail analysis" aria-label="Analysis">
     <section class="group regime-card">
-      <h2>Motion</h2>
+      <h2>What is happening</h2>
       <div class="rt" id="regTitle">—</div>
       <div class="rs" id="regSub"></div>
+      <ul class="vruns" id="regList"></ul>
+      <p class="vwatch" id="regWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Pivot</dt>
+          <dd>The fixed point the top leans on. Gravity pulls its center of mass, a distance <span class="sym">l</span> from the pivot, straight down.</dd>
+          <dt>Spin</dt>
+          <dd>The disk turning about its own axle. The faster the spin, the stiffer the top.</dd>
+          <dt>Gravity torque <span class="sym">ḡ</span><sub class="n">c</sub></dt>
+          <dd>The twist gravity applies about the pivot, trying to tip the top over. It points sideways, not down.</dd>
+          <dt>Angular momentum <span class="sym">h̄</span></dt>
+          <dd>The top's "amount of spin", mostly along the axle when it spins fast. A torque changes <span class="sym">h̄</span> in the direction of the torque, so a sideways torque swings <span class="sym">h̄</span> sideways instead of tipping it down.</dd>
+          <dt>Precession</dt>
+          <dd>The slow swing of the axle around the vertical. This is how a spinning top answers gravity.</dd>
+          <dt>Nutation</dt>
+          <dd>A nodding of the axle up and down between two angles, <span class="sym">θ</span><sub class="n">min</sub> and <span class="sym">θ</span><sub class="n">max</sub>, on top of the precession.</dd>
+          <dt>Apex trace</dt>
+          <dd>The path the tip of the axle draws. Its shape (waves, loops or cusps) shows how precession and nodding combine.</dd>
+          <dt>Gyroscopic stiffness</dt>
+          <dd>A spinning body's resistance to being tipped. Spacecraft spin for the same reason, to hold their pointing against disturbances.</dd>
+        </dl>
+      </details>
     </section>
 
     <section class="group">
@@ -1685,6 +1723,40 @@ function classify() {
   if (AN.thMax > 90) return { k: 'falls', t: 'Falls past horizontal', s: `${SYM('θ')}<sub class="n">max</sub> = ${tmx}. The spin is too slow for the top to hold itself up, so the axle drops below the pivot height. ${sh}`, pill: `Falls past horizontal · θmax = ${tmx}` };
   return { k: shape, t: `Nutation with ${shape}`, s: `The axis nods between ${fx(AN.thMin, 2)}° and ${tmx} while it precesses about ${SYM('Ẑ')}. ${sh}`, pill: `${Shape} · nods ${fx(nod, 2)}°` };
 }
+/* the "What is happening" card, in plain words: the idea, one line per motion, and where to look */
+let regC = null, regTable = NaN, lastCardKey = '';
+function topCard(c, e) {
+  const PD = SYM('<span class="ac d">ψ</span>');
+  const intro = `A top spins on a fixed pivot, leaning over. Gravity pulls its center down and tries to tip it, but a fast-spinning top does not simply fall: the pull swings the axle <b>sideways</b>, so it circles around the vertical. That sideways swing is <b>precession</b>, and the resistance to tipping is gyroscopic stiffness, the same effect that keeps a spinning spacecraft pointed.`;
+  const nod = AN.thMax - AN.thMin, rps = Math.abs(Y[6]) / TAU;
+  const Tp = isFinite(AN.pdMean) && Math.abs(AN.pdMean) > 1e-9 ? TAU / Math.abs(AN.pdMean) : Infinity;
+  const line = (col, name, txt, now) => `<span class="sw" style="--sw:var(--${col})"></span><span><span class="nm" style="--c:var(--${col})">${name}:</span> ${txt}<span class="now">${now}</span></span>`;
+  const list = [
+    line('omega', 'Spin', `the disk turning about its own axle, ${fx(rps, 1)} turns per second.`, `ω₃ = ${fs(Y[6], 1)} rad/s`),
+    line('trace', 'Precession', isFinite(Tp) ? `the axle swinging around the vertical, one lap every ${fg(Tp, 3)} s on average.` : 'none: the axle is not circling the vertical.', `precession rate now ${fs(e.pd, 3)} rad/s`),
+    line('bound', 'Nutation (nodding)', nod > 0.02 ? `the axle nodding between ${fx(AN.thMin, 1)}° and ${fx(AN.thMax, 1)}° from vertical${isFinite(AN.Tnut) ? `, one nod every ${fg(AN.Tnut, 3)} s` : ''}.` : `none: the axle stays at ${fx(S.th0, 1)}° from vertical.`, `θ now ${fx(e.th * R2D, 2)}°`),
+  ];
+  let t = c.t, s = intro, watch = `The red apex trace in the 3D view, which draws the path of the axle's tip.`;
+  switch (c.k) {
+    case 'free': t = 'No gravity twist: the axle just cones'; s = `The center of mass sits right on the pivot, so gravity cannot twist the top. With nothing twisting it, the axle simply circles its fixed angular momentum ${SYM('h̄')} at a steady angle, like a coasting spacecraft.`; break;
+    case 'pend': t = 'No spin: the top just falls'; s = `${intro} Without spin there is no gyroscopic stiffness at all, so gravity simply swings the top down to ${fx(AN.thMax, 1)}° from vertical and back, like a pendulum.`; watch = `The θ history: big swings, and no precession in the trace.`; break;
+    case 'sleep': t = 'Spinning fast enough to stand upright'; s = `${intro} Started almost upright, this top spins fast enough to stay there, a "sleeping" top. The number ${SYM('a')} = ${fx(CF.a, 2)} compares the spin's stiffness with gravity's pull; above 2 the upright spin is stable, and the axle never strays more than ${fx(AN.thMax, 1)}° from vertical.`; watch = `The tiny apex trace near the top of the view. Then try "Too slow".`; break;
+    case 'fall': t = 'Too slow to stand upright'; s = `${intro} Started almost upright, this top spins below the critical rate (${SYM('a')} = ${fx(CF.a, 2)}, below 2), so its stiffness loses to gravity: the axle falls away from vertical, out to ${fx(AN.thMax, 1)}°, before the spin catches it.`; watch = `The apex trace dropping away from the top of the view, and the θ history climbing.`; break;
+    case 'steady': t = 'Steady precession: a smooth circle, no nodding'; s = `${intro} This top was launched with exactly the right sideways speed, so it does not nod at all: the axle sweeps a perfect circle at ${fx(S.th0, 1)}° from vertical. For a fast top that speed is nearly gravity's twist divided by the spin momentum, ${fg(gyroRate(), 3)} rad/s.`; watch = `The apex trace: a clean circle between the two bound circles, which here coincide.`; break;
+    case 'falls': t = 'Too slow: the top falls past horizontal'; s = `${intro} Here the spin is too slow to hold the top up: the axle nods all the way down to ${fx(AN.thMax, 1)}°, below the height of the pivot, before coming back.`; watch = `The θ history: nods past 90°.`; break;
+    default: {
+      const shape = { cusps: `It was let go with the axle at rest, so each nod starts by falling straight down: the tip stops for an instant at the top of every nod, and the trace has sharp points (cusps).`,
+        waves: `The axle always swings the same way around, so the trace weaves smoothly up and down between the two circles.`,
+        loops: `The axle briefly swings backwards during each nod, so the trace loops back on itself.` }[c.k] || '';
+      t = `Precession with nodding: the trace makes ${c.k}`;
+      s = `${intro} On top of the precession, the axle also <b>nods</b> up and down (nutation) between two fixed angles, the green circles. ${shape}`;
+      watch = `The red apex trace between the green circles, and the turning-points plot below: the nod is trapped between the two angles where the curve crosses zero.`;
+    }
+  }
+  if (isFinite(regTable)) s += ` On a real table the rim would touch at ${fx(regTable, 1)}° from vertical.`;
+  if (S.contact) { t = 'The rim hit the table'; s = `At t = ${fx(S.contact.t, 2)} s the axle reached ${fx(S.contact.th, 1)}° from vertical, where the disk's rim touches the table, so a real top would skid or stop here. Press Play to carry on as if the table were not there.`; watch = ''; }
+  return { t, s, list, watch };
+}
 let lastRegKey = '';
 function updateStatic() {
   // values that depend only on the inputs
@@ -1751,9 +1823,12 @@ function updateReadouts() {
     if (S.contact) {
       pill = `Rim hit the table at t = ${fx(S.contact.t, 3)} s (θ = ${fx(S.contact.th, 1)}°). Press Play to continue without the table.`;
     }
-    el('regTitle').innerHTML = t; el('regSub').innerHTML = s; pillEl.innerHTML = pill;
+    pillEl.innerHTML = pill;
+    regC = c; regTable = B.l > 0 && AN.thMax > thc && rimHeight(S.th0 * D2R) >= 0 ? thc : NaN;
     lastRegKey = key;
   }
+  const tc = topCard(regC, e), tcKey = tc.t + tc.s + tc.list.join('') + tc.watch;
+  if (tcKey !== lastCardKey) { el('regTitle').innerHTML = tc.t; el('regSub').innerHTML = tc.s; el('regList').innerHTML = (tc.list || []).map((x) => `<li>${x}</li>`).join(''); el('regList').hidden = !(tc.list || []).length; el('regWatch').innerHTML = tc.watch ? `<span class="lbl">Watch</span>${tc.watch}` : ''; el('regWatch').hidden = !tc.watch; lastCardKey = tcKey; }
 }
 
 /* =========================================================

@@ -1,0 +1,1804 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nutation Damping Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 and 24 apps). Control rail | three vehicles beside a pointing-plane or energy pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --hvec: #c97a00;
+  --torque: #7340c2;
+  --plume: #f08a24;
+  --axis: #6a7582;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-alt: #2c3540;
+  --metal: #39424d;
+  --rotor: #08808f;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --hvec: #ffb01f; --torque: #ac8dff; --plume: #ffa24a; --axis: #7f8a97;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-alt: #d5dbe2; --metal: #aab4bf; --rotor: #35c3cc;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --hvec: #ffb01f; --torque: #ac8dff; --plume: #ffa24a; --axis: #7f8a97;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-alt: #d5dbe2; --metal: #aab4bf; --rotor: #35c3cc;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 316px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.nt { text-transform: none; letter-spacing: 0; }
+h2 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+.ac { position: relative; display: inline-block; }
+.ac::after { content: ""; position: absolute; left: 52%; top: .06em; width: .18em; height: .18em; border-radius: 50%; transform: translateX(-50%); background: currentColor; pointer-events: none; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 44px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 44px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.pill[data-s="oblate"] { color: var(--good); border-color: var(--good); }
+.pill[data-s="prolate"] { color: var(--bad); border-color: var(--bad); }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+#pp[data-pane="pp"] { cursor: grab; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 64%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 230px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.phase-chip[data-p="burn"] { color: var(--plume); border-color: var(--plume); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.kv dd.v { grid-column: 1 / -1; margin-top: -3px; }
+.kv .em { color: var(--good); font-weight: 500; }
+.kv .warnv { color: var(--bad); font-weight: 500; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+
+table.runs { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table.runs th { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0 0 5px 6px; line-height: 1.15; }
+table.runs th:first-child { text-align: left; padding-left: 0; }
+table.runs td { font-family: var(--f-num); font-size: 12.5px; text-align: right; padding: 4px 0 4px 6px; border-top: 1px solid var(--rule); }
+table.runs td:first-child { font-family: var(--f-ui); font-size: 13.5px; font-weight: 600; text-align: left; padding-left: 0; color: var(--c); }
+table.runs td.bad { color: var(--bad); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 340px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 25 · Spin stabilization (3)</div>
+      <h1>Nutation Damping Explorer</h1>
+    </div>
+    <p class="lede">The same spinning stage, run three ways from the same start: with no damper, with the lesson's −<span class="sym">bω</span> damper, and with Appendix B's rotor damper. The −<span class="sym">bω</span> torque acts from outside and drains angular momentum; a real damper is internal and drains only energy. The two agree for an oblate stage and part ways for a prolate one.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit both views</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side 3D view</dd>
+            <dt><kbd>E</kbd></dt><dd>Pointing plane or energy pane</dd>
+            <dt>3D view</dt><dd>Drag rotate, right-drag or Shift-drag pan, scroll zoom</dd>
+            <dt>Pointing plane</dt><dd>Drag pan, scroll zoom, double-click fit</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="appA">Burn, damped<small>App. A, oblate</small></button>
+        <button class="btn" type="button" data-preset="prolBurn">Burn, prolate<small>App. A, swapped</small></button>
+        <button class="btn" type="button" data-preset="oblFree">Oblate wobble<small>App. B, 1° start</small></button>
+        <button class="btn" type="button" data-preset="prolFree">Prolate wobble<small>App. B, 1° start</small></button>
+        <button class="btn" type="button" data-preset="prolBig">Prolate, 15°<small>a faster tumble</small></button>
+        <button class="btn" type="button" data-preset="tune">Damper tuning<small>too little friction</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Vehicle <span class="pill" id="shapePill">oblate</span></h2>
+      <div class="slider">
+        <label for="ItR"><span class="sym">I<sub>t</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="ItR" min="5" max="200" step="1" aria-label="Transverse moment of inertia slider">
+        <input type="number" id="ItN" min="1" step="any" aria-label="Transverse moment of inertia">
+      </div>
+      <div class="slider">
+        <label for="IaR"><span class="sym">I<sub>a</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="IaR" min="5" max="200" step="1" aria-label="Axial moment of inertia slider">
+        <input type="number" id="IaN" min="1" step="any" aria-label="Axial moment of inertia">
+      </div>
+      <div class="slider">
+        <label for="wR"><span class="sym">ω</span><sub class="n">3<sub>0</sub></sub><span class="u">rad/s</span></label>
+        <input type="range" id="wR" min="0.2" max="6" step="0.05" aria-label="Spin rate slider">
+        <input type="number" id="wN" min="0.01" step="any" aria-label="Spin rate, rad/s">
+      </div>
+      <div class="row"><button class="btn" type="button" id="swapBtn">Swap <span class="sym">I<sub>t</sub></span> and <span class="sym">I<sub>a</sub></span></button></div>
+      <p class="note" id="shapeNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Disturbance</h2>
+      <div class="slider">
+        <label for="cR"><span class="sym">c</span><span class="u">N·m</span></label>
+        <input type="range" id="cR" min="-2" max="2" step="0.01" aria-label="Misalignment torque slider">
+        <input type="number" id="cN" step="any" aria-label="Misalignment torque about p1, N·m">
+      </div>
+      <div class="slider">
+        <label for="tbR"><span class="sym">T</span><sub class="n">burn</sub><span class="u">s</span></label>
+        <input type="range" id="tbR" min="0" max="400" step="1" aria-label="Burn duration slider">
+        <input type="number" id="tbN" min="0" step="any" aria-label="Burn duration, s">
+      </div>
+      <div class="slider">
+        <label for="thR"><span class="sym">θ</span><sub class="n">0</sub><span class="u">deg</span></label>
+        <input type="range" id="thR" min="0" max="30" step="0.1" aria-label="Initial nutation angle slider">
+        <input type="number" id="thN" min="0" step="any" aria-label="Initial nutation angle, deg">
+      </div>
+      <p class="note">A constant torque <span class="sym">c</span> about <span class="sym">p̂</span><sub class="n">1</sub> for <span class="sym">T</span><sub class="n">burn</sub> seconds, as in the lesson body. <span class="sym">θ</span><sub class="n">0</sub> starts the stage already wobbling, as in Appendix B; then <span class="sym">h</span> starts along <span class="sym">â</span><sub class="n">3</sub>.</p>
+    </section>
+
+    <section class="group">
+      <h2><span><span class="sw" style="--sw:var(--run1)"></span>−<span class="sym nt">bω</span> damper</span> <span class="unit">lesson body</span></h2>
+      <div class="slider">
+        <label for="bR"><span class="sym">b</span><span class="u">N·m·s</span></label>
+        <input type="range" id="bR" min="0" max="20" step="0.05" aria-label="Damping coefficient slider">
+        <input type="number" id="bN" min="0" step="any" aria-label="Damping coefficient b, N·m·s">
+      </div>
+      <div class="row"><button class="btn" type="button" id="matchBtn">Same decay as the rotor damper</button></div>
+      <p class="note" id="bNote"></p>
+    </section>
+
+    <section class="group">
+      <h2><span><span class="sw" style="--sw:var(--run2)"></span>Rotor damper</span> <span class="unit">Appendix B</span></h2>
+      <div class="slider">
+        <label for="idR"><span class="sym">I<sub>d</sub></span><span class="u">kg·m²</span></label>
+        <input type="range" id="idR" min="0.1" max="5" step="0.05" aria-label="Rotor inertia slider">
+        <input type="number" id="idN" min="0.01" step="any" aria-label="Rotor inertia Id, kg·m²">
+      </div>
+      <div class="slider">
+        <label for="cdR"><span class="sym">c<sub>d</sub></span><span class="u">N·m·s</span></label>
+        <input type="range" id="cdR" min="-2" max="2" step="0.01" aria-label="Rotor friction slider, logarithmic">
+        <input type="number" id="cdN" min="0.001" step="any" aria-label="Rotor friction cd, N·m·s">
+      </div>
+      <div class="row"><button class="btn" type="button" id="tuneBtn">Tune: <span class="sym">c<sub>d</sub></span> = <span class="sym">I<sub>d</sub></span>|<span class="sym">Ω</span>|</button></div>
+      <p class="note">Two small rotors along <span class="sym">p̂</span><sub class="n">1</sub> and <span class="sym">p̂</span><sub class="n">2</sub>, coupled to the body by viscous friction. The friction acts only between rotor and body, so the total angular momentum is conserved.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="row"><span class="lbl">3D tilt</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">Exaggerated</button>
+          <button class="btn" type="button" data-ex="1">True scale</button>
+        </div>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkTrace"> Traces of <span class="sym">p̂</span><sub class="n">3</sub></label>
+        <label class="check"><input type="checkbox" id="chkH"> Angular momentum <span class="sym">h̄</span>, to scale with |<span class="sym">h</span>|</label>
+        <label class="check"><input type="checkbox" id="chkPlume"> Engine plume during the burn</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <p class="note">Small wobbles are magnified in the 3D view so you can see them. The pointing plane, the energy pane and the plots are always at true scale.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three runs side by side"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Inertial frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span>No damper</button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span>−<span class="sym">bω</span> model</span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span>Rotor damper</button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl">tilt ×1</div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Pointing plane or energy at fixed angular momentum"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Degrees</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="pp">Pointing plane</button>
+            <button class="btn" type="button" data-pane="energy">Energy at fixed <span class="sym">h</span></button>
+          </div>
+          <button class="btn" type="button" id="ppFit">Fit</button>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="2.3" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip" data-p="free">Free</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0.0</span> s</div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="th">Nutation <span class="sym">θ</span></button>
+          <button class="btn" type="button" data-q="err">Pointing</button>
+          <button class="btn" type="button" data-q="wt">|<span class="sym">ω</span><sub class="n">t</sub>|</button>
+          <button class="btn" type="button" data-q="hn">|<span class="sym">h</span>|</button>
+          <button class="btn" type="button" data-q="tn"><span class="sym">T</span></button>
+          <button class="btn" type="button" data-q="tune">Tuning</button>
+        </div>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Nutation (wobble)</dt>
+          <dd>The spin axis circling around the angular momentum <span class="sym">h̄</span> instead of lining up with it. The nutation angle <span class="sym">θ</span> measures how far apart they are.</dd>
+          <dt>Nutation damper</dt>
+          <dd>A device that turns wobble into heat, so the wobble dies away. Real ones use friction, fluid sloshing in a ring, or small rotors.</dd>
+          <dt>−<span class="sym">bω</span> model</dt>
+          <dd>The lesson's simple model of a damper: a torque from outside that pushes back against any sideways turning. Easy to analyze, but it also drains <span class="sym">h̄</span>, which no real on-board damper can.</dd>
+          <dt>Rotor damper</dt>
+          <dd>Appendix B's model: small wheels inside the stage, dragged along by friction. Everything happens inside, so <span class="sym">h̄</span> stays fixed and only energy is lost.</dd>
+          <dt>Angular momentum <span class="sym">h̄</span></dt>
+          <dd>The stage's "amount of spin". Only an outside torque, such as the engine, can change it. Internal parts can only pass it back and forth.</dd>
+          <dt>Oblate and prolate</dt>
+          <dd>Oblate: squat, spinning about the axis with the largest inertia (<span class="sym">I<sub>a</sub></span> &gt; <span class="sym">I<sub>t</sub></span>). Prolate: tall, spinning about the axis with the smallest (<span class="sym">I<sub>a</sub></span> &lt; <span class="sym">I<sub>t</sub></span>).</dd>
+          <dt>Energy sink</dt>
+          <dd>With <span class="sym">h̄</span> fixed, losing energy always pushes a spin toward the axis with the largest inertia. Oblate: toward <span class="sym">θ</span> = 0, the wobble dies. Prolate: toward <span class="sym">θ</span> = 90°, a flat spin.</dd>
+          <dt>Flat spin</dt>
+          <dd>Tumbling end over end about a sideways axis. It is where a prolate stage with a real damper ends up, as the Explorer 1 satellite did in 1958.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>The three runs now</h2>
+      <table class="runs">
+        <thead><tr><th>Run</th><th><span class="sym nt">θ</span>°</th><th>|<span class="sym nt">h</span>|/|<span class="sym nt">h</span>₀|</th><th><span class="sym nt">T</span>/<span class="sym nt">T</span>₀</th><th>Point.°</th></tr></thead>
+        <tbody id="runTable"></tbody>
+      </table>
+      <p class="note"><span class="sym">θ</span> is the nutation angle between <span class="sym">p̂</span><sub class="n">3</sub> and <span class="sym">h̄</span>. Pointing is the angle of <span class="sym">p̂</span><sub class="n">3</sub> from where it started. During a burn the engine changes |<span class="sym">h</span>| for every run.</p>
+    </section>
+
+    <section class="group">
+      <h2><span><span class="sw" style="--sw:var(--run1)"></span>−<span class="sym nt">bω</span> model</span> <span class="unit">Laplace</span></h2>
+      <dl class="kv">
+        <dt><span class="sym">Ω</span> = <span class="sym">ω</span><sub class="n">3<sub>0</sub></sub>(<span class="sym">I<sub>t</sub></span> − <span class="sym">I<sub>a</sub></span>)/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_Om"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">β</span> = <span class="sym">b</span>/<span class="sym">I<sub>t</sub></span></dt><dd><span id="o_beta"></span><span class="u">s⁻¹</span></dd>
+        <dt>Poles −<span class="sym">β</span> ± <span class="sym">j</span><span class="sym">Ω</span></dt><dd id="o_poles"></dd>
+        <dt>Time constant 1/<span class="sym">β</span></dt><dd><span id="o_tau"></span><span class="u">s</span></dd>
+        <dt id="o_w1L"><span class="sym">ω</span><sub class="n">1</sub>(∞) = <span class="sym">βc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">Ω</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w1"></span><span class="u">rad/s</span></dd>
+        <dt><span class="sym">ω</span><sub class="n">2</sub>(∞) = −<span class="sym">Ωc</span>/<span class="sym">I<sub>t</sub></span>(<span class="sym">Ω</span>² + <span class="sym">β</span>²)</dt><dd><span id="o_w2"></span><span class="u">rad/s</span></dd>
+        <dt>Cone half-angle <span class="sym">ω<sub>t</sub></span>/<span class="sym">ω</span><sub class="n">3<sub>0</sub></sub></dt><dd class="em"><span id="o_cone"></span><span class="u">deg</span></dd>
+        <dt>Undamped peak 2|<span class="sym">c</span>/<span class="sym">I<sub>t</sub>Ω</span>|</dt><dd><span id="o_und"></span><span class="u">rad/s</span></dd>
+      </dl>
+      <p class="note" id="bwNote"></p>
+    </section>
+
+    <section class="group">
+      <h2><span><span class="sw" style="--sw:var(--run2)"></span>Rotor damper</span> <span class="unit">4 states</span></h2>
+      <dl class="kv">
+        <dt>Nutation poles</dt><dd id="o_rp1"></dd>
+        <dt>Rotor poles</dt><dd id="o_rp2"></dd>
+        <dt id="o_rtL">Time constant</dt><dd id="o_rt"></dd>
+        <dt>Rotor relaxation <span class="sym">c<sub>d</sub></span>/<span class="sym">I<sub>d</sub></span></dt><dd><span id="o_gam"></span><span class="u">s⁻¹</span></dd>
+        <dt>Tuned <span class="sym">c<sub>d</sub></span> ≈ <span class="sym">I<sub>d</sub></span>|<span class="sym">Ω</span>|</dt><dd><span id="o_best"></span><span class="u">N·m·s</span></dd>
+        <dt>Power to heat, <span class="sym">P</span></dt><dd><span id="o_P"></span><span class="u">W</span></dd>
+      </dl>
+      <p class="note" id="rotNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Energy sink <span class="unit">Appendix B</span></h2>
+      <dl class="kv">
+        <dt>Shape factor 1/<span class="sym">I<sub>t</sub></span> − 1/<span class="sym">I<sub>a</sub></span></dt><dd id="o_sf"></dd>
+        <dt><span class="ac"><span class="sym">θ</span></span> from the formula, rotor run</dt><dd><span id="o_thdF"></span><span class="u">deg/s</span></dd>
+        <dt><span class="ac"><span class="sym">θ</span></span> simulated, rotor run</dt><dd><span id="o_thdS"></span><span class="u">deg/s</span></dd>
+      </dl>
+      <p class="note" id="sinkNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Lesson body: damper as a torque</div>
+          <div><i>I<sub>t</sub></i><span class="ac"><i>ω</i></span><sub>1</sub> = (<i>I<sub>t</sub></i> − <i>I<sub>a</sub></i>)<i>ω</i><sub>2</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>1</sub> − <i>bω</i><sub>1</sub></div>
+          <div><i>I<sub>t</sub></i><span class="ac"><i>ω</i></span><sub>2</sub> = (<i>I<sub>a</sub></i> − <i>I<sub>t</sub></i>)<i>ω</i><sub>1</sub><i>ω</i><sub>3</sub> + <i>g</i><sub>2</sub> − <i>bω</i><sub>2</sub></div>
+          <div class="box">poles <i>s</i> = −<i>β</i> ± <i>j</i>Ω, &nbsp; <i>ω<sub>t</sub></i>(∞) = <i>c</i>/<i>I<sub>t</sub></i>√(<i>Ω</i>² + <i>β</i>²)</div>
+        </div>
+        <div>
+          <div class="lab">Appendix B: energy sink at fixed <i>h</i></div>
+          <div>2<i>T</i> = <i>h</i>²(sin²<i>θ</i>/<i>I<sub>t</sub></i> + cos²<i>θ</i>/<i>I<sub>a</sub></i>)</div>
+          <div class="box"><span class="ac"><i>θ</i></span> = −<i>P</i> / [(<i>h</i>²/2) sin 2<i>θ</i> (1/<i>I<sub>t</sub></i> − 1/<i>I<sub>a</sub></i>)]</div>
+        </div>
+        <div>
+          <div class="lab">Appendix B: rotor damper</div>
+          <div><i>h</i> = [<i>I<sub>t</sub>ω</i><sub>1</sub> + <i>I<sub>d</sub>σ</i><sub>1</sub>, <i>I<sub>t</sub>ω</i><sub>2</sub> + <i>I<sub>d</sub>σ</i><sub>2</sub>, <i>I<sub>a</sub>ω</i><sub>3</sub>]<sup>T</sup>, &nbsp; <span class="ac"><i>h</i></span> + <i>ω</i> × <i>h</i> = <i>g</i></div>
+          <div><i>I<sub>d</sub></i>(<span class="ac"><i>σ</i></span><sub><i>i</i></sub> + <span class="ac"><i>ω</i></span><sub><i>i</i></sub>) = −<i>c<sub>d</sub>σ<sub>i</sub></i>, &nbsp; <i>i</i> = 1, 2</div>
+        </div>
+        <p class="note" style="font-family:var(--f-ui)">All three runs integrate the full nonlinear equations and the attitude quaternion with fixed-step RK4, splitting the step at engine cutoff. Linearized about the spin, the rotor equations are Appendix B's; their four poles come from the complex form <i>W</i> = <i>ω</i><sub>1</sub> + <i>jω</i><sub>2</sub>, <i>Σ</i> = <i>σ</i><sub>1</sub> + <i>jσ</i><sub>2</sub>, which reduces the quartic to a quadratic. <i>I<sub>t</sub></i> includes the rotors as if locked, as in the notes, and is held above 4<i>I<sub>d</sub></i>.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-4) return sci(x, 2);
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const DOT = (s) => `<span class="sym"><span class="ac">${s}</span></span>`;
+const fcx = (z, d = 3) => `${fx(z.re, d)} ${z.im < 0 ? '−' : '+'} ${fx(Math.abs(z.im), d)}j`;
+const fpm = (z, d = 3) => `${fx(z.re, d)} ± ${fx(Math.abs(z.im), d)}j`;
+
+/* complex numbers for the rotor-damper poles */
+const cx = (re, im = 0) => ({ re, im });
+const cadd = (a, b) => cx(a.re + b.re, a.im + b.im);
+const csub = (a, b) => cx(a.re - b.re, a.im - b.im);
+const cmul = (a, b) => cx(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return cx((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+const csqrt = (a) => { const r = Math.hypot(a.re, a.im), re = Math.sqrt(Math.max(0, (r + a.re) / 2)), im = Math.sqrt(Math.max(0, (r - a.re) / 2)); return cx(re, a.im < 0 ? -im : im); };
+
+/* quaternion helpers, [w, x, y, z], active rotation body -> inertial */
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (a) => [a[0], -a[1], -a[2], -a[3]];
+const qaa = (ax, ay, az, ang) => { const s = Math.sin(ang / 2); return [Math.cos(ang / 2), ax * s, ay * s, az * s]; };
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+/* the smallest rotation that turns the body-frame direction u onto a3 */
+function alignToA3(u) {
+  const n = Math.hypot(u[0], u[1], u[2]);
+  if (!(n > 0)) return [1, 0, 0, 0];
+  const c = u[2] / n;
+  if (c < -1 + 1e-12) return [0, 1, 0, 0];
+  const s = Math.sqrt(2 * (1 + c));
+  return [s / 2, u[1] / n / s, -u[0] / n / s, 0];
+}
+/* pointing plane: azimuthal-equidistant about a3, in degrees; equal to the lesson's (theta1, theta2) for small angles */
+function ppXY(p) {
+  const r = Math.acos(clamp(p[2], -1, 1)) * R2D, hz = Math.hypot(p[0], p[1]);
+  return hz < 1e-15 ? [0, 0] : [r * -p[1] / hz, r * p[0] / hz];
+}
+
+/* =========================================================
+   Physics
+   ========================================================= */
+/* Appendix B rotor damper, linearized about the spin. With W = w1 + j w2 and Sigma = s1 + j s2 the four real
+   equations become two complex ones, and the characteristic equation is the complex quadratic
+   (It - Id) L^2 + [(It - Id) g + cd + j(a - Id w30)] L + j a g = 0,  a = (It - Ia) w30,  g = cd / Id.
+   Its two roots and their conjugates are the four poles. */
+function rotorRoots(It, Ia, w30, Id, cd) {
+  const M = It - Id, a = (It - Ia) * w30, g = cd / Id;
+  const A = cx(M), B = cx(M * g + cd, a - Id * w30), C = cx(0, a * g);
+  const disc = csqrt(csub(cmul(B, B), cmul(cx(4), cmul(A, C))));
+  const r1 = cdiv(cadd(cx(-B.re, -B.im), disc), cx(2 * M)), r2 = cdiv(csub(cx(-B.re, -B.im), disc), cx(2 * M));
+  // the nutation pole is the one that sets the long-term behavior: the larger real part
+  return r1.re >= r2.re ? { nut: r1, rot: r2 } : { nut: r2, rot: r1 };
+}
+const shapeOf = (It, Ia) => (Math.abs(It - Ia) < 1e-9 * Math.max(It, Ia) ? 'spherical' : It > Ia ? 'prolate' : 'oblate');
+
+const S = {
+  It: 40, Ia: 60, w30: 2.0,
+  c: 0.5, Tb: 200, th0: 0,
+  b: 4, Id: 1, cd: 1,
+  runs: [true, true, true],
+  speed: 10, playing: !reduceMotion, tEnd: 300,
+  exag: 'auto', pane: 'pp',
+  show: { trace: true, h: true, plume: true, labels: true },
+};
+let P = {};
+function derive() {
+  const It = S.It, Ia = S.Ia, w30 = S.w30;
+  const Id = Math.min(S.Id, 0.25 * It), cd = S.cd;
+  const Om = w30 * (It - Ia) / It, beta = S.b / It;
+  const cIt = S.c / It, den = Om * Om + beta * beta;
+  const w1inf = den > 0 ? beta * cIt / den : NaN, w2inf = den > 0 ? -Om * cIt / den : NaN;
+  const wtInf = den > 0 ? Math.abs(cIt) / Math.sqrt(den) : NaN;
+  const rr = rotorRoots(It, Ia, w30, Id, cd);
+  const burn = S.c !== 0 && S.Tb > 0;
+  P = {
+    It, Ia, w30, Id, cd, Om, beta, cIt, w1inf, w2inf, wtInf, burn,
+    cone: Math.abs(w30) > 0 ? wtInf / Math.abs(w30) : NaN,
+    undPeak: Math.abs(Om) > 0 ? 2 * Math.abs(cIt / Om) : Infinity,
+    shape: shapeOf(It, Ia), rr, gamma: cd / Id, best: Id * Math.abs(Om),
+    sf: 1 / It - 1 / Ia,
+  };
+}
+/* the -b omega decay rate that matches the rotor damper on the oblate twin of this stage, as the notes do */
+function matchedBeta() {
+  const lo = Math.min(S.It, S.Ia), hi = Math.max(S.It, S.Ia);
+  const r = rotorRoots(lo, hi, S.w30, Math.min(S.Id, 0.25 * lo), S.cd);
+  return r.nut.re < 0 ? -r.nut.re : NaN;
+}
+
+/* ---------- three runs, one integrator ----------
+   y = [qw, qx, qy, qz, w1, w2, w3, s1, s2]; run 0 has no damper, run 1 the -b omega torque, run 2 the rotors */
+const RUN_NAMES = ['No damper', '−bω model', 'Rotor damper'];
+const RUN_HTML = ['No damper', `<span>−${SYM('bω')} model</span>`, 'Rotor damper'];
+const RUN_SHORT = ['None', `<span>−${SYM('bω')}</span>`, 'Rotor'];
+const Ys = [0, 1, 2].map(() => new Float64Array(9));
+const K1 = new Float64Array(9), K2 = new Float64Array(9), K3 = new Float64Array(9), K4 = new Float64Array(9), YT = new Float64Array(9);
+const rotAng = [0, 0];
+let simT = 0, hStep = 0.01;
+const H0 = [1, 1, 1], T0 = [1, 1, 1];
+function deriv(r, y, out, g1) {
+  const qw = y[0], qx = y[1], qy = y[2], qz = y[3], w1 = y[4], w2 = y[5], w3 = y[6];
+  out[0] = -0.5 * (qx * w1 + qy * w2 + qz * w3);
+  out[1] = 0.5 * (qw * w1 + qy * w3 - qz * w2);
+  out[2] = 0.5 * (qw * w2 + qz * w1 - qx * w3);
+  out[3] = 0.5 * (qw * w3 + qx * w2 - qy * w1);
+  const It = P.It, Ia = P.Ia;
+  if (r === 2) {
+    const Id = P.Id, cd = P.cd, s1 = y[7], s2 = y[8];
+    const h1 = It * w1 + Id * s1, h2 = It * w2 + Id * s2, h3 = Ia * w3;
+    const F1 = -(w2 * h3 - w3 * h2) + g1, F2 = -(w3 * h1 - w1 * h3), F3 = -(w1 * h2 - w2 * h1);
+    const d1 = (F1 + cd * s1) / (It - Id), d2 = (F2 + cd * s2) / (It - Id);
+    out[4] = d1; out[5] = d2; out[6] = F3 / Ia;
+    out[7] = -cd * s1 / Id - d1; out[8] = -cd * s2 / Id - d2;
+  } else {
+    const b = r === 1 ? S.b : 0;
+    out[4] = ((It - Ia) * w2 * w3 + g1 - b * w1) / It;
+    out[5] = ((Ia - It) * w1 * w3 - b * w2) / It;
+    out[6] = 0; out[7] = 0; out[8] = 0;
+  }
+}
+function rk4(r, h, g1) {
+  const Y = Ys[r];
+  deriv(r, Y, K1, g1);
+  for (let i = 0; i < 9; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, K2, g1);
+  for (let i = 0; i < 9; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, K3, g1);
+  for (let i = 0; i < 9; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, K4, g1);
+  for (let i = 0; i < 9; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[0], Y[1], Y[2], Y[3]);
+  Y[0] /= n; Y[1] /= n; Y[2] /= n; Y[3] /= n;
+}
+/* measurements of one run */
+const qOf = (r) => { const Y = Ys[r]; return [Y[0], Y[1], Y[2], Y[3]]; };
+function hBody(r) {
+  const Y = Ys[r], Id = r === 2 ? P.Id : 0;
+  return [P.It * Y[4] + Id * Y[7], P.It * Y[5] + Id * Y[8], P.Ia * Y[6]];
+}
+function energy(r) {
+  const Y = Ys[r], wt2 = Y[4] * Y[4] + Y[5] * Y[5];
+  if (r !== 2) return 0.5 * (P.It * wt2 + P.Ia * Y[6] * Y[6]);
+  const Id = P.Id;
+  return 0.5 * ((P.It - Id) * wt2 + P.Ia * Y[6] * Y[6] + Id * ((Y[4] + Y[7]) ** 2 + (Y[5] + Y[8]) ** 2));
+}
+function nutation(r) { const h = hBody(r), n = Math.hypot(h[0], h[1], h[2]); return n > 0 ? Math.acos(clamp(h[2] / n, -1, 1)) : 0; }
+const p3Of = (r) => qrot(qOf(r), [0, 0, 1]);
+const hInertial = (r) => qrot(qOf(r), hBody(r));
+const wInertial = (r) => { const Y = Ys[r]; return qrot(qOf(r), [Y[4], Y[5], Y[6]]); };
+const powerToHeat = () => P.cd * (Ys[2][7] ** 2 + Ys[2][8] ** 2);
+
+/* ---------- history ---------- */
+const HCAP = 24000;
+const Ht = new Float64Array(HCAP);
+const HQ = { th: [], err: [], wt: [], hn: [], tn: [], en: [], px: [], py: [] };
+Object.keys(HQ).forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 0.05;
+function histCompact() {
+  // keep every other sample, so the whole run stays visible at half the resolution
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) {
+    Ht[j] = Ht[i];
+    Object.values(HQ).forEach((a) => { for (let r = 0; r < 3; r++) a[r][j] = a[r][i]; });
+  }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], hb = hBody(r), hn = Math.hypot(hb[0], hb[1], hb[2]), T = energy(r);
+    const p = p3Of(r), xy = ppXY(p);
+    HQ.th[r][i] = nutation(r) * R2D;
+    HQ.err[r][i] = Math.acos(clamp(p[2], -1, 1)) * R2D;
+    HQ.wt[r][i] = Math.hypot(Y[4], Y[5]);
+    HQ.hn[r][i] = hn / H0[r]; HQ.tn[r][i] = T / T0[r];
+    HQ.en[r][i] = hn > 0 ? 2 * T * P.Ia / (hn * hn) : 1;
+    HQ.px[r][i] = xy[0]; HQ.py[r][i] = xy[1];
+  }
+}
+/* 3D trace rings: raw p3 directions */
+const TRAIL_MAX = 5000;
+const rings = [0, 1, 2].map(() => ({ buf: new Float32Array(TRAIL_MAX * 3), n: 0, head: 0 }));
+let ringThr = 1e-4;
+function ringPush(r, p) {
+  const rg = rings[r];
+  if (rg.n > 0) {
+    const j = ((rg.head - 1 + TRAIL_MAX) % TRAIL_MAX) * 3;
+    if (Math.hypot(p[0] - rg.buf[j], p[1] - rg.buf[j + 1], p[2] - rg.buf[j + 2]) < ringThr) return;
+  }
+  const j = rg.head * 3; rg.buf[j] = p[0]; rg.buf[j + 1] = p[1]; rg.buf[j + 2] = p[2];
+  rg.head = (rg.head + 1) % TRAIL_MAX; if (rg.n < TRAIL_MAX) rg.n++;
+}
+function record(force) {
+  for (let r = 0; r < 3; r++) ringPush(r, p3Of(r));
+  histPush(force);
+}
+/* the energy-sink check needs a smooth d(theta)/dt for the rotor run */
+const thdBuf = [];
+function advance(dt) {
+  let rem = dt, guard = 0;
+  while (rem > 1e-12 && guard++ < 10) {
+    const te = P.burn && S.Tb > simT + 1e-12 ? S.Tb : Infinity;
+    const span = Math.min(rem, te - simT);
+    const n = Math.min(60000, Math.max(1, Math.ceil(span / hStep)));
+    const h = span / n;
+    for (let i = 0; i < n; i++) {
+      const g1 = P.burn && simT + 0.5 * h < S.Tb ? S.c : 0;
+      for (let r = 0; r < 3; r++) rk4(r, h, g1);
+      rotAng[0] += Ys[2][7] * h; rotAng[1] += Ys[2][8] * h;
+      simT += h;
+      record(false);
+    }
+    if (Math.abs(simT - te) < 1e-9) { simT = te; record(true); }
+    rem -= span;
+  }
+  thdBuf.push([simT, nutation(2)]);
+  while (thdBuf.length > 2 && thdBuf[thdBuf.length - 1][0] - thdBuf[0][0] > Math.max(2, 2 * TAU / Math.max(Math.abs(P.Om), 0.05))) thdBuf.shift();
+}
+function thetaDotSim() {
+  if (thdBuf.length < 2) return NaN;
+  const a = thdBuf[0], b = thdBuf[thdBuf.length - 1];
+  return b[0] - a[0] > 1e-6 ? (b[1] - a[1]) / (b[0] - a[0]) : NaN;
+}
+
+/* =========================================================
+   3D scene: one lane per run, side by side along a2
+   ========================================================= */
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const TRACE_R = 1.05, LANE = 2.25;
+let exK = 1, HULL_H = 0.6;
+const HULL_R = 0.34;
+
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 80;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 28, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  const hullA = new THREE.MeshPhongMaterial({ shininess: 35 }), hullB = new THREE.MeshPhongMaterial({ shininess: 35 });
+  const metal = new THREE.MeshPhongMaterial({ shininess: 90, side: THREE.DoubleSide });
+  const plumeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false });
+  const pMat = new THREE.MeshBasicMaterial();
+  const hMat = new THREE.MeshPhongMaterial({ shininess: 40 });
+  const rotMatA = new THREE.MeshPhongMaterial({ shininess: 60 }), rotMatB = new THREE.MeshPhongMaterial({ shininess: 60 });
+  const refMat = new THREE.LineDashedMaterial({ dashSize: 0.05, gapSize: 0.04 });
+  const traceMats = [0, 1, 2].map(() => new THREE.LineBasicMaterial());
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    const hull = new THREE.Group(); veh.add(hull);
+    const NW = 8;
+    for (let i = 0; i < NW; i++) {
+      const geo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, false, TAU * i / NW, TAU / NW).rotateX(Math.PI / 2);
+      hull.add(new THREE.Mesh(geo, i % 2 ? hullB : hullA));
+    }
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.14, 0.22, 24, 1, true).rotateX(Math.PI / 2), metal);
+    veh.add(nozzle);
+    const plume = new THREE.Mesh(new THREE.ConeGeometry(0.13, 1, 28, 1, true).rotateX(-Math.PI / 2), plumeMat);
+    plume.renderOrder = 5; veh.add(plume);
+    const pAxes = [0, 1, 2].map(() => makeArrow(pMat, veh));
+    // the rotor damper's two wheels, on p1 and p2, only on run 2
+    const rotors = [];
+    if (r === 2) {
+      for (let i = 0; i < 2; i++) {
+        const w = new THREE.Group();
+        const geoA = new THREE.CylinderGeometry(0.11, 0.11, 0.05, 20, 1, false, 0, Math.PI), geoB = new THREE.CylinderGeometry(0.11, 0.11, 0.05, 20, 1, false, Math.PI, Math.PI);
+        w.add(new THREE.Mesh(geoA, rotMatA), new THREE.Mesh(geoB, rotMatB));
+        const mount = new THREE.Group(); mount.add(w); veh.add(mount);
+        rotors.push({ w, mount, axis: i });
+      }
+    }
+    const hArrow = makeArrow(hMat, lane);
+    const traceGeo = new THREE.BufferGeometry();
+    traceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((TRAIL_MAX + 1) * 3), 3));
+    const trace = new THREE.Line(traceGeo, traceMats[r]); trace.frustumCulled = false; lane.add(trace);
+    const ref = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.4), new THREE.Vector3(0, 0, TRACE_R + 0.25)]), refMat);
+    ref.computeLineDistances(); lane.add(ref);
+    return { lane, veh, hull, nozzle, plume, pAxes, rotors, hArrow, trace };
+  });
+  const axisMat = new THREE.MeshBasicMaterial();
+  const triad = new THREE.Group(); scene.add(triad);
+  const axes = [0, 1, 2].map(() => makeArrow(axisMat, triad));
+  return { renderer, scene, cam, controls, hemi, sun, hullA, hullB, metal, plumeMat, pMat, hMat, rotMatA, rotMatB, refMat, traceMats, lanes, axisMat, triad, axes };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+/* a solid cylinder with It/Ia = 1/2 + h^2/6r^2, as in the Lesson 24 app */
+function updateVehicleGeometry() {
+  if (!G) return;
+  HULL_H = clamp(HULL_R * Math.sqrt(Math.max(0, 6 * (P.It / P.Ia - 0.5))), 0.1, 1.15);
+  G.lanes.forEach((L) => {
+    L.hull.scale.set(HULL_R, HULL_R, HULL_H);
+    L.nozzle.position.set(0, 0, -HULL_H / 2 - 0.1);
+    L.plume.position.set(0, 0, -HULL_H / 2 - 0.21 - 0.35);
+    setArrow(L.pAxes[0], V3([HULL_R, 0, 0]), V3([0.3, 0, 0]), 0.007, 0.022, 0.06);
+    setArrow(L.pAxes[1], V3([0, HULL_R, 0]), V3([0, 0.3, 0]), 0.007, 0.022, 0.06);
+    setArrow(L.pAxes[2], V3([0, 0, HULL_H / 2]), V3([0, 0, 0.42]), 0.008, 0.026, 0.07);
+    L.rotors.forEach((ro) => {
+      const e = [0, 0, 0]; e[ro.axis] = HULL_R * 0.72;
+      ro.mount.position.set(e[0], e[1], HULL_H / 2 + 0.06);
+      ro.mount.quaternion.setFromUnitVectors(Y_AXIS, V3(ro.axis === 0 ? [1, 0, 0] : [0, 1, 0]));
+    });
+  });
+  const ax = G.axes;
+  setArrow(ax[0], V3([0, 0, 0]), V3([0.55, 0, 0]), 0.005, 0.02, 0.06);
+  setArrow(ax[1], V3([0, 0, 0]), V3([0, 0.55, 0]), 0.005, 0.02, 0.06);
+  setArrow(ax[2], V3([0, 0, 0]), V3([0, 0, 0.55]), 0.005, 0.02, 0.06);
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.runs[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+/* exaggerate the tilt of a unit direction away from +Z by factor k */
+function exaggerate(d, k) {
+  const tilt = Math.acos(clamp(d[2], -1, 1)), hz = Math.hypot(d[0], d[1]);
+  if (k === 1 || tilt < 1e-12 || hz < 1e-15) return d;
+  const t2 = Math.min(tilt * k, 175 * D2R);
+  return [Math.sin(t2) * d[0] / hz, Math.sin(t2) * d[1] / hz, Math.cos(t2)];
+}
+function renderQuat(q, k) {
+  const p = qrot(q, [0, 0, 1]), tilt = Math.acos(clamp(p[2], -1, 1)), hz = Math.hypot(p[0], p[1]);
+  if (k === 1 || tilt < 1e-12 || hz < 1e-15) return q;
+  const ax = -p[1] / hz, ay = p[0] / hz;
+  return qmul(qaa(ax, ay, 0, Math.min(tilt * k, 175 * D2R)), qmul(qconj(qaa(ax, ay, 0, tilt)), q));
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic() {
+  const { off } = laneOffsets();
+  G.triad.position.set(off[0] != null ? off[0] - 1.3 : (off[1] != null ? off[1] - 1.3 : off[2] - 1.3), -0.9, -0.75);
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.runs[r];
+    L.lane.visible = on;
+    if (!on) continue;
+    L.lane.position.set(0, off[r], 0);
+    const qr = renderQuat(qOf(r), exK);
+    L.veh.quaternion.set(qr[1], qr[2], qr[3], qr[0]);
+    L.rotors.forEach((ro) => { ro.w.rotation.y = rotAng[ro.axis]; });
+    // engine plume while the misaligned engine burns, flickering as in the Lesson 24 app
+    const burning = P.burn && simT < S.Tb;
+    L.plume.visible = S.show.plume && burning;
+    if (L.plume.visible) { const f = 0.85 + 0.15 * Math.sin(performance.now() / 37 + r); L.plume.scale.set(f, 0.7, f); }
+    // trace
+    const rg = rings[r], pos = L.trace.geometry.attributes.position.array;
+    let o = 0;
+    for (let kk = rg.n; kk >= 1; kk--) {
+      const j = ((rg.head - kk + TRAIL_MAX) % TRAIL_MAX) * 3;
+      const d = exaggerate([rg.buf[j], rg.buf[j + 1], rg.buf[j + 2]], exK);
+      pos[o++] = d[0] * TRACE_R; pos[o++] = d[1] * TRACE_R; pos[o++] = d[2] * TRACE_R;
+    }
+    L.trace.geometry.attributes.position.needsUpdate = true;
+    L.trace.geometry.setDrawRange(0, rg.n);
+    L.trace.visible = S.show.trace && rg.n > 1;
+    // h, direction exaggerated with the vehicle, length to scale with |h|/|h0|
+    const h = hInertial(r), hn = Math.hypot(h[0], h[1], h[2]);
+    if (S.show.h && hn > 0) {
+      const d = exaggerate([h[0] / hn, h[1] / hn, h[2] / hn], exK);
+      const v = V3(d).multiplyScalar(1.25 * hn / H0[r]);
+      setArrow(L.hArrow, V3([0, 0, 0]), v, 0.014, 0.042, 0.11);
+      laneGeo[r].h = v.toArray();
+    } else { L.hArrow.g.visible = false; laneGeo[r].h = null; }
+    laneGeo[r].off = off[r];
+  }
+}
+
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  lane: [0, 1, 2].map((r) => mkLabel(RUN_HTML[r], `var(--run${r})`, 'lane')),
+  h: [0, 1, 2].map(() => mkLabel(SYM('h̄'), 'var(--hvec)', 'small')),
+};
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.15 || Math.abs(tmpV.y) > 1.15) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  for (let r = 0; r < 3; r++) {
+    const on = S.runs[r] && S.show.labels, g = laneGeo[r];
+    if (on) placeLabel(LB.lane[r], [0, g.off, -1.3]); else LB.lane[r].hidden = true;
+    if (on && g.h) placeLabel(LB.h[r], [g.h[0] * 1.1, g.off + g.h[1] * 1.1, g.h[2] * 1.1], 12, 0); else LB.h[r].hidden = true;
+  }
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'paxis', 'hvec', 'torque', 'plume', 'axis', 'good', 'warn', 'bad', 'hull', 'hull-alt', 'metal', 'rotor', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]);
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    G.hullA.color = C('hull'); G.hullB.color = C('hull-alt'); G.metal.color = C('metal'); G.plumeMat.color = C('plume');
+    G.pMat.color = C('paxis'); G.axisMat.color = C('axis');
+    G.hMat.color = C('hvec'); G.hMat.emissive = C('hvec').multiplyScalar(0.25);
+    G.rotMatA.color = C('rotor'); G.rotMatB.color = C('hull-alt');
+    G.refMat.color = C('muted');
+    G.traceMats.forEach((m, r) => { m.color = C('run' + r); });
+  }
+  drawPlot(); drawPane();
+}
+
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_DIR = HAS3D ? new THREE.Vector3(1.0, 0.42, 0.5).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  const n = laneOffsets().n, rho = 1.35 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2);
+  const c = new THREE.Vector3(0, 0, 0.1);
+  G.controls.target.copy(c);
+  G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 30; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, 0, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(1, 0.0001, 0.08).normalize();
+  return ISO_DIR.clone();
+}
+
+/* =========================================================
+   Second pane: pointing plane, or energy at fixed h
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+const PP = { cx: 0, cy: 0, half: 1, auto: true, W: 1, H: 1 };
+function ppBounds() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (x, y) => { if (!isFinite(x) || !isFinite(y)) return; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; };
+  add(0, 0);
+  const step = Math.max(1, Math.floor(hN / 3000));
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r]) continue;
+    for (let i = 0; i < hN; i += step) add(HQ.px[r][i], HQ.py[r][i]);
+    if (hN) add(HQ.px[r][hN - 1], HQ.py[r][hN - 1]);
+  }
+  if (!(x1 > x0) && !(y1 > y0)) { x0 = -0.5; x1 = 0.5; y0 = -0.5; y1 = 0.5; }
+  return { x0, x1, y0, y1 };
+}
+function ppFit() {
+  const b = ppBounds();
+  PP.cx = 0.5 * (b.x0 + b.x1); PP.cy = 0.5 * (b.y0 + b.y1);
+  const a = PP.W / Math.max(1, PP.H);
+  PP.half = Math.max(0.5 * (b.x1 - b.x0) / a, 0.5 * (b.y1 - b.y0), 1e-3) * 1.2;
+  PP.auto = true;
+}
+function ppAutoExtend() {
+  if (!PP.auto || hN === 0) return;
+  const a = PP.W / Math.max(1, PP.H);
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r]) continue;
+    const x = HQ.px[r][hN - 1], y = HQ.py[r][hN - 1];
+    if (Math.abs(x - PP.cx) > 0.95 * PP.half * a || Math.abs(y - PP.cy) > 0.95 * PP.half) { ppFit(); return; }
+  }
+}
+function drawPane() { if (S.pane === 'pp') drawPP(); else drawEnergy(); }
+function canvasSetup() {
+  const rect = ppCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (ppCv.width !== Math.round(W * dpr) || ppCv.height !== Math.round(H * dpr)) { ppCv.width = Math.round(W * dpr); ppCv.height = Math.round(H * dpr); }
+  PP.W = W; PP.H = H;
+  const ctx = pctx2; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.view || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { ctx, W, H };
+}
+function drawPP() {
+  const { ctx, W, H } = canvasSetup();
+  if (!COL.ink) return;
+  const s = (H / 2) / PP.half;
+  const X = (v) => W / 2 + (v - PP.cx) * s, Yp = (v) => H / 2 - (v - PP.cy) * s;
+  const xmin = PP.cx - W / 2 / s, xmax = PP.cx + W / 2 / s, ymin = PP.cy - PP.half, ymax = PP.cy + PP.half;
+  const step = niceStep(2 * PP.half, H / 60), dec = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.7; ctx.beginPath();
+  ctx.moveTo(Math.round(X(0)) + 0.5, 0); ctx.lineTo(Math.round(X(0)) + 0.5, H); ctx.moveTo(0, Math.round(Yp(0)) + 0.5); ctx.lineTo(W, Math.round(Yp(0)) + 0.5);
+  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  for (let v = Math.ceil(xmin / step) * step; v <= xmax; v += step) ctx.fillText(fx(v, dec), X(v), H - 50);
+  ctx.textAlign = 'left';
+  for (let v = Math.ceil(ymin / step) * step; v <= ymax; v += step) { const y = Yp(v); if (y > 46 && y < H - 62) ctx.fillText(fx(v, dec), 4, y); }
+  ctx.font = 'italic 14px "STIX Two Text", Cambria, "Times New Roman", serif'; ctx.fillStyle = COL.ink;
+  const y0p = Yp(0), x0p = X(0);
+  if (y0p > 46 && y0p < H - 46) { ctx.textAlign = 'right'; ctx.fillText('θ₁', W - 8, y0p - 10); }
+  if (x0p > 30 && x0p < W - 30) { ctx.textAlign = 'left'; ctx.fillText('θ₂', x0p + 7, 50); }
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  // each run's track
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r] || hN < 2) continue;
+    const ax = HQ.px[r], ay = HQ.py[r];
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = r === 0 ? 1.3 : 1.7; ctx.globalAlpha = r === 0 ? 0.75 : 1; ctx.beginPath();
+    let lx = X(ax[0]), ly = Yp(ay[0]); ctx.moveTo(lx, ly);
+    for (let i = 1; i < hN; i++) {
+      const x = X(ax[i]), y = Yp(ay[i]);
+      if (Math.abs(x - lx) + Math.abs(y - ly) < 0.6 && i < hN - 1) continue;
+      ctx.lineTo(x, y); lx = x; ly = y;
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.fillStyle = COL['run' + r]; ctx.beginPath(); ctx.arc(X(ax[hN - 1]), Yp(ay[hN - 1]), 4.2, 0, TAU); ctx.fill();
+  }
+  // the steady cone the final value theorem predicts for the -b omega run, centered on its current omega direction
+  if (P.burn && simT < S.Tb && S.runs[1] && S.b > 0 && isFinite(P.cone)) {
+    const w = wInertial(1), c = ppXY(w.map((v) => v / Math.hypot(w[0], w[1], w[2])));
+    ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.6; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(X(c[0]), Yp(c[1]), P.cone * R2D * s, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(0), Yp(0), 6, 0, TAU); ctx.stroke();
+}
+/* energy at fixed h: T/(h^2/2Ia) against the nutation angle, with each run's dot */
+const energyCurve = (th) => P.Ia / P.It * Math.sin(th) ** 2 + Math.cos(th) ** 2;
+function drawEnergy() {
+  const { ctx, W, H } = canvasSetup();
+  if (!COL.ink) return;
+  const m = { l: 62, r: 18, t: 46, b: 88 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 40 || ph < 40) return;
+  const e90 = P.Ia / P.It, lo = Math.min(1, e90), hi = Math.max(1, e90), span = Math.max(hi - lo, 0.02);
+  const y0 = lo - 0.12 * span, y1 = hi + 0.12 * span;
+  const X = (deg) => m.l + deg / 90 * pw, Yp = (v) => m.t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const yt = ticksOf(y0, y1, ph / 34);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  for (let d = 0; d <= 90; d += 15) { const x = Math.round(X(d)) + 0.5; ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); }
+  yt.v.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); });
+  ctx.stroke();
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  for (let d = 0; d <= 90; d += 15) ctx.fillText(d + '°', X(d), m.t + ph + 12);
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), m.l - 6, Yp(v)));
+  ctx.textAlign = 'left'; ctx.fillText('nutation angle θ', m.l, m.t + ph + 28);
+  ctx.save(); ctx.translate(11, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('T / (h²/2Ia)', 0, 0); ctx.restore();
+  // the curve
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 180; i++) { const d = 90 * i / 180, v = energyCurve(d * D2R); if (i === 0) ctx.moveTo(X(d), Yp(v)); else ctx.lineTo(X(d), Yp(v)); }
+  ctx.stroke();
+  // downhill: where internal dissipation sends the body
+  const down = P.shape === 'oblate' ? 0 : P.shape === 'prolate' ? 90 : NaN;
+  if (isFinite(down)) {
+    const from = down === 0 ? 62 : 28, to = down === 0 ? 34 : 56;
+    const off = -18, ya = Yp(energyCurve(from * D2R)) + off, yb = Yp(energyCurve(to * D2R)) + off;
+    ctx.strokeStyle = COL.good; ctx.fillStyle = COL.good; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(X(from), ya); ctx.lineTo(X(to), yb); ctx.stroke();
+    const ang = Math.atan2(yb - ya, X(to) - X(from));
+    ctx.beginPath(); ctx.moveTo(X(to), yb); ctx.lineTo(X(to) - 9 * Math.cos(ang - 0.4), yb - 9 * Math.sin(ang - 0.4)); ctx.lineTo(X(to) - 9 * Math.cos(ang + 0.4), yb - 9 * Math.sin(ang + 0.4)); ctx.closePath(); ctx.fill();
+    ctx.font = '600 13px "Barlow Semi Condensed", Arial, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('downhill: internal dissipation', X((from + to) / 2), Math.min(ya, yb) - 12);
+    ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  }
+  // each run: its path, then its current dot
+  const thDeg = (v) => (v > 90 ? 180 - v : v);
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r] || hN < 1) continue;
+    const step = Math.max(1, Math.floor(hN / 1500));
+    ctx.strokeStyle = COL['run' + r]; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.4; ctx.beginPath();
+    for (let i = 0; i < hN; i += step) { const x = X(thDeg(HQ.th[r][i])), y = Yp(HQ.en[r][i]); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    const x = X(thDeg(HQ.th[r][hN - 1])), y = Yp(HQ.en[r][hN - 1]);
+    ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 6 - r * 0.6, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+}
+(function ppInteractions() {
+  const ptrs = new Map(); let drag = null, pinch = null;
+  ppCv.addEventListener('pointerdown', (e) => {
+    if (S.pane !== 'pp') return;
+    ppCv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (ptrs.size === 1) drag = { x: e.offsetX, y: e.offsetY, cx: PP.cx, cy: PP.cy };
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), half: PP.half }; drag = null; }
+  });
+  ppCv.addEventListener('pointermove', (e) => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; PP.half = pinch.half * pinch.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)); PP.auto = false; return; }
+    if (drag) { const s = (PP.H / 2) / PP.half; PP.cx = drag.cx - (e.offsetX - drag.x) / s; PP.cy = drag.cy + (e.offsetY - drag.y) / s; if (Math.abs(e.offsetX - drag.x) + Math.abs(e.offsetY - drag.y) > 3) PP.auto = false; }
+  });
+  const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) drag = null; };
+  ppCv.addEventListener('pointerup', end); ppCv.addEventListener('pointercancel', end);
+  ppCv.addEventListener('wheel', (e) => {
+    if (S.pane !== 'pp') return;
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const f = Math.exp(clamp(e.deltaY * unit, -300, 300) * 0.0018);
+    const s = (PP.H / 2) / PP.half;
+    const mx = PP.cx + (e.offsetX - PP.W / 2) / s, my = PP.cy - (e.offsetY - PP.H / 2) / s;
+    PP.half *= f; PP.cx = mx + (PP.cx - mx) * f; PP.cy = my + (PP.cy - my) * f; PP.auto = false;
+  }, { passive: false });
+  ppCv.addEventListener('dblclick', () => ppFit());
+})();
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'wt', hoverX: null, m: { l: 58, r: 16, t: 20, b: 24 }, W: 1, H: 1 };
+const QINFO = {
+  th: { unit: 'deg', name: 'θ', d: 3 },
+  err: { unit: 'deg', name: 'pointing', d: 4 },
+  wt: { unit: 'rad/s', name: '|ωt|', d: 5 },
+  hn: { unit: '|h|/|h₀|', name: '|h|/|h₀|', d: 6 },
+  tn: { unit: 'T/T₀', name: 'T/T₀', d: 6 },
+};
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function setLegend() {
+  const runs = [0, 1, 2].filter((r) => S.runs[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${RUN_HTML[r]}</span>`).join('');
+  let extra = '';
+  if (PL.q === 'wt' && P.burn) extra = `<span class="hleg"><span class="ln dash" style="--c:var(--ink)"></span>final value theorem</span>`;
+  if (PL.q === 'tune') {
+    el('hlegs').innerHTML = `<span class="hleg"><span class="ln" style="--c:var(--run2)"></span>rotor damper, real part of the nutation pole</span><span class="hleg"><span class="ln dash" style="--c:var(--run1)"></span>−${SYM('β')}</span>`;
+    return;
+  }
+  el('hlegs').innerHTML = runs + extra;
+}
+function frameAxes(ctx, W, H, x0, x1, y0, y1, xlab, ylab, logx) {
+  const { l, r, t, b } = PL.m, pw = W - l - r, ph = H - t - b;
+  const X = logx ? (v) => l + (Math.log10(v) - Math.log10(x0)) / (Math.log10(x1) - Math.log10(x0)) * pw : (v) => l + (v - x0) / (x1 - x0) * pw;
+  const Yp = (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const yt = ticksOf(y0, y1, ph / 30);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  let xticks;
+  if (logx) { xticks = []; for (let e = Math.ceil(Math.log10(x0)); e <= Math.floor(Math.log10(x1)); e++) xticks.push(Math.pow(10, e)); }
+  else xticks = ticksOf(x0, x1, pw / 80).v;
+  xticks.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yt.v.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  const xd = logx ? 2 : ticksOf(x0, x1, pw / 80).d;
+  xticks.forEach((v) => ctx.fillText(logx ? (v >= 1 ? String(Math.round(v)) : String(+v.toPrecision(1))) : fx(v, xd), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), l - 6, Yp(v)));
+  if (y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(ylab, 6, 9); ctx.fillText(xlab, 6, t + ph + 12);
+  return { X, Yp, pw, ph, l, t };
+}
+let tuneCache = null;
+function tuneCurve() {
+  const key = [P.It, P.Ia, P.w30, P.Id].join('|');
+  if (tuneCache && tuneCache.key === key) return tuneCache;
+  const xs = [], ys = [];
+  for (let i = 0; i <= 240; i++) { const c = Math.pow(10, -2 + 4 * i / 240); xs.push(c); ys.push(rotorRoots(P.It, P.Ia, P.w30, P.Id, c).nut.re); }
+  let bi = 0; for (let i = 1; i < ys.length; i++) if ((P.shape === 'prolate' ? ys[i] > ys[bi] : ys[i] < ys[bi])) bi = i;
+  tuneCache = { key, xs, ys, bestC: xs[bi], bestRe: ys[bi] };
+  return tuneCache;
+}
+function drawPlot() {
+  const rect = plotCv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (plotCv.width !== Math.round(W * dpr) || plotCv.height !== Math.round(H * dpr)) { plotCv.width = Math.round(W * dpr); plotCv.height = Math.round(H * dpr); }
+  PL.W = W; PL.H = H;
+  const ctx = pctx; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL.panel || '#fff'; ctx.fillRect(0, 0, W, H);
+  if (!COL.ink) return;
+  if (W - PL.m.l - PL.m.r < 40 || H - PL.m.t - PL.m.b < 30) return;
+  if (PL.q === 'tune') { drawTune(ctx, W, H); return; }
+  const info = QINFO[PL.q], arrs = HQ[PL.q];
+  const x0 = 0, x1 = Math.max(simT, S.tEnd, 1);
+  let mn = Infinity, mx = -Infinity;
+  for (let r = 0; r < 3; r++) { if (!S.runs[r]) continue; for (let i = 0; i < hN; i++) { const v = arrs[r][i]; if (v < mn) mn = v; if (v > mx) mx = v; } }
+  if (PL.q === 'wt' && P.burn) { mx = Math.max(mx, P.wtInf || 0, isFinite(P.undPeak) ? P.undPeak : 0); }
+  if (PL.q === 'hn' || PL.q === 'tn') { mn = Math.min(mn, 1); mx = Math.max(mx, 1); }
+  if (PL.q === 'th' || PL.q === 'err' || PL.q === 'wt') mn = Math.min(mn, 0);
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let span = mx - mn; if (span < 1e-9) span = Math.max(Math.abs(mx) * 0.1, 1e-4);
+  const y0 = (PL.q === 'th' || PL.q === 'err' || PL.q === 'wt') ? 0 : mn - 0.1 * span, y1 = mx + 0.1 * span;
+  const A = frameAxes(ctx, W, H, x0, x1, y0, y1, 't, s', info.unit, false);
+  const { X, Yp, pw, ph, l, t } = A;
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (P.burn) { const xa = X(0), xb = clamp(X(S.Tb), l, l + pw); ctx.fillStyle = COL.plume; ctx.globalAlpha = 0.08; ctx.fillRect(xa, t, xb - xa, ph); ctx.globalAlpha = 1; }
+  if (PL.q === 'wt' && P.burn && isFinite(P.wtInf) && S.b > 0) {
+    const y = Math.round(Yp(P.wtInf)) + 0.5;
+    ctx.strokeStyle = COL.ink; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(X(S.Tb), y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for (let r = 0; r < 3; r++) {
+    if (!S.runs[r] || hN < 2) continue;
+    const a = arrs[r];
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = r === 0 ? 1.4 : 1.9; ctx.globalAlpha = r === 0 ? 0.8 : 1; ctx.beginPath();
+    if (hN <= pw * 2) { ctx.moveTo(X(Ht[0]), Yp(a[0])); for (let i = 1; i < hN; i++) ctx.lineTo(X(Ht[i]), Yp(a[i])); }
+    else {
+      let px = null, lo = 0, hi = 0, ly = 0;
+      for (let i = 0; i < hN; i++) {
+        const x = Math.floor(X(Ht[i])), y = Yp(a[i]);
+        if (x !== px) { if (px === null) ctx.moveTo(x, y); else { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); } px = x; lo = hi = y; }
+        else { if (y < lo) lo = y; if (y > hi) hi = y; }
+        ly = y;
+      }
+      if (px !== null) { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); }
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  const xc = Math.round(X(simT)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = x0 + (PL.hoverX - l) / pw * (x1 - x0);
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`t ${fx(Ht[i], 1)} s`, COL.ink]];
+    for (let r = 0; r < 3; r++) {
+      if (!S.runs[r]) continue;
+      lines.push([`${RUN_NAMES[r]} ${fs(arrs[r][i], info.d)}`, COL['run' + r]]);
+      ctx.fillStyle = COL['run' + r]; ctx.beginPath(); ctx.arc(x, Yp(arrs[r][i]), 3.2, 0, TAU); ctx.fill();
+    }
+    ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    const by = t + 4;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, by + 12 + j * 15); });
+  }
+  ctx.restore();
+}
+/* Appendix B tuning: the rotor damper's nutation pole against friction, on a log axis */
+function drawTune(ctx, W, H) {
+  const tc = tuneCurve();
+  let mn = Math.min(...tc.ys, -P.beta, 0), mx = Math.max(...tc.ys, 0);
+  const span = Math.max(mx - mn, 1e-3);
+  const A = frameAxes(ctx, W, H, 0.01, 100, mn - 0.1 * span, mx + 0.12 * span, 'cd', 'Re s, 1/s', true);
+  const { X, Yp, pw, ph, l, t } = A;
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (S.b > 0) { const y = Math.round(Yp(-P.beta)) + 0.5; ctx.strokeStyle = COL.run1; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle = COL.run2; ctx.lineWidth = 2; ctx.beginPath();
+  tc.xs.forEach((c, i) => { const x = X(c), y = Yp(tc.ys[i]); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+  ctx.stroke();
+  // tuned value, and the current setting
+  const xb = X(clamp(P.best, 0.01, 100));
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xb, t); ctx.lineTo(xb, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace'; ctx.fillText('Id|Ω|', xb + 4, t + 9);
+  if (P.cd >= 0.01 && P.cd <= 100) {
+    const re = P.rr.nut.re, x = X(P.cd), y = Yp(re);
+    ctx.fillStyle = COL.run2; ctx.strokeStyle = COL.panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COL.ink; ctx.textAlign = x > l + pw - 150 ? 'right' : 'left';
+    const lab = re < 0 ? `τ = ${fg(-1 / re, 3)} s` : `doubles in ${fg(Math.LN2 / re, 3)} s`;
+    ctx.fillText(lab, x + (ctx.textAlign === 'right' ? -10 : 10), y - 12);
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+/* the "What is happening" card, in plain words: the idea, one line per run, and where to look */
+function verdict() {
+  const p = P, burning = p.burn && simT < S.Tb, after = p.burn && simT >= S.Tb;
+  const shape = p.shape === 'oblate'
+    ? `This stage is <b>oblate</b>: squat, spinning about its axis of largest inertia (${SYM('I<sub>a</sub>')} = ${fg(p.Ia, 3)} &gt; ${SYM('I<sub>t</sub>')} = ${fg(p.It, 3)}).`
+    : p.shape === 'prolate'
+      ? `This stage is <b>prolate</b>: tall, spinning about its axis of smallest inertia (${SYM('I<sub>a</sub>')} = ${fg(p.Ia, 3)} &lt; ${SYM('I<sub>t</sub>')} = ${fg(p.It, 3)}).`
+      : 'This stage has nearly equal inertias, so no spin axis is preferred.';
+  const intro = `A spinning stage that has been disturbed keeps wobbling (nutating) forever unless something removes the wobble's energy. A nutation damper does that. The same stage runs here three times from the same start: with no damper, with the lesson's simple damper model (a torque −${SYM('bω')}), and with a realistic damper made of small rotors inside (Appendix B). ${shape}`;
+  const rule = p.shape === 'prolate'
+    ? ` Losing energy always pushes a spin toward the axis with the largest inertia. For a prolate stage that is a sideways axis, so a real damper makes the wobble <b>grow</b> until the stage tumbles end over end (a flat spin), as Explorer 1 did. The simple −${SYM('bω')} model misses this.`
+    : p.shape === 'oblate' ? ` Losing energy always pushes a spin toward the axis with the largest inertia, which here is the spin axis itself, so any damper makes the wobble die away.` : '';
+  // one line per run, with its live wobble and how much of h it still has
+  const what = [
+    'Nothing removes the wobble, so it keeps whatever size it has.',
+    `A torque from outside that pushes back on any sideways turning. It always shrinks the wobble${p.shape === 'prolate' ? ', even here, where a real damper would not' : ''}, but it also drains angular momentum, which an on-board damper cannot do.`,
+    p.shape === 'prolate' ? `Two small rotors inside, dragged by friction. They keep ${SYM('h̄')} fixed and only remove energy, and for this prolate stage <b>that makes the wobble grow</b>.` : `Two small rotors inside, dragged by friction. They keep ${SYM('h̄')} fixed and only remove energy, which makes the wobble die away.`,
+  ];
+  const list = [0, 1, 2].filter((r) => S.runs[r]).map((r) => {
+    const th = nutation(r) * R2D, hb = hBody(r), hn = Math.hypot(hb[0], hb[1], hb[2]) / H0[r];
+    const status = th > 80 ? `has tipped into a flat spin: θ = ${fx(th, 1)}°` : th > 30 ? `is tipping over: θ = ${fx(th, 1)}°` : `wobble now θ = ${fx(th, th < 1 ? 3 : 2)}°`;
+    return `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${RUN_HTML[r]}:</span> ${what[r]}<span class="now">${status} · |h| at ${fx(hn * 100, 2)}% of its start</span></span>`;
+  });
+  if (burning) {
+    return {
+      t: S.b > 0 ? 'Engine burning: damping turns the looping wobble into a steady cone' : 'Engine burning, no damping',
+      s: `${intro} Right now the engine is firing with a slightly misaligned thrust, which twists the stage (Lesson 24). With no damper the axis traces loops; with damping the loops die out and the axis settles into a steady cone, tilted ${fg(p.cone * R2D, 3)}° for the −${SYM('bω')} run.`,
+      list,
+      watch: `The pointing plane: the undamped run keeps looping while the damped ones spiral onto the dashed circle.`,
+    };
+  }
+  if (after) {
+    const err = Math.acos(clamp(p3Of(1)[2], -1, 1)) * R2D;
+    return {
+      t: p.shape === 'prolate' && S.runs[2] ? 'Engine off: the real damper now tips the stage over' : 'Engine off: the wobble fades, but the pointing error stays',
+      s: `${intro}${rule} The burn is over. ${p.shape === 'prolate' ? 'The −' + SYM('bω') + ' model removes the wobble, but' : 'Damping removes the wobble, but'} it cannot undo the burn: the stage's spin axis now points ${fg(err, 3)}° from where it started (−${SYM('bω')} run), and that has to be corrected some other way, for example with thrusters.`,
+      list,
+      watch: p.shape === 'prolate' ? `The Nutation θ history: the −${SYM('bω')} run falls toward zero while the rotor run climbs toward 90°. The Pointing tab shows the offset the burn left behind.` : `The Nutation θ history: the damped runs fall toward zero. The Pointing tab keeps a constant offset: the error the burn left behind.`,
+    };
+  }
+  if (p.shape === 'oblate') return {
+    t: 'Oblate stage: both dampers settle the wobble',
+    s: `${intro}${rule} The two damper models agree here; they differ only in how fast, about ${fg(1 / p.beta, 3)} s for −${SYM('bω')} and ${p.rr.nut.re < 0 ? fg(-1 / p.rr.nut.re, 3) + ' s' : '—'} for the rotors.`,
+    list,
+    watch: `The "Energy at fixed h" pane: each damped dot slides downhill to θ = 0. The undamped dot stays put.`,
+  };
+  if (p.shape === 'prolate') return {
+    t: 'Prolate stage: the two damper models disagree',
+    s: `${intro}${rule}`,
+    list,
+    watch: `The "Energy at fixed h" pane: the rotor dot slides downhill toward 90°, while the −${SYM('bω')} dot climbs back up to 0, which is only possible because that model drains ${SYM('h̄')}. The |h| history tab shows the drain.`,
+  };
+  return { t: 'Nearly equal inertias', s: `${intro} With ${SYM('I<sub>t</sub>')} ≈ ${SYM('I<sub>a</sub>')} there is no preferred spin axis and little gyroscopic stiffness.`, list, watch: '' };
+}
+function checks() {
+  const items = [], p = P;
+  const omOK = p.shape === 'spherical' ? Math.abs(p.Om) < 1e-12 : (p.shape === 'prolate') === (p.Om > 0);
+  items.push({ s: omOK ? 'ok' : 'bad', t: `Sign of ${SYM('Ω')} matches the shape`, sub: `Ω = ${fg(p.Om, 4)} rad/s, ${p.shape}` });
+  if (p.burn && S.b > 0) {
+    const settled = Math.min(simT, S.Tb) > 6 / p.beta;
+    let sim = NaN;
+    if (settled) { let lo = 0, hi = hN; const tv = Math.min(simT, S.Tb) - 1e-6; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; } sim = HQ.wt[1][Math.max(0, lo - 1)]; }
+    items.push({ s: !settled ? 'na' : Math.abs(sim - p.wtInf) <= 2e-3 * p.wtInf ? 'ok' : 'bad', t: 'Steady rate matches the final value theorem', sub: settled ? `simulated ${fg(sim, 4)} vs ${fg(p.wtInf, 4)} rad/s` : `settles after about 5/β = ${fg(5 / p.beta, 3)} s` });
+    items.push({ s: 'ok', t: `${SYM('β')} = 0 gives back the undamped amplitude`, sub: `|c/I_t Ω| = ${fg(p.undPeak / 2, 4)} rad/s` });
+  }
+  const hRot = hN ? HQ.hn[2][hN - 1] : 1, hBw = hN ? HQ.hn[1][hN - 1] : 1;
+  if (P.burn) items.push({ s: 'na', t: 'The rotor damper conserves |h|', sub: 'the engine torque changes h; try a preset with no burn' });
+  else items.push({ s: Math.abs(hRot - 1) < 1e-8 ? 'ok' : 'bad', t: 'The rotor damper conserves |h|', sub: `|h|/|h₀| − 1 = ${sci(hRot - 1, 1)}` });
+  if (S.b > 0 && !P.burn) items.push({ s: Math.abs(hBw - 1) < 1e-6 ? 'ok' : 'bad', t: `The −${SYM('bω')} model conserves |h|`, sub: Math.abs(hBw - 1) < 1e-6 ? 'not yet measurably' : `it has removed ${fg((1 - hBw) * 100, 3)}% of |h|: an external torque` });
+  const fd = thetaDotFormula(), sd = thetaDotSim();
+  const sigOK = isFinite(fd) && isFinite(sd) && Math.abs(sd) > 1e-9 ? Math.sign(fd) === Math.sign(sd) : null;
+  items.push({ s: sigOK === null ? 'na' : sigOK ? 'ok' : 'bad', t: `Energy-sink formula gives the sign of ${DOT('θ')}`, sub: sigOK === null ? 'needs a wobble on the rotor run' : `formula ${fs(fd * R2D, 5)}, simulated ${fs(sd * R2D, 5)} deg/s` });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+function thetaDotFormula() {
+  const th = nutation(2), hb = hBody(2), h2 = hb[0] ** 2 + hb[1] ** 2 + hb[2] ** 2, den = 0.5 * h2 * Math.sin(2 * th) * P.sf;
+  return th > 1e-4 && Math.abs(den) > 1e-12 ? -powerToHeat() / den : NaN;
+}
+let lastV = '';
+function updateReadouts() {
+  el('tOut').textContent = simT.toFixed(1);
+  const burning = P.burn && simT < S.Tb;
+  const chip = el('phaseChip'); chip.dataset.p = burning ? 'burn' : 'free'; chip.textContent = burning ? 'Burn' : P.burn ? 'Engine off' : 'Free';
+  const v = verdict(), key = v.t + v.s + v.list.join('') + v.watch;
+  if (key !== lastV) { el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s; el('vRuns').innerHTML = (v.list || []).map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !(v.list || []).length; el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch; lastV = key; }
+  // the three runs
+  el('runTable').innerHTML = [0, 1, 2].map((r) => {
+    const th = nutation(r) * R2D, hb = hBody(r), hn = Math.hypot(hb[0], hb[1], hb[2]) / H0[r], tn = energy(r) / T0[r];
+    const err = Math.acos(clamp(p3Of(r)[2], -1, 1)) * R2D;
+    return `<tr style="--c:var(--run${r})"><td>${RUN_SHORT[r]}</td><td>${fx(th, th < 1 ? 3 : 2)}</td><td${!P.burn && Math.abs(hn - 1) > 1e-6 ? ' class="bad"' : ''}>${fx(hn, 5)}</td><td>${fx(tn, 4)}</td><td>${fx(err, err < 1 ? 3 : 2)}</td></tr>`;
+  }).join('');
+  // -b omega analysis
+  el('o_Om').textContent = fs(P.Om, 4); el('o_beta').textContent = fx(P.beta, 4);
+  el('o_poles').textContent = `${fx(-P.beta, 3)} ± ${fx(Math.abs(P.Om), 3)}j`;
+  el('o_tau').textContent = P.beta > 0 ? fg(1 / P.beta, 4) : '∞';
+  const fv = P.burn && S.b > 0;
+  el('o_w1').textContent = fv ? fs(P.w1inf, 5) : '—'; el('o_w2').textContent = fv ? fs(P.w2inf, 5) : '—';
+  el('o_cone').textContent = fv ? fg(P.cone * R2D, 3) : '—';
+  el('o_und').textContent = P.burn ? fg(P.undPeak, 4) : '—';
+  el('bwNote').innerHTML = !P.burn ? `No burn, so there is no steady state: the final value theorem needs a step torque.` : S.b > 0 ? `Valid because ${SYM('β')} &gt; 0 puts both poles in the left half plane. More damping or more spin makes the cone smaller.` : `With ${SYM('b')} = 0 the poles sit on the imaginary axis and the final value theorem does not apply.`;
+  // rotor damper
+  const rn = P.rr.nut, ro = P.rr.rot;
+  el('o_rp1').textContent = fpm(rn, 3); el('o_rp2').textContent = fpm(ro, 3);
+  el('o_rtL').textContent = rn.re < 0 ? 'Time constant' : 'Doubling time';
+  el('o_rt').innerHTML = rn.re < 0 ? `${fg(-1 / rn.re, 3)}<span class="u">s</span>` : `${fg(Math.LN2 / rn.re, 3)}<span class="u">s</span>`;
+  el('o_gam').textContent = fg(P.gamma, 3); el('o_best').textContent = fg(P.best, 3);
+  el('o_P').textContent = fg(powerToHeat(), 3);
+  el('rotNote').innerHTML = rn.re > 0 ? `A positive real part: the nutation grows. Tuning the friction near ${SYM('I<sub>d</sub>')}|${SYM('Ω')}| only makes it grow fastest.` : `Friction near ${SYM('I<sub>d</sub>')}|${SYM('Ω')}| = ${fg(P.best, 3)} N·m·s dissipates fastest. Far below it the rotors barely couple; far above, they lock to the body.`;
+  // energy sink
+  el('o_sf').innerHTML = `${fs(P.sf, 5)} <span class="st" data-s="${P.sf > 0 ? 'ok' : P.sf < 0 ? 'bad' : 'warn'}">${P.sf > 0 ? 'θ shrinks' : P.sf < 0 ? 'θ grows' : 'neutral'}</span>`;
+  el('o_thdF').textContent = fs(thetaDotFormula() * R2D, 5); el('o_thdS').textContent = fs(thetaDotSim() * R2D, 5);
+  el('sinkNote').innerHTML = `With ${SYM('h')} fixed and ${SYM('P')} &gt; 0, the sign of ${DOT('θ')} is set by the shape alone. The damper only sets the pace, through ${SYM('P')}.`;
+  checks();
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function niceK(maxTilt) {
+  if (S.exag === '1' || !(maxTilt > 0)) return 1;
+  const target = 30 * D2R, cands = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  let k = 1; for (const c of cands) if (c * maxTilt <= target) k = c;
+  return k;
+}
+function expectedTilt() {
+  const p = P;
+  if (p.shape === 'prolate' && S.runs[2] && (S.th0 > 0 || p.burn)) return Math.PI / 2;
+  let t = S.th0 * D2R * (1 + p.It / p.Ia);
+  if (p.burn && Math.abs(p.Om) > 1e-9 && Math.abs(p.w30) > 1e-9) {
+    const Om = p.Om, w3 = p.w30, Ap = Math.abs(S.c / (p.Ia * Om * w3)), An = Math.abs(S.c / (p.It * Om * w3));
+    t = Math.max(t, 2 * (Ap + An));
+  }
+  return t;
+}
+function resetRuns() {
+  derive();
+  const th0 = S.th0 * D2R;
+  const w1 = th0 > 0 ? P.Ia * P.w30 * Math.tan(th0) / P.It : 0;
+  const q0 = th0 > 0 ? alignToA3([P.It * w1, 0, P.Ia * P.w30]) : [1, 0, 0, 0];
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r];
+    Y[0] = q0[0]; Y[1] = q0[1]; Y[2] = q0[2]; Y[3] = q0[3];
+    Y[4] = w1; Y[5] = 0; Y[6] = P.w30; Y[7] = 0; Y[8] = 0;
+    const hb = hBody(r); H0[r] = Math.hypot(hb[0], hb[1], hb[2]) || 1; T0[r] = energy(r) || 1;
+  }
+  rotAng[0] = rotAng[1] = 0;
+  simT = 0;
+  const rate = Math.abs(P.w30) + Math.abs(P.Om) + P.beta + P.gamma + 0.1;
+  hStep = Math.min(0.02, 0.3 / rate);
+  hN = 0; hLast = -Infinity; hDt = 0.05;
+  rings.forEach((rg) => { rg.n = 0; rg.head = 0; });
+  thdBuf.length = 0;
+  exK = niceK(expectedTilt());
+  ringThr = Math.max(1e-6, expectedTilt() / 300);
+  record(true);
+}
+function rebuild(opts = {}) {
+  pastEnd = false;
+  resetRuns();
+  tuneCache = null;
+  if (G) updateVehicleGeometry();
+  el('exagLbl').textContent = exK === 1 ? 'tilt at true scale' : `tilt shown ×${exK}`;
+  syncInputs();
+  setLegend();
+  if (opts.fit !== false) ppFit();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (Number.isFinite(v) ? String(+v.toFixed(4)) : '');
+const PAIRS = [['ItR', 'ItN', 'It', 1], ['IaR', 'IaN', 'Ia', 1], ['wR', 'wN', 'w30', 0.01], ['cR', 'cN', 'c', null], ['tbR', 'tbN', 'Tb', 0], ['thR', 'thN', 'th0', 0], ['bR', 'bN', 'b', 0], ['idR', 'idN', 'Id', 0.01]];
+function syncInputs() {
+  PAIRS.forEach(([r, n, k]) => { el(r).value = S[k]; el(n).value = fmt(S[k]); });
+  el('cdR').value = Math.log10(S.cd); el('cdN').value = fmt(S.cd);
+  const pill = el('shapePill'); pill.textContent = P.shape; pill.dataset.s = P.shape;
+  el('shapeNote').innerHTML = P.shape === 'oblate' ? `${SYM('I<sub>a</sub>')} &gt; ${SYM('I<sub>t</sub>')}: spinning about the major axis. ${SYM('Ω')} &lt; 0.`
+    : P.shape === 'prolate' ? `${SYM('I<sub>a</sub>')} &lt; ${SYM('I<sub>t</sub>')}: spinning about the minor axis. ${SYM('Ω')} &gt; 0. Internal dissipation makes this spin unstable.`
+    : 'Equal moments: no preferred axis.';
+  el('bNote').innerHTML = `${SYM('β')} = ${SYM('b')}/${SYM('I<sub>t</sub>')} = ${fg(P.beta, 3)} s⁻¹.`;
+  el('chkTrace').checked = S.show.trace; el('chkH').checked = S.show.h; el('chkLabels').checked = S.show.labels; el('chkPlume').checked = S.show.plume;
+  $$('#exSeg [data-ex]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ex === S.exag)));
+  $$('.legend [data-run]').forEach((b) => b.setAttribute('aria-pressed', String(S.runs[+b.dataset.run])));
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  el('pp').dataset.pane = S.pane;
+  el('ppFit').hidden = S.pane !== 'pp';
+  el('paneTitle').textContent = S.pane === 'pp' ? 'Degrees' : 'Energy';
+  el('paneCap').innerHTML = S.pane === 'pp'
+    ? `Where ${SYM('p̂')}<sub class="n">3</sub> points, from ${SYM('â')}<sub class="n">3</sub>.${P.burn && S.b > 0 ? ' Dashed: the steady cone (final value theorem).' : ''}`
+    : `At fixed ${SYM('h')} a damper can only lower ${SYM('T')}: internal dissipation goes downhill. −${SYM('bω')} does not hold ${SYM('h')} fixed, so it can climb.`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return (s < 10 ? s.toFixed(1) : s.toFixed(0)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, key, mn]) => {
+  const r = el(rid), n = el(nid);
+  const set = (v) => { S[key] = v; rebuild(); };
+  r.addEventListener('input', () => { const v = +r.value; n.value = fmt(v); set(v); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(S[key]); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = v; set(v);
+  });
+});
+el('cdR').addEventListener('input', () => { S.cd = +Math.pow(10, +el('cdR').value).toPrecision(3); el('cdN').value = fmt(S.cd); rebuild(); });
+el('cdN').addEventListener('change', () => { let v = parseFloat(el('cdN').value); if (!Number.isFinite(v)) { el('cdN').value = fmt(S.cd); return; } S.cd = Math.max(0.001, v); rebuild(); });
+el('swapBtn').addEventListener('click', () => { const t = S.It; S.It = S.Ia; S.Ia = t; if (S.b > 0) S.b = +(S.b / S.Ia * S.It).toFixed(4); rebuild(); });
+el('matchBtn').addEventListener('click', () => { const bm = matchedBeta(); if (isFinite(bm)) { S.b = +(bm * S.It).toFixed(4); rebuild(); } });
+el('tuneBtn').addEventListener('click', () => { derive(); S.cd = +Math.max(0.001, P.Id * Math.abs(P.Om)).toPrecision(3); rebuild(); });
+el('chkTrace').addEventListener('change', (e) => { S.show.trace = e.target.checked; });
+el('chkH').addEventListener('change', (e) => { S.show.h = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+el('chkPlume').addEventListener('change', (e) => { S.show.plume = e.target.checked; });
+$$('#exSeg [data-ex]').forEach((b) => b.addEventListener('click', () => { S.exag = b.dataset.ex; exK = niceK(expectedTilt()); el('exagLbl').textContent = exK === 1 ? 'tilt at true scale' : `tilt shown ×${exK}`; syncInputs(); }));
+$$('.legend [data-run]').forEach((b) => b.addEventListener('click', () => {
+  const r = +b.dataset.run; S.runs[r] = !S.runs[r];
+  if (!S.runs.some(Boolean)) S.runs[r] = true;
+  syncInputs(); setLegend(); fit(); ppFit();
+}));
+function setPane(p) { S.pane = p; syncInputs(); if (p === 'pp') ppFit(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* App. A and App. B values from the notes; b on the prolate twin keeps beta = 0.04 */
+const PRESETS = {
+  appA: { It: 40, Ia: 60, w30: 2, c: 0.5, Tb: 200, th0: 0, b: 4, Id: 1, cd: 1, tEnd: 300, speed: 10, pane: 'pp', tab: 'wt', runs: [true, true, false] },
+  prolBurn: { It: 60, Ia: 40, w30: 2, c: 0.5, Tb: 200, th0: 0, b: 6, Id: 1, cd: 1, tEnd: 600, speed: 20, pane: 'pp', tab: 'th' },
+  oblFree: { It: 40, Ia: 60, w30: 2, c: 0, Tb: 0, th0: 1, b: 1.6, Id: 1, cd: 1, tEnd: 300, speed: 10, pane: 'energy', tab: 'th' },
+  prolFree: { It: 60, Ia: 40, w30: 2, c: 0, Tb: 0, th0: 1, b: 2.4, Id: 1, cd: 1, tEnd: 900, speed: 40, pane: 'energy', tab: 'th' },
+  prolBig: { It: 60, Ia: 40, w30: 2, c: 0, Tb: 0, th0: 15, b: 2.4, Id: 1, cd: 1, tEnd: 400, speed: 20, pane: 'energy', tab: 'hn' },
+  tune: { It: 40, Ia: 60, w30: 2, c: 0, Tb: 0, th0: 5, b: 1.6, Id: 1, cd: 0.2, tEnd: 300, speed: 10, pane: 'energy', tab: 'tune' },
+};
+function applyPreset(name) {
+  const p = PRESETS[name];
+  ['It', 'Ia', 'w30', 'c', 'Tb', 'th0', 'b', 'Id', 'cd', 'tEnd', 'speed', 'pane'].forEach((k) => { S[k] = p[k]; });
+  S.runs = (p.runs || [true, true, true]).slice();
+  PL.q = p.tab;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= S.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild({ fit: true }); });
+el('fitBtn').addEventListener('click', () => fit());
+el('ppFit').addEventListener('click', () => ppFit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') { fit(); ppFit(); }
+  else if (k === 'e') setPane(S.pane === 'pp' ? 'energy' : 'pp');
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The pointing plane, the energy pane, the plots and the analysis still work.';
+  vp.appendChild(d);
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+S.playing = false;
+applyPreset('appA');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_DIR.clone());
+requestAnimationFrame(() => ppFit());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= S.tEnd) { dt = Math.max(0, S.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+    if (S.pane === 'pp') ppAutoExtend();
+  }
+  if (G) {
+    updateDynamic();
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__damp = { S, P: () => P, Ys, advance, rebuild, applyPreset, rotorRoots, matchedBeta, nutation, energy, hBody, hInertial, p3Of, t: () => simT, hist: () => ({ hN, Ht, HQ }), thetaDotFormula, thetaDotSim, setPlaying, G: () => G };
+})();
+</script>
+</body>
+</html>
