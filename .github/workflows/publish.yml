@@ -1,0 +1,83 @@
+# Copies the lecture apps from this (private) repo to the public repo that serves them on GitHub Pages.
+# Setup: README.md, "Publishing". Needs the secret PUBLIC_DEPLOY_KEY: the private half of a deploy key
+# with write access on the public repo.
+name: Publish apps to the public site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PUBLIC_REPO: usafa-dfas/astro-445-apps
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Set up the deploy key
+        env:
+          KEY: ${{ secrets.PUBLIC_DEPLOY_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::The secret PUBLIC_DEPLOY_KEY is not set. See README.md, Publishing."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Clone the public repo
+        env:
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes
+        run: |
+          git clone --depth 1 "git@github.com:${PUBLIC_REPO}.git" public
+          # works for a new, empty repo as well as one that already has a main branch
+          git -C public switch main 2>/dev/null || git -C public switch --orphan main
+
+      - name: Copy the site files
+        run: |
+          # start from an empty tree, so files deleted here are deleted there too
+          find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          # everything except the repo's own docs, settings and history
+          tar -C source \
+            --exclude=./.git --exclude=./.github --exclude=./.claude \
+            --exclude=./.gitattributes --exclude=./README.md --exclude=./CLAUDE.md \
+            -cf - . | tar -C public -xf -
+          cat > public/README.md <<'EOF'
+          # AstroEngr 445 lesson apps
+
+          Interactive lecture apps for AstroEngr 445, served with GitHub Pages from this repo.
+
+          This repo is generated: every push to the course's source repo copies the apps here.
+          Changes made directly in this repo will be overwritten.
+          EOF
+          sed -i 's/^          //' public/README.md
+
+      - name: Commit and push
+        env:
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes
+        run: |
+          cd public
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The public site is already up to date."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Publish ${GITHUB_SHA::7} from the source repo"
+          git push origin main

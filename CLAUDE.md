@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Interactive lecture apps for AstroEngr 445 (spacecraft attitude dynamics), hosted on GitHub Pages from `main` / root (`.nojekyll` disables Jekyll). There is no build, package manager, linter, or test suite: every app is one self-contained `index.html` with inline CSS and JS.
+Interactive lecture apps for AstroEngr 445 (spacecraft attitude dynamics). There is no build, package manager, linter, or test suite: every app is one self-contained `index.html` with inline CSS and JS.
+
+This is the private source repo. `.github/workflows/publish.yml` copies the site on every push to `main` into the public repo `usafa-dfas/astro-445-apps`, which serves it on GitHub Pages from `main` / root (`.nojekyll` disables Jekyll). It copies everything except `README.md`, `CLAUDE.md`, `.gitattributes`, `.git`, `.github` and `.claude`. A new top-level file or folder is therefore published unless you add it to the workflow's exclude list. Never edit the public repo directly. Setup and troubleshooting are in README.md, "Publishing".
 
 - Root `index.html` is the menu. Each app is a card (`<a class="card">`) linking to its folder.
 - Each app lives in `<app-name>/index.html` (`attitude-parameter-explorer`, `gimbal-lock-explorer`, `polhode-explorer`, `spinning-top-explorer`, `misaligned-burn-simulator`, `nutation-damping-explorer`, `gyrostat-explorer`).
