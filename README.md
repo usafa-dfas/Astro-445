@@ -10,6 +10,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `attitude-parameter-explorer/` | Lessons 3–5 attitude parameters: DCM, axis/angle, Euler angles, quaternion, linked |
 | `gimbal-lock-explorer/` | Lesson 4 Euler-angle singularities: three-gimbal mechanism, slews past gimbal lock |
 | `polhode-explorer/` | Torque-free rigid body: energy/momentum ellipsoids, angular velocity, polhode, and an inertial view of a box with the same inertias |
+| `attitude-sensor-tour/` | Lesson 22 sensors: sun sensor, Earth horizon sensor, magnetometer, star tracker, fiber optic, ring laser and MEMS gyros, accelerometer; what each measures and leaves unknown, and a sensor-suite builder |
 | `star-tracker-explorer/` | Lesson 22 attitude determination: Wahba's problem and Davenport's q-method with real stars, pointing vs roll accuracy, App. A sun sensor and magnetometer, gyro drift and star fixes |
 | `attitude-actuator-explorer/` | Lesson 22 actuators: one slew with reaction wheels, CMGs, thrusters and torque rods side by side; saturation and dumping, wheel failure, CMG singularity, thruster limit cycle, rods and the field direction |
 | `spinning-top-explorer/` | Lesson 23 spinning top: precession, nutation, turning points, Appendix A gyroscope |
