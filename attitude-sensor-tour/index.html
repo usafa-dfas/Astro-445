@@ -1,0 +1,1892 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Attitude Sensor Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the other lesson apps). Control rail with the sensor list | one sensor's demo beside its readout pane | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --ax1: #cc2b26;
+  --ax2: #1b8655;
+  --ax3: #2257c2;
+  --sun: #d98f00;
+  --est: #7340c2;
+  --cell: #2c3e66;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --ir: #c8553d;
+  --space: #0e1319;
+  --space-ink: #aab4bf;
+  --field: #08808f;
+  --orbit: #c97a00;
+  --beam1: #2257c2;
+  --beam2: #cc2b26;
+  --mass: #39424d;
+  --spring: #6a7582;
+  --hull: #c5ccd4;
+  --hull-alt: #2c3540;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff;
+    --sun: #ffc23d; --est: #ac8dff; --cell: #2b3b5e;
+    --earth: #3a74ad; --earth-line: #6f9bc6; --ir: #ff7a5c; --space: #030507; --space-ink: #8e98a5;
+    --field: #35c3cc; --orbit: #ffb01f; --beam1: #5b96ff; --beam2: #ff5d51; --mass: #aab4bf; --spring: #7f8a97;
+    --hull: #4a5561; --hull-alt: #d5dbe2;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff;
+  --sun: #ffc23d; --est: #ac8dff; --cell: #2b3b5e;
+  --earth: #3a74ad; --earth-line: #6f9bc6; --ir: #ff7a5c; --space: #030507; --space-ink: #8e98a5;
+  --field: #35c3cc; --orbit: #ffb01f; --beam1: #5b96ff; --beam2: #ff5d51; --mass: #aab4bf; --spring: #7f8a97;
+  --hull: #4a5561; --hull-alt: #d5dbe2;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.note a { color: inherit; }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+
+/* sensor list */
+.slist { display: grid; gap: 4px; }
+.slist .sg { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.slist .sg:first-child { margin-top: 0; }
+.sbtn {
+  display: flex; align-items: center; gap: 9px; text-align: left; cursor: pointer;
+  font-size: 15px; font-weight: 600; padding: 6px 10px; border-radius: 6px;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.sbtn:hover { border-color: var(--muted); }
+.sbtn .k { font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; }
+.sbtn small { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted); }
+.sbtn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.sbtn[aria-pressed="true"] .k, .sbtn[aria-pressed="true"] small { color: var(--panel); border-color: var(--panel); opacity: .85; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 44px; }
+.seg { display: inline-flex; flex-wrap: wrap; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.views.wide { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #anim, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#gl[hidden], #anim[hidden], #pp[hidden] { display: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.labels[hidden] { display: none; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;
+  font-size: 13.5px; font-weight: 700; color: var(--c, var(--ink)); line-height: 1.2;
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 15px; }
+.vlabel[hidden] { display: none !important; }
+.overlay { position: absolute; display: flex; gap: 6px; }
+.overlay[hidden] { display: none; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 64%; }
+.viewbar .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.viewport .panecap { right: auto; max-width: calc(100% - 20px); padding: 1px 6px; margin-left: -6px; border-radius: 4px; background: color-mix(in srgb, var(--view) 82%, transparent); }
+.viewport .panecap:empty { display: none; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.glfail[hidden] { display: none; }
+
+/* summary table and suite builder, shown in place of the canvases */
+.htmlview { position: absolute; inset: 0; overflow: auto; padding: 40px 14px 14px; scrollbar-width: thin; }
+.htmlview[hidden] { display: none; }
+table.sum { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.sum th { text-align: left; font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 0 8px 6px 0; vertical-align: bottom; }
+table.sum td { padding: 6px 8px 6px 0; border-top: 1px solid var(--rule); vertical-align: top; }
+table.sum td:first-child { font-weight: 700; white-space: nowrap; }
+table.sum td.k { color: var(--muted); white-space: nowrap; }
+.suite { display: grid; gap: 10px; font-size: 14.5px; }
+.suite .res { display: grid; gap: 8px; }
+.suite .res p { margin: 0; padding: 7px 10px; border-left: 3px solid var(--c, var(--rule)); background: var(--panel); border-radius: 0 5px 5px 0; }
+.suite .res p b { color: var(--c, var(--ink)); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 230px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+/* ---------- analysis ---------- */
+.state-card { display: grid; gap: 5px; }
+.state-card .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.state-card .rs { font-size: 14px; color: var(--muted); }
+.state-card .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c, var(--ink)); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+.kv dd { margin: 0; font-size: 14px; }
+.kv.num dd { text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(66vh, 600px) auto; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto; }
+  .views, .views.wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: 380px 360px; }
+  .views.wide { grid-template-rows: auto auto; }
+  .views.wide .htmlview { position: relative; inset: auto; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 22 · Attitude sensors</div>
+      <h1>Attitude Sensor Tour</h1>
+    </div>
+    <p class="lede">How each attitude sensor works and what it can and cannot tell you. Sun sensors, Earth sensors, magnetometers and star trackers measure directions; gyroscopes measure how fast the spacecraft turns; accelerometers measure pushes. Pick a sensor on the left and try it.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>1</kbd>–<kbd>7</kbd></dt><dd>Pick a sensor</dd>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Sensors</h2>
+      <div class="slist" id="sensorList">
+        <div class="sg">Measure a direction</div>
+        <button class="sbtn" type="button" data-sensor="sun"><span class="k">1</span>Sun sensor</button>
+        <button class="sbtn" type="button" data-sensor="earth"><span class="k">2</span>Earth sensor</button>
+        <button class="sbtn" type="button" data-sensor="mag"><span class="k">3</span>Magnetometer</button>
+        <button class="sbtn" type="button" data-sensor="star"><span class="k">4</span>Star tracker</button>
+        <div class="sg">Measure the turning rate</div>
+        <button class="sbtn" type="button" data-sensor="gyro"><span class="k">5</span>Gyroscopes</button>
+        <div class="sg">Measure a push</div>
+        <button class="sbtn" type="button" data-sensor="accel"><span class="k">6</span>Accelerometer</button>
+        <div class="sg">Several at once</div>
+        <button class="sbtn" type="button" data-sensor="sum"><span class="k">7</span>IMU and summary</button>
+      </div>
+    </section>
+
+    <!-- sun sensor -->
+    <section class="group" data-for="sun">
+      <h2>Sun direction, body frame</h2>
+      <div class="slider">
+        <label for="azR" title="Sun azimuth, from b1 toward b2">az<span class="u">deg</span></label>
+        <input type="range" id="azR" min="-180" max="180" step="1" aria-label="Sun azimuth slider">
+        <input type="number" id="azN" step="any" aria-label="Sun azimuth, deg">
+      </div>
+      <div class="slider">
+        <label for="elR" title="Sun elevation above the b1-b2 plane">el<span class="u">deg</span></label>
+        <input type="range" id="elR" min="-90" max="90" step="1" aria-label="Sun elevation slider">
+        <input type="number" id="elN" step="any" aria-label="Sun elevation, deg">
+      </div>
+      <label class="check"><input type="checkbox" id="chkSweep"> Sweep the Sun around the spacecraft</label>
+    </section>
+    <section class="group" data-for="sun">
+      <h2>Real-world trouble</h2>
+      <div class="slider">
+        <label for="noiseR" title="Random error on each cell, percent of full sunlight">noise<span class="u">%</span></label>
+        <input type="range" id="noiseR" min="0" max="10" step="0.1" aria-label="Cell noise slider">
+        <input type="number" id="noiseN" min="0" step="any" aria-label="Cell noise, percent">
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkAlbedo"> Earthshine (sunlight reflected by Earth below)</label>
+        <label class="check"><input type="checkbox" id="chkEclipse"> In Earth's shadow</label>
+      </div>
+    </section>
+
+    <!-- earth sensor -->
+    <section class="group" data-for="earth">
+      <h2>Orbit</h2>
+      <div class="slider">
+        <label for="altR" title="Altitude above Earth's surface"><span class="sym">h</span><span class="u">km</span></label>
+        <input type="range" id="altR" min="2.3" max="4.6" step="0.005" aria-label="Altitude slider, logarithmic">
+        <input type="number" id="altN" min="100" step="any" aria-label="Altitude, km">
+      </div>
+      <div class="row">
+        <button class="btn" type="button" data-alt="500">Low orbit</button>
+        <button class="btn" type="button" data-alt="20200">GPS</button>
+        <button class="btn" type="button" data-alt="35786">Geostationary</button>
+      </div>
+    </section>
+    <section class="group" data-for="earth">
+      <h2>Attitude from straight down</h2>
+      <div class="slider">
+        <label for="rollR" title="Roll: about the along-track axis"><span class="sym">φ</span><span class="u">roll, deg</span></label>
+        <input type="range" id="rollR" min="-40" max="40" step="0.5" aria-label="Roll slider">
+        <input type="number" id="rollN" step="any" aria-label="Roll, deg">
+      </div>
+      <div class="slider">
+        <label for="pitchR" title="Pitch: about the cross-track axis"><span class="sym">θ</span><span class="u">pitch, deg</span></label>
+        <input type="range" id="pitchR" min="-40" max="40" step="0.5" aria-label="Pitch slider">
+        <input type="number" id="pitchN" step="any" aria-label="Pitch, deg">
+      </div>
+      <div class="slider">
+        <label for="yawR" title="Yaw: about the down direction"><span class="sym">ψ</span><span class="u">yaw, deg</span></label>
+        <input type="range" id="yawR" min="-180" max="180" step="1" aria-label="Yaw slider">
+        <input type="number" id="yawN" step="any" aria-label="Yaw, deg">
+      </div>
+      <label class="check"><input type="checkbox" id="chkYaw"> Spin in yaw</label>
+      <p class="note">Yaw, then pitch, then roll (a 3-2-1 sequence) from the local-level frame: <span class="sym">o</span><sub class="n">1</sub> along track, <span class="sym">o</span><sub class="n">3</sub> straight down.</p>
+    </section>
+
+    <!-- magnetometer -->
+    <section class="group" data-for="mag">
+      <h2>Orbit and field</h2>
+      <div class="slider">
+        <label for="incR" title="Orbit inclination: 0 is equatorial, 90 passes over the poles"><span class="sym">i</span><span class="u">deg</span></label>
+        <input type="range" id="incR" min="0" max="90" step="1" aria-label="Inclination slider">
+        <input type="number" id="incN" min="0" step="any" aria-label="Inclination, deg">
+      </div>
+      <div class="slider">
+        <label for="maltR" title="Altitude above Earth's surface"><span class="sym">h</span><span class="u">km</span></label>
+        <input type="range" id="maltR" min="300" max="3000" step="10" aria-label="Altitude slider">
+        <input type="number" id="maltN" min="100" step="any" aria-label="Altitude, km">
+      </div>
+      <div class="slider">
+        <label for="tiltR" title="Tilt of the magnetic axis from the spin axis">tilt<span class="u">deg</span></label>
+        <input type="range" id="tiltR" min="0" max="20" step="0.5" aria-label="Dipole tilt slider">
+        <input type="number" id="tiltN" min="0" step="any" aria-label="Dipole tilt, deg">
+      </div>
+      <p class="note">The spacecraft points one face straight down (nadir pointing), so its body axes are the local-level axes: <span class="sym">b</span><sub class="n">1</sub> along track, <span class="sym">b</span><sub class="n">2</sub> across, <span class="sym">b</span><sub class="n">3</sub> down.</p>
+    </section>
+
+    <!-- star tracker -->
+    <section class="group" data-for="star">
+      <h2>Camera</h2>
+      <div class="slider">
+        <label for="srateR" title="How fast the spacecraft turns, across the boresight"><span class="sym">ω</span><span class="u">deg/s</span></label>
+        <input type="range" id="srateR" min="0" max="5" step="0.05" aria-label="Turn rate slider">
+        <input type="number" id="srateN" min="0" step="any" aria-label="Turn rate, deg/s">
+      </div>
+      <div class="slider">
+        <label for="sexpR" title="Exposure time of each image"><span class="sym">t</span><sub class="n">exp</sub><span class="u">s</span></label>
+        <input type="range" id="sexpR" min="0.02" max="0.5" step="0.01" aria-label="Exposure slider">
+        <input type="number" id="sexpN" min="0.005" step="any" aria-label="Exposure, s">
+      </div>
+      <p class="note">A 20° field of view on 1024 pixels (70″ each). Stars are spread over about three pixels by a slight defocus, which helps find their centers precisely.</p>
+      <p class="note">The <a href="../star-tracker-explorer/">Star Tracker Explorer</a> shows how the attitude is computed from the stars (Wahba's problem).</p>
+    </section>
+
+    <!-- gyros -->
+    <section class="group" data-for="gyro">
+      <h2>Gyroscope</h2>
+      <div class="seg" role="group" aria-label="Gyro type" id="gyroSeg">
+        <button class="btn" type="button" data-gyro="fog">Fiber optic</button>
+        <button class="btn" type="button" data-gyro="rlg">Ring laser</button>
+        <button class="btn" type="button" data-gyro="mems">MEMS</button>
+      </div>
+      <div class="slider">
+        <label for="omR" title="Rotation rate about the gyro's sensing axis"><span class="sym">Ω</span><span class="u">deg/h</span></label>
+        <input type="range" id="omR" min="-2.5" max="5.6" step="0.01" aria-label="Rotation rate slider, logarithmic">
+        <input type="number" id="omN" min="0" step="any" aria-label="Rotation rate, deg per hour">
+      </div>
+      <div class="row">
+        <button class="btn" type="button" data-om="0">Still</button>
+        <button class="btn" type="button" data-om="15.041">Earth's spin</button>
+        <button class="btn" type="button" data-om="3600">1°/s</button>
+        <button class="btn" type="button" data-om="36000">10°/s</button>
+      </div>
+      <div class="slider" data-gy="fog rlg">
+        <label for="radR" title="Radius of the light loop"><span class="sym">r</span><span class="u">cm</span></label>
+        <input type="range" id="radR" min="1" max="20" step="0.5" aria-label="Loop radius slider">
+        <input type="number" id="radN" min="0.1" step="any" aria-label="Loop radius, cm">
+      </div>
+      <div class="slider" data-gy="fog">
+        <label for="turnsR" title="Turns of fiber in the coil"><span class="sym">N</span><span class="u">turns</span></label>
+        <input type="range" id="turnsR" min="0" max="4" step="0.01" aria-label="Fiber turns slider, logarithmic">
+        <input type="number" id="turnsN" min="1" step="1" aria-label="Fiber turns">
+      </div>
+      <div class="slider" data-gy="fog rlg">
+        <label for="lamR" title="Wavelength of the light"><span class="sym">λ</span><span class="u">nm</span></label>
+        <input type="range" id="lamR" min="400" max="1600" step="1" aria-label="Wavelength slider">
+        <input type="number" id="lamN" min="100" step="any" aria-label="Wavelength, nm">
+      </div>
+      <p class="note" data-gy="mems">The proof mass is driven back and forth 10 µm at 10 kHz, so its top speed is 0.63 m/s.</p>
+    </section>
+
+    <!-- accelerometer -->
+    <section class="group" data-for="accel">
+      <h2>Where is it?</h2>
+      <div class="seg" role="group" aria-label="Situation" id="sceneSeg">
+        <button class="btn" type="button" data-scene="desk">On a desk</button>
+        <button class="btn" type="button" data-scene="orbit">In orbit</button>
+        <button class="btn" type="button" data-scene="burn">Burn</button>
+        <button class="btn" type="button" data-scene="drag">Drag</button>
+      </div>
+      <div class="slider" data-sc="orbit drag">
+        <label for="aaltR" title="Altitude above Earth's surface"><span class="sym">h</span><span class="u">km</span></label>
+        <input type="range" id="aaltR" min="150" max="800" step="5" aria-label="Altitude slider">
+        <input type="number" id="aaltN" min="150" step="any" aria-label="Altitude, km">
+      </div>
+      <div class="slider" data-sc="burn">
+        <label for="thrR" title="Engine thrust"><span class="sym">F</span><span class="u">N</span></label>
+        <input type="range" id="thrR" min="1" max="5000" step="1" aria-label="Thrust slider">
+        <input type="number" id="thrN" min="0" step="any" aria-label="Thrust, N">
+      </div>
+      <div class="slider" data-sc="burn">
+        <label for="massR" title="Spacecraft mass"><span class="sym">m</span><span class="u">kg</span></label>
+        <input type="range" id="massR" min="10" max="5000" step="10" aria-label="Mass slider">
+        <input type="number" id="massN" min="1" step="any" aria-label="Mass, kg">
+      </div>
+      <div class="slider" data-sc="drag">
+        <label for="amR" title="Frontal area per kilogram"><span class="sym">A</span>/<span class="sym">m</span><span class="u">m²/kg</span></label>
+        <input type="range" id="amR" min="0.001" max="0.05" step="0.001" aria-label="Area to mass slider">
+        <input type="number" id="amN" min="0.0001" step="any" aria-label="Area to mass, square meters per kg">
+      </div>
+    </section>
+
+    <!-- summary -->
+    <section class="group" data-for="sum">
+      <h2>Build a sensor suite</h2>
+      <div class="checks" id="suiteChecks">
+        <label class="check"><input type="checkbox" data-su="sun"> Sun sensor</label>
+        <label class="check"><input type="checkbox" data-su="earth"> Earth sensor</label>
+        <label class="check"><input type="checkbox" data-su="mag"> Magnetometer</label>
+        <label class="check"><input type="checkbox" data-su="star"> Star tracker</label>
+        <label class="check"><input type="checkbox" data-su="gyro"> Gyroscopes</label>
+        <label class="check"><input type="checkbox" data-su="accel"> Accelerometers</label>
+      </div>
+      <h2>Situation</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" data-su="eclipse"> In Earth's shadow</label>
+        <label class="check"><input type="checkbox" data-su="fast"> Turning fast (3°/s)</label>
+      </div>
+    </section>
+
+    <section class="group" data-for="sun earth mag">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views" id="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the sensor"></canvas>
+        <canvas id="anim" aria-label="Animation of the sensor" hidden></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="htmlview" id="sumView" hidden></div>
+        <div class="overlay vtitle" id="viewTitle">Body frame</div>
+        <div class="overlay viewbar" id="viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay panecap" id="viewCap"></div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Readout pane"></canvas>
+        <div class="htmlview" id="suiteView" hidden></div>
+        <div class="overlay vtitle" id="paneTitle">Readout</div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="-1" max="3" step="0.01" aria-label="Animation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span> s</div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group state-card">
+      <h2>What is happening</h2>
+      <div class="rt" id="stTitle">—</div>
+      <div class="rs" id="stSub"></div>
+      <ul class="vruns" id="stList"></ul>
+      <p class="vwatch" id="stWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl id="terms"></dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>What it gives you</h2>
+      <dl class="kv" id="gives"></dl>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs" id="model"></div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const NB = '&nbsp;';
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const unit = (a) => { const n = norm(a); return n > 0 ? scl(a, 1 / n) : [0, 0, 0]; };
+const mv = (M, v) => [dot(M[0], v), dot(M[1], v), dot(M[2], v)];
+const mtv = (M, v) => [M[0][0] * v[0] + M[1][0] * v[1] + M[2][0] * v[2], M[0][1] * v[0] + M[1][1] * v[1] + M[2][1] * v[2], M[0][2] * v[0] + M[1][2] * v[1] + M[2][2] * v[2]];
+const mm = (A, B) => A.map((r) => [0, 1, 2].map((j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+const angBetween = (a, b) => Math.atan2(norm(cross(a, b)), dot(a, b));
+/* rotate v about the unit axis k by angle a (Rodrigues) */
+function rotAbout(v, k, a) {
+  const c = Math.cos(a), s = Math.sin(a), kv = cross(k, v), kd = dot(k, v) * (1 - c);
+  return [v[0] * c + kv[0] * s + k[0] * kd, v[1] * c + kv[1] * s + k[1] * kd, v[2] * c + kv[2] * s + k[2] * kd];
+}
+/* any two unit vectors perpendicular to n and to each other */
+function perpPair(n) {
+  const a = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = unit(cross(n, a)); return [u, cross(n, u)];
+}
+/* small seeded generator, so the noise and the star field are the same every visit */
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+let rnd = mulberry32(22);
+function gauss() { let u = 0; while (u === 0) u = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * rnd()); }
+
+/* =========================================================
+   Physics
+   ========================================================= */
+const RE = 6378.137e3, MU = 3.986004418e14, CL = 299792458, G0 = 9.80665, B0 = 3.12e-5;
+const EARTH_RATE = 15.041;   // deg/h, one turn per sidereal day
+
+/* ---- sun sensor: six cosine cells, one on each face ---- */
+const CELLS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+const CELL_NAMES = ['+b̂₁', '−b̂₁', '+b̂₂', '−b̂₂', '+b̂₃', '−b̂₃'];
+const ALBEDO = 0.3;   // Earth's reflected light on a cell facing it squarely, as a fraction of direct sunlight
+const sunDir = (az, el) => [Math.cos(el * D2R) * Math.cos(az * D2R), Math.cos(el * D2R) * Math.sin(az * D2R), Math.sin(el * D2R)];
+const azElOf = (v) => [Math.atan2(v[1], v[0]) * R2D, Math.asin(clamp(v[2], -1, 1)) * R2D];
+/* cell currents (in units of full sunlight) and the reconstructed sun direction */
+function sunSensor(s, opts) {
+  const nadir = [0, 0, -1];
+  const I = CELLS.map((n, i) => {
+    let v = opts.eclipse ? 0 : Math.max(0, dot(n, s)) + (opts.albedo ? ALBEDO * Math.max(0, dot(n, nadir)) : 0);
+    if (opts.noise > 0) v += opts.noise * opts.draws[i];
+    return Math.max(0, v);
+  });
+  const v = [I[0] - I[1], I[2] - I[3], I[4] - I[5]], m = norm(v);
+  const est = m > 0.05 ? scl(v, 1 / m) : null;
+  return { I, v, m, est, err: est ? angBetween(est, s) * R2D : NaN };
+}
+
+/* ---- Earth sensor: the disc of Earth seen from orbit ---- */
+const rhoOf = (altKm) => Math.asin(RE / (RE + altKm * 1e3));
+/* body-from-local-level rotation for yaw psi, then pitch theta, then roll phi */
+function Cbo(phi, th, psi) {
+  const c1 = Math.cos(phi), s1 = Math.sin(phi), c2 = Math.cos(th), s2 = Math.sin(th), c3 = Math.cos(psi), s3 = Math.sin(psi);
+  const C1 = [[1, 0, 0], [0, c1, s1], [0, -s1, c1]], C2 = [[c2, 0, -s2], [0, 1, 0], [s2, 0, c2]], C3 = [[c3, s3, 0], [-s3, c3, 0], [0, 0, 1]];
+  return mm(mm(C1, C2), C3);
+}
+/* nadir in the body frame, and roll and pitch recovered from it */
+const nadirBody = (C) => [C[0][2], C[1][2], C[2][2]];
+const rollPitchFrom = (n) => [Math.atan2(n[1], n[2]), -Math.asin(clamp(n[0], -1, 1))];
+/* the limb as body-frame directions: a cone of half-angle rho about nadir */
+function limbDirs(n, rho, k = 96) {
+  const [u, w] = perpPair(n), out = [];
+  for (let i = 0; i <= k; i++) { const t = TAU * i / k; out.push(add(scl(n, Math.cos(rho)), add(scl(u, Math.sin(rho) * Math.cos(t)), scl(w, Math.sin(rho) * Math.sin(t))))); }
+  return out;
+}
+
+/* ---- magnetometer: a tilted dipole, fixed in inertial space for this short look ---- */
+const dipoleAxis = (tiltDeg) => [Math.sin(tiltDeg * D2R), 0, -Math.cos(tiltDeg * D2R)];   // the moment points roughly south
+function dipoleB(r, tiltDeg) {
+  const rn = norm(r), rh = scl(r, 1 / rn), m = dipoleAxis(tiltDeg), k = B0 * (RE / rn) ** 3;
+  return scl(sub(scl(rh, 3 * dot(m, rh)), m), k);
+}
+/* position and local-level axes on a circular orbit with ascending node on the x axis */
+function orbitAt(u, incDeg, r) {
+  const i = incDeg * D2R, rh = [Math.cos(u), Math.sin(u) * Math.cos(i), Math.sin(u) * Math.sin(i)];
+  const v = [-Math.sin(u), Math.cos(u) * Math.cos(i), Math.cos(u) * Math.sin(i)], o3 = scl(rh, -1);
+  return { pos: scl(rh, r), o1: v, o2: cross(o3, v), o3 };
+}
+const periodOf = (r) => TAU * Math.sqrt(r ** 3 / MU);
+function magAt(u) {
+  const r = RE + S.magAlt * 1e3, O = orbitAt(u, S.inc, r), B = dipoleB(O.pos, S.tilt);
+  const lat = Math.asin(clamp(-dot(dipoleAxis(S.tilt), unit(O.pos)), -1, 1));
+  return { O, B, Bb: [dot(B, O.o1), dot(B, O.o2), dot(B, O.o3)], lat, Beq: B0 * (RE / r) ** 3 };
+}
+
+/* ---- star tracker: a strip of sky drifting through a 20 degree camera ---- */
+const ST = { fov: 20, px: 1024, psf: 3, strip: 60, limit0: 6.5, need: 3 };
+ST.scale = ST.fov / ST.px;   // deg per pixel
+const STARS = (() => {
+  const g = mulberry32(445), out = [];
+  // counts rise about 2.8 times per magnitude, as for real stars
+  const a = Math.pow(10, 0.45 * 1.5), b = Math.pow(10, 0.45 * 8);
+  for (let i = 0; i < 300; i++) out.push({ x: (g() - 0.5) * ST.fov * 1.04, y: (g() - 0.5) * ST.strip, m: Math.log10(a + (b - a) * g()) / 0.45 });
+  return out;
+})();
+const streakPx = (rate, texp) => rate * texp / ST.scale;
+/* faintest star still detected: its light per pixel falls as the streak grows past the spot size */
+const limitMag = (rate, texp) => ST.limit0 + 2.5 * Math.log10(texp / 0.1) - 2.5 * Math.log10(1 + streakPx(rate, texp) / ST.psf);
+const expectedStars = (rate, texp) => { const lim = limitMag(rate, texp); return STARS.filter((s) => s.m < lim).length * ST.fov / ST.strip; };
+
+/* ---- gyros ---- */
+const MEMS = { amp: 10e-6, f: 10e3 };
+MEMS.v = TAU * MEMS.f * MEMS.amp;
+function gyroOut() {
+  const W = S.omega / 3600 * D2R, r = S.radius / 100, A = Math.PI * r * r, L = TAU * r, lam = S.lam * 1e-9;
+  const dt = 4 * A * W / (CL * CL);
+  // exact travel-time difference, 2 pi r [1/(c - W r) - 1/(c + W r)], written without cancellation
+  const dtExact = 4 * Math.PI * r * r * W / (CL * CL - (W * r) ** 2);
+  return { W, A, L, dt, dtExact, dphi: 8 * Math.PI * S.turns * A * W / (lam * CL), df: 4 * A * W / (lam * L), aCor: 2 * W * MEMS.v, fiber: S.turns * L };
+}
+
+/* ---- accelerometer ---- */
+/* exponential atmosphere, base altitude (km), density (kg/m^3) and scale height (km) */
+const ATM = [[150, 2.070e-9, 22.523], [180, 5.464e-10, 29.740], [200, 2.789e-10, 37.105], [250, 7.248e-11, 45.546], [300, 2.418e-11, 53.628], [350, 9.518e-12, 53.298], [400, 3.725e-12, 58.515], [450, 1.585e-12, 60.828], [500, 6.967e-13, 63.822], [600, 1.454e-13, 71.835], [700, 3.614e-14, 88.667], [800, 1.170e-14, 124.64]];
+function rhoAtm(h) {
+  let k = 0; for (let i = 0; i < ATM.length; i++) if (h >= ATM[i][0]) k = i;
+  return ATM[k][1] * Math.exp(-(h - ATM[k][0]) / ATM[k][2]);
+}
+const CD = 2.2;
+/* specific force f = a - g: what the case must do to the proof mass beyond what gravity already does */
+function accelScene(scene) {
+  const r = RE + S.accAlt * 1e3, gOrb = MU / (r * r), v = Math.sqrt(MU / r);
+  if (scene === 'desk') return { g: G0, a: 0, f: G0, dir: 'up' };
+  if (scene === 'orbit') return { g: gOrb, a: gOrb, f: 0, dir: '' };
+  if (scene === 'burn') { const f = S.thrust / S.mass; return { g: gOrb, a: Math.hypot(gOrb, f), f, dir: 'forward, along the thrust' }; }
+  const f = 0.5 * rhoAtm(S.accAlt) * v * v * CD * S.aOverM;
+  return { g: gOrb, a: Math.hypot(gOrb, f), f, dir: 'backward, against the motion', rho: rhoAtm(S.accAlt), v };
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const S = {
+  sensor: 'sun',
+  sunAz: 35, sunEl: 25, sunSweep: true, noise: 0, albedo: false, eclipse: false,
+  alt: 500, roll: 12, pitch: -6, yaw: 0, yawSpin: false,
+  inc: 60, magAlt: 500, tilt: 11,
+  stRate: 0.2, stExp: 0.1,
+  gyro: 'fog', omega: 3600, radius: 5, turns: 1000, lam: 1550,
+  scene: 'desk', accAlt: 400, thrust: 400, mass: 1000, aOverM: 0.01,
+  suite: { sun: true, earth: false, mag: true, star: false, gyro: true, accel: false, eclipse: false, fast: false },
+  speed: 1, playing: !reduceMotion, labels: true,
+};
+const SPEEDS = { sun: 1, earth: 60, mag: 120, star: 1, gyro: 1, accel: 1, sum: 1 };
+let simT = 0, sweep0 = null, yaw0 = 0, sunTrail = [];
+let noiseDraws = [0, 0, 0, 0, 0, 0], noiseAt = -Infinity;
+const sunNow = () => sunSensor(sunDir(S.sunAz, S.sunEl), { eclipse: S.eclipse, albedo: S.albedo, noise: S.noise / 100, draws: noiseDraws });
+const earthNow = () => { const C = Cbo(S.roll * D2R, S.pitch * D2R, S.yaw * D2R), n = nadirBody(C), rp = rollPitchFrom(n); return { C, n, roll: rp[0] * R2D, pitch: rp[1] * R2D, rho: rhoOf(S.alt) }; };
+const magU = () => TAU * simT / periodOf(RE + S.magAlt * 1e3);
+const earthU = () => TAU * simT / periodOf(RE + S.alt * 1e3);
+/* the spacecraft is drawn far larger than life, but never reaching down to Earth */
+const craftSize = (r) => Math.min(0.1 * r, 1.2 * (r - 1));
+
+/* =========================================================
+   3D scene: the spacecraft with its sun cells, the Earth below with its horizon, the field along the orbit
+   ========================================================= */
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const lamp = new THREE.DirectionalLight(0xffffff, 0.7);
+  scene.add(hemi, lamp, lamp.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 24, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  function lineObj(mat, parent, n) {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const l = new THREE.Line(geo, mat); l.frustumCulled = false; parent.add(l); return l;
+  }
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 30 }),
+    ax: [0, 1, 2].map(() => new THREE.MeshBasicMaterial()),
+    sun: new THREE.MeshBasicMaterial(), est: new THREE.MeshBasicMaterial(),
+    cells: CELLS.map(() => new THREE.MeshPhongMaterial({ shininess: 80, side: THREE.DoubleSide })),
+    earth: new THREE.MeshPhongMaterial({ shininess: 12 }),
+    earthDim: new THREE.MeshPhongMaterial({ shininess: 8, transparent: true, opacity: 0.55 }),
+    grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+    limb: new THREE.LineBasicMaterial(), cone: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+    nadir: new THREE.LineDashedMaterial({ dashSize: 0.02, gapSize: 0.015 }),
+    field: new THREE.MeshBasicMaterial(), fieldLine: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.45 }),
+    orbit: new THREE.LineBasicMaterial(), magAxis: new THREE.LineBasicMaterial(),
+  };
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  function earthGrid(parent) {
+    const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) {
+      const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R;
+      pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a));
+    }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) {
+      const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R;
+      pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c));
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    const ls = new THREE.LineSegments(geo, M.grid); parent.add(ls); return ls;
+  }
+
+  /* -- sun sensor: body frame, the cube with a cell on each face -- */
+  const gSun = new THREE.Group(); scene.add(gSun);
+  gSun.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), M.hull));
+  const cellMeshes = CELLS.map((n, i) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), M.cells[i]);
+    m.position.set(n[0] * 0.505, n[1] * 0.505, n[2] * 0.505);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), V3(n));
+    gSun.add(m); return m;
+  });
+  const sunAxes = [0, 1, 2].map((i) => makeArrow(M.ax[i], gSun));
+  const sunArrow = makeArrow(M.sun, gSun), estArrow = makeArrow(M.est, gSun);
+  const sunBall = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), M.sun); gSun.add(sunBall);
+  const albedoEarth = new THREE.Mesh(sphereGeo, M.earthDim); albedoEarth.scale.setScalar(6); albedoEarth.position.set(0, 0, -8.2); gSun.add(albedoEarth);
+
+  /* -- Earth sensor: spacecraft at the origin, local level axes fixed, Earth below -- */
+  const gEarth = new THREE.Group(); scene.add(gEarth);
+  const eBall = new THREE.Group(); gEarth.add(eBall);
+  eBall.add(new THREE.Mesh(sphereGeo, M.earth)); const eGrid = earthGrid(eBall);
+  const eSc = new THREE.Group(); gEarth.add(eSc);
+  eSc.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.8), M.hull));
+  const eAxes = [0, 1, 2].map((i) => makeArrow(M.ax[i], eSc));
+  const limbLine = lineObj(M.limb, gEarth, 97);
+  const coneLines = new THREE.LineSegments(new THREE.BufferGeometry(), M.cone); coneLines.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 6), 3)); coneLines.frustumCulled = false; gEarth.add(coneLines);
+  const nadirLine = lineObj(M.nadir, gEarth, 2);
+
+  /* -- magnetometer: Earth at the origin, field lines, the orbit -- */
+  const gMag = new THREE.Group(); scene.add(gMag);
+  gMag.add(new THREE.Mesh(sphereGeo, M.earth)); earthGrid(gMag);
+  const fieldLines = new THREE.Group(); gMag.add(fieldLines);
+  const magAxisLine = lineObj(M.magAxis, gMag, 2);
+  const orbitLine = lineObj(M.orbit, gMag, 181);
+  const mSc = new THREE.Group(); gMag.add(mSc);
+  mSc.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.8), M.hull));
+  const mAxes = [0, 1, 2].map((i) => makeArrow(M.ax[i], mSc));
+  const bArrow = makeArrow(M.field, gMag);
+
+  return { renderer, scene, cam, controls, hemi, lamp, M, makeArrow, lineObj,
+    gSun, cellMeshes, sunAxes, sunArrow, estArrow, sunBall, albedoEarth,
+    gEarth, eBall, eGrid, eSc, eAxes, limbLine, coneLines, nadirLine,
+    gMag, fieldLines, magAxisLine, orbitLine, mSc, mAxes, bArrow };
+}
+function setArrow(Ar, origin, vec, shaftR, headR, headL) {
+  const len = vec.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec); Ar.head.scale.set(headR, hl, headR);
+}
+function setLine(l, pts) {
+  const a = l.geometry.attributes.position.array;
+  pts.forEach((p, i) => { a[3 * i] = p[0]; a[3 * i + 1] = p[1]; a[3 * i + 2] = p[2]; });
+  l.geometry.attributes.position.needsUpdate = true; l.geometry.setDrawRange(0, pts.length);
+  if (l.computeLineDistances) l.computeLineDistances();
+}
+const basisQ = (x, y, z) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V3(x), V3(y), V3(z)));
+/* geometry that changes only with the settings */
+let fieldKey = '', orbitKey = '';
+function setStatic3D() {
+  if (!G) return;
+  // field lines r = L cos^2(lat) in planes through the magnetic axis
+  const key = String(S.tilt);
+  if (key !== fieldKey) {
+    fieldKey = key;
+    while (G.fieldLines.children.length) { const c = G.fieldLines.children.pop(); c.geometry.dispose(); }
+    const e3 = scl(dipoleAxis(S.tilt), -1), e1 = [Math.cos(S.tilt * D2R), 0, Math.sin(S.tilt * D2R)], e2 = [0, 1, 0];
+    [1.6, 2.3, 3.2].forEach((L) => {
+      const lm = Math.acos(Math.sqrt(1 / L));
+      for (let az = 0; az < 360; az += 45) {
+        const pts = [], ca = Math.cos(az * D2R), sa = Math.sin(az * D2R);
+        for (let i = 0; i <= 60; i++) {
+          const lat = -lm + 2 * lm * i / 60, r = L * Math.cos(lat) ** 2;
+          pts.push(add(scl(add(scl(e1, ca), scl(e2, sa)), r * Math.cos(lat)), scl(e3, r * Math.sin(lat))));
+        }
+        const l = G.lineObj(G.M.fieldLine, G.fieldLines, pts.length); setLine(l, pts);
+      }
+    });
+    setLine(G.magAxisLine, [scl(e3, 1.7), scl(e3, -1.7)]);
+  }
+  const ok = `${S.inc}|${S.magAlt}`;
+  if (ok !== orbitKey) {
+    orbitKey = ok;
+    const r = 1 + S.magAlt * 1e3 / RE, pts = [];
+    for (let i = 0; i <= 180; i++) pts.push(orbitAt(TAU * i / 180, S.inc, r).pos);
+    setLine(G.orbitLine, pts);
+  }
+}
+function updateDynamic() {
+  const sen = S.sensor;
+  G.gSun.visible = sen === 'sun'; G.gEarth.visible = sen === 'earth'; G.gMag.visible = sen === 'mag';
+  if (sen === 'sun') {
+    const s = sunDir(S.sunAz, S.sunEl), r = sunNow();
+    [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((a, i) => setArrow(G.sunAxes[i], V3(scl(a, 0.5)), V3(scl(a, 0.75)), 0.018, 0.05, 0.14));
+    setArrow(G.sunArrow, V3([0, 0, 0]), V3(scl(s, S.eclipse ? 0 : 2.6)), 0.03, 0.09, 0.24);
+    G.sunArrow.g.visible = !S.eclipse;
+    G.sunBall.position.copy(V3(scl(s, 3.2))); G.sunBall.visible = !S.eclipse;
+    if (r.est) { setArrow(G.estArrow, V3([0, 0, 0]), V3(scl(r.est, 2.15)), 0.022, 0.07, 0.2); } else G.estArrow.g.visible = false;
+    G.albedoEarth.visible = S.albedo;
+    const cs = new THREE.Color(COL.sun), cc = new THREE.Color(COL.cell);
+    G.cellMeshes.forEach((m, i) => { const f = clamp(r.I[i], 0, 1); m.material.color.copy(cc).lerp(cs, f); m.material.emissive.copy(cs).multiplyScalar(0.35 * f); });
+  } else if (sen === 'earth') {
+    const r = 1 + S.alt * 1e3 / RE, E = earthNow(), sz = craftSize(r);
+    // local level: o1 = +x along track, o2 = -y, o3 = -z down; Earth's center is r below
+    const o = [[1, 0, 0], [0, -1, 0], [0, 0, -1]];
+    G.eBall.position.set(0, 0, -r);
+    G.eBall.rotation.set(0, earthU(), 0);
+    const bw = E.C.map((row) => add(add(scl(o[0], row[0]), scl(o[1], row[1])), scl(o[2], row[2])));
+    G.eSc.scale.setScalar(sz);
+    G.eSc.quaternion.copy(basisQ(bw[0], bw[1], bw[2]));
+    G.eAxes.forEach((A, i) => setArrow(A, V3(scl([[1, 0, 0], [0, 1, 0], [0, 0, 1]][i], i === 2 ? 0.4 : 0.5)), V3(scl([[1, 0, 0], [0, 1, 0], [0, 0, 1]][i], 0.9)), 0.03, 0.09, 0.25));
+    // the horizon: where lines from the spacecraft graze the Earth
+    const cb = 1 / r, sb = Math.sqrt(1 - cb * cb), zc = -r + cb, ring = [];
+    for (let i = 0; i <= 96; i++) { const t = TAU * i / 96; ring.push([sb * Math.cos(t), sb * Math.sin(t), zc]); }
+    setLine(G.limbLine, ring);
+    const ca = G.coneLines.geometry.attributes.position.array;
+    for (let i = 0; i < 16; i++) { const t = TAU * i / 16; ca.set([0, 0, 0, sb * Math.cos(t), sb * Math.sin(t), zc], 6 * i); }
+    G.coneLines.geometry.attributes.position.needsUpdate = true;
+    setLine(G.nadirLine, [[0, 0, 0], [0, 0, -r + 1]]);
+  } else if (sen === 'mag') {
+    const m = magAt(magU()), p = scl(m.O.pos, 1 / RE);
+    G.mSc.position.copy(V3(p)); G.mSc.scale.setScalar(0.07);
+    G.mSc.quaternion.copy(basisQ(m.O.o1, m.O.o2, m.O.o3));
+    G.mAxes.forEach((A, i) => setArrow(A, V3(scl([[1, 0, 0], [0, 1, 0], [0, 0, 1]][i], 0.45)), V3(scl([[1, 0, 0], [0, 1, 0], [0, 0, 1]][i], 1.2)), 0.04, 0.12, 0.3));
+    setArrow(G.bArrow, V3(p), V3(scl(unit(m.B), 0.5 * norm(m.B) / (2 * m.Beq) + 0.2)), 0.01, 0.035, 0.09);
+  }
+}
+
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color) {
+  const d = document.createElement('div'); d.className = 'vlabel';
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  b: [1, 2, 3].map((i) => mkLabel(`${SYM('b̂')}<sub class="n">${i}</sub>`, `var(--ax${i})`)),
+  sun: mkLabel('Sun', 'var(--sun)'), est: mkLabel('estimate', 'var(--est)'),
+  nadir: mkLabel('nadir', 'var(--muted)'), limb: mkLabel('horizon', 'var(--ir)'), rho: mkLabel('', 'var(--ir)'),
+  B: mkLabel(SYM('B'), 'var(--field)'), orbit: mkLabel('orbit', 'var(--orbit)'), axis: mkLabel('magnetic axis', 'var(--muted)'),
+};
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  Object.values(LB).flat().forEach((l) => { l.hidden = true; });
+  if (!S.labels) return;
+  const sen = S.sensor;
+  if (sen === 'sun') {
+    [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((a, i) => placeLabel(LB.b[i], scl(a, 1.42)));
+    if (!S.eclipse) placeLabel(LB.sun, scl(sunDir(S.sunAz, S.sunEl), 3.65));
+    const r = sunNow(); if (r.est && r.err > 3) placeLabel(LB.est, scl(r.est, 2.4));
+  } else if (sen === 'earth') {
+    const r = 1 + S.alt * 1e3 / RE, E = earthNow(), sz = craftSize(r), o = [[1, 0, 0], [0, -1, 0], [0, 0, -1]];
+    E.C.forEach((row, i) => { const w = add(add(scl(o[0], row[0]), scl(o[1], row[1])), scl(o[2], row[2])); placeLabel(LB.b[i], scl(w, sz * 1.6), i === 2 ? 14 : 0, 0); });
+    const cb = 1 / r, sb = Math.sqrt(1 - cb * cb);
+    placeLabel(LB.limb, [sb * 0.72, -sb * 0.72, -r + cb], 0, 12);
+    placeLabel(LB.nadir, [0, 0, -(r - 1)], 0, 14);
+    const tr = 200 * D2R; LB.rho.innerHTML = `${SYM('ρ')} = ${fx(E.rho * R2D, 1)}°`; placeLabel(LB.rho, scl([sb * Math.cos(tr), sb * Math.sin(tr), -r + cb], 0.55), 0, -12);
+  } else if (sen === 'mag') {
+    const m = magAt(magU()), p = scl(m.O.pos, 1 / RE);
+    placeLabel(LB.B, add(p, scl(unit(m.B), 0.5 * norm(m.B) / (2 * m.Beq) + 0.3)));
+    const camP = [G.cam.position.x, G.cam.position.y, G.cam.position.z]; let best = null, bd = -Infinity;
+    for (let i = 0; i < 36; i++) { const q = orbitAt(TAU * i / 36, S.inc, 1 + S.magAlt * 1e3 / RE).pos, d = dot(q, camP); if (d > bd && norm(sub(q, p)) > 1.2) { bd = d; best = q; } }
+    if (best) placeLabel(LB.orbit, best, 0, -12);
+    placeLabel(LB.axis, scl(dipoleAxis(S.tilt), -1.85));
+  }
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'ax1', 'ax2', 'ax3', 'sun', 'est', 'cell', 'earth', 'earth-line', 'ir', 'space', 'space-ink', 'field', 'orbit', 'beam1', 'beam2', 'mass', 'spring', 'hull', 'hull-alt', 'good', 'warn', 'bad', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const C = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(C('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.lamp.intensity = COL.dark ? 0.78 : 0.7;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = C('hull'); M.ax.forEach((m, i) => { m.color = C('ax' + (i + 1)); });
+    M.sun.color = C('sun'); M.est.color = C('est');
+    M.earth.color = C('earth'); M.earthDim.color = C('earth'); M.grid.color = C('earth-line');
+    M.limb.color = C('ir'); M.cone.color = C('ir'); M.nadir.color = C('muted');
+    M.field.color = C('field'); M.fieldLine.color = C('field'); M.orbit.color = C('orbit'); M.magAxis.color = C('muted');
+  }
+  drawAll();
+}
+
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO = { sun: [1, 0.75, 0.55], earth: [0.9, -1.0, 1.25], mag: [1, 0.55, 0.45] };
+function frameOf() {
+  if (S.sensor === 'sun') return { c: [0, 0, 0], rad: S.albedo ? 4.2 : 3.6 };
+  if (S.sensor === 'mag') return { c: [0, 0, 0], rad: 2.3 };
+  const r = 1 + S.alt * 1e3 / RE, cb = 1 / r, sb = Math.sqrt(1 - cb * cb), zc = -r + cb;
+  return { c: [0, 0, zc / 2], rad: Math.max(Math.hypot(sb, zc / 2), 0.25) * 1.05 };
+}
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = viewDir('iso');
+  const f = frameOf(), a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = f.rad / Math.sin(Math.min(vf, hf) / 2);
+  G.controls.target.copy(V3(f.c));
+  G.cam.position.copy(dir).multiplyScalar(d).add(G.controls.target);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return S.sensor === 'earth' ? new THREE.Vector3(0.0001, -1, 0.02).normalize() : new THREE.Vector3(1, 0.0001, 0.06).normalize();
+  return V3(ISO[S.sensor] || ISO.sun).normalize();
+}
+
+/* =========================================================
+   Main 2D view: gyros, the star camera, the accelerometer
+   ========================================================= */
+const animCv = el('anim'), actx = animCv.getContext('2d');
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UI = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function arrow2(ctx, x0, y0, x1, y1, color, w = 2, head = 8) {
+  const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0);
+  if (L < 1) return;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - Math.cos(a) * head * 0.8, y1 - Math.sin(a) * head * 0.8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - head * Math.cos(a - 0.4), y1 - head * Math.sin(a - 0.4)); ctx.lineTo(x1 - head * Math.cos(a + 0.4), y1 - head * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+  ctx.lineWidth = 1;
+}
+function spring(ctx, x0, y0, x1, y1, n, amp) {
+  const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L;
+  ctx.beginPath(); ctx.moveTo(x0, y0);
+  for (let i = 1; i < 2 * n; i++) { const t = i / (2 * n), s = i % 2 ? amp : -amp; ctx.lineTo(x0 + ux * L * t - uy * s, y0 + uy * L * t + ux * s); }
+  ctx.lineTo(x1, y1); ctx.stroke();
+}
+
+/* Sagnac cartoon: light slowed enormously so the delay is visible */
+const SAG = { lap: 2.4, rest: 1.1 };
+function sagnacVis() {
+  const wc = TAU / SAG.lap, k = S.omega > 0 ? 0.06 + 0.2 * clamp((Math.log10(S.omega) + 2) / 7.6, 0, 1) : 0, wr = wc * k;
+  const tcw = TAU / (wc + wr), tccw = TAU / (wc - wr);
+  return { wc, wr, tcw, tccw, period: tccw + SAG.rest };
+}
+function drawSagnac(ctx, W, H) {
+  const V = sagnacVis(), cx = W / 2, cy = H * 0.47, R = Math.min(W * 0.36, H * 0.32);
+  const tau = simT % V.period, ringAng = -V.wr * simT;   // canvas y is down: negative angle turns counterclockwise on screen
+  const cyc0 = simT - tau, sAng0 = -V.wr * cyc0;
+  // the loop: several turns for a fiber coil, a laser cavity with mirrors otherwise
+  const turns = S.gyro === 'fog' ? 4 : 1;
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = S.gyro === 'fog' ? 1.2 : 5;
+  for (let i = 0; i < turns; i++) { ctx.beginPath(); ctx.arc(cx, cy, R + (i - (turns - 1) / 2) * 5, 0, TAU); ctx.stroke(); }
+  ctx.lineWidth = 1;
+  // ticks fixed to the loop show it turning
+  ctx.strokeStyle = COL.muted;
+  for (let i = 0; i < 24; i++) { const a = ringAng + TAU * i / 24; ctx.beginPath(); ctx.moveTo(cx + (R - 14) * Math.cos(a), cy + (R - 14) * Math.sin(a)); ctx.lineTo(cx + (R - 8) * Math.cos(a), cy + (R - 8) * Math.sin(a)); ctx.stroke(); }
+  if (S.gyro === 'rlg') [1, 2].forEach((j) => { const a = ringAng + TAU * j / 3; ctx.fillStyle = COL.mass; ctx.save(); ctx.translate(cx + R * Math.cos(a), cy + R * Math.sin(a)); ctx.rotate(a); ctx.fillRect(-3, -11, 6, 22); ctx.restore(); });
+  // splitter and detector ride on the loop
+  const sa = ringAng, sx = cx + R * Math.cos(sa), sy = cy + R * Math.sin(sa);
+  ctx.save(); ctx.translate(sx, sy); ctx.rotate(sa); ctx.fillStyle = COL.ink; ctx.fillRect(-8, -8, 16, 16); ctx.restore();
+  ctx.font = UI(600, 13); ctx.fillStyle = COL.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const ca = Math.cos(sa), lr = Math.abs(ca) > 0.35 ? R + 18 : R + 30;
+  ctx.textAlign = ca > 0.35 ? 'left' : ca < -0.35 ? 'right' : 'center';
+  ctx.fillText('splitter and detector', cx + lr * ca, cy + lr * Math.sin(sa));
+  // the two halves: each runs at the same speed in the lab, opposite ways round
+  const pulses = [{ dir: -1, t: V.tccw, c: COL.beam2, name: 'with the turn' }, { dir: 1, t: V.tcw, c: COL.beam1, name: 'against the turn' }];
+  pulses.forEach((p) => {
+    const done = tau >= p.t, tt = Math.min(tau, p.t);
+    const a = sAng0 + p.dir * V.wc * tt + (done ? -V.wr * (tau - p.t) : 0);
+    // trail
+    ctx.strokeStyle = p.c; ctx.lineWidth = 3; ctx.globalAlpha = 0.5; ctx.beginPath();
+    if (p.dir > 0) ctx.arc(cx, cy, R + (p.dir > 0 ? 7 : -7), Math.max(sAng0, a - 1.2), a); else ctx.arc(cx, cy, R - 7, a, Math.min(sAng0, a + 1.2));
+    ctx.stroke(); ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    const rr = R + (p.dir > 0 ? 7 : -7);
+    ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(cx + rr * Math.cos(a), cy + rr * Math.sin(a), done ? 5 : 7, 0, TAU); ctx.fill();
+  });
+  // turn direction
+  const ra = R + 34;
+  ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, ra, -2.4, -0.75, false); ctx.stroke();
+  if (S.omega > 0) { const a = -2.4; arrow2(ctx, cx + ra * Math.cos(a + 0.12), cy + ra * Math.sin(a + 0.12), cx + ra * Math.cos(a), cy + ra * Math.sin(a), COL.muted, 1.5, 8); }
+  ctx.font = UI(600, 13); ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  ctx.fillText(S.omega > 0 ? 'the loop turns this way' : 'the loop is still', cx, cy - ra - 12);
+  // arrival timeline
+  const ty = H - 64, tx0 = W * 0.12, tw = W * 0.76, T = V.period - SAG.rest * 0.4;
+  ctx.strokeStyle = COL.rule; ctx.beginPath(); ctx.moveTo(tx0, ty); ctx.lineTo(tx0 + tw, ty); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.font = MONO; ctx.textAlign = 'left'; ctx.fillText('arrival back at the splitter', tx0, ty - 30);
+  pulses.forEach((p, j) => {
+    const x = tx0 + tw * p.t / T;
+    ctx.strokeStyle = p.c; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, ty - 10); ctx.lineTo(x, ty + 10); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = p.c; ctx.font = UI(600, 12.5); ctx.textAlign = j ? 'right' : 'left'; ctx.fillText(p.name, x + (j ? -6 : 6), ty + 20);
+  });
+  const xn = tx0 + tw * Math.min(tau, T) / T; ctx.strokeStyle = COL.accent; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xn, ty - 14); ctx.lineTo(xn, ty + 14); ctx.stroke(); ctx.setLineDash([]);
+}
+/* MEMS: a proof mass driven along x; turning pushes it along y (Coriolis) */
+function drawMems(ctx, W, H) {
+  const cx = W / 2, cy = H * 0.46, F = Math.min(W, H) * 0.34;
+  const wd = TAU * 0.7, X = F * 0.42, k = S.omega > 0 ? clamp((Math.log10(S.omega) + 2) / 7.6, 0, 1) : 0, Y = X * 0.75 * k;
+  const ph = wd * simT, x = X * Math.sin(ph), y = Y * Math.cos(ph);
+  // frame (the chip), turning slowly to show the rotation
+  ctx.strokeStyle = COL.muted; ctx.lineWidth = 2; ctx.strokeRect(cx - F, cy - F, 2 * F, 2 * F); ctx.lineWidth = 1;
+  ctx.font = UI(600, 13); ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('chip, turning at Ω out of the screen', cx - F, cy - F - 14);
+  // drive combs left and right, sense combs top and bottom
+  ctx.fillStyle = COL.rule;
+  for (let i = -3; i <= 3; i++) { ctx.fillRect(cx - F + 4, cy + i * 12 - 2, 26, 4); ctx.fillRect(cx + F - 30, cy + i * 12 - 2, 26, 4); ctx.fillRect(cx + i * 12 - 2, cy - F + 4, 4, 26); ctx.fillRect(cx + i * 12 - 2, cy + F - 30, 4, 26); }
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  ctx.fillText('drive', cx - F + 17, cy + F * 0.62); ctx.fillText('sense', cx, cy - F + 42);
+  // springs to the frame
+  const mx = cx + x, my = cy + y, ms = F * 0.36;
+  ctx.strokeStyle = COL.spring; ctx.lineWidth = 1.5;
+  spring(ctx, cx - F + 32, cy, mx - ms / 2, my, 6, 6); spring(ctx, mx + ms / 2, my, cx + F - 32, cy, 6, 6);
+  spring(ctx, cx, cy - F + 32, mx, my - ms / 2, 5, 5); spring(ctx, mx, my + ms / 2, cx, cy + F - 32, 5, 5);
+  ctx.lineWidth = 1;
+  // path of the mass
+  ctx.strokeStyle = COL.accent; ctx.setLineDash([4, 4]); ctx.beginPath();
+  for (let i = 0; i <= 80; i++) { const p = TAU * i / 80; const px = cx + X * Math.sin(p), py = cy + Y * Math.cos(p); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = COL.mass; ctx.fillRect(mx - ms / 2, my - ms / 2, ms, ms);
+  // velocity and Coriolis push
+  const vx = Math.cos(ph);
+  arrow2(ctx, mx, my, mx + vx * ms * 0.9, my, COL.beam1, 2.5, 9);
+  if (Y > 0.5) arrow2(ctx, mx, my, mx, my + Math.sign(vx) * Math.max(10, ms * 0.8 * Math.abs(vx)), COL.beam2, 2.5, 9);
+  ctx.font = UI(600, 13); ctx.textAlign = 'left';
+  ctx.fillStyle = COL.beam1; ctx.fillText('driven velocity v', cx - F, cy + F + 18);
+  ctx.fillStyle = COL.beam2; ctx.fillText('Coriolis push −2Ω × v', cx - F, cy + F + 36);
+  ctx.fillStyle = COL.muted; ctx.fillText('sideways motion drawn on a log scale', cx - F, cy + F + 54);
+}
+/* the star camera's picture, with streaks from turning during the exposure */
+function drawStar(ctx, W, H) {
+  const side = Math.min(W - 20, H - 70), x0 = (W - side) / 2, y0 = 34, sc = side / ST.fov;
+  ctx.fillStyle = COL.space; ctx.fillRect(x0, y0, side, side);
+  const lim = limitMag(S.stRate, S.stExp), Lpx = streakPx(S.stRate, S.stExp), Ldeg = S.stRate * S.stExp;
+  const shift = S.stRate * simT;
+  const det = [];
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, side, side); ctx.clip();
+  STARS.forEach((s) => {
+    let y = ((s.y - shift) % ST.strip + 1.5 * ST.strip) % ST.strip - ST.strip / 2;
+    if (Math.abs(y) > ST.fov / 2 + 1 || Math.abs(s.x) > ST.fov / 2 + 0.5) return;
+    const px = x0 + side / 2 + s.x * sc, py = y0 + side / 2 - y * sc;
+    // light per pixel against the detection threshold
+    const snr = Math.pow(10, -0.4 * (s.m - lim)), on = snr >= 1;
+    const a = clamp(0.25 + 0.35 * Math.log10(snr + 1e-9) + 0.4, 0.06, 1), rad = clamp(2.6 - 0.3 * (s.m - 3), 0.8, 3);
+    ctx.strokeStyle = COL['space-ink']; ctx.fillStyle = COL['space-ink']; ctx.globalAlpha = a;
+    if (Ldeg * sc > 1.5) { ctx.lineWidth = rad * 1.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px, py - Ldeg * sc); ctx.lineTo(px, py); ctx.stroke(); ctx.lineWidth = 1; }
+    else { ctx.beginPath(); ctx.arc(px, py, rad, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    if (on && Math.abs(y) < ST.fov / 2 && Math.abs(s.x) < ST.fov / 2) det.push([px, py - Ldeg * sc / 2]);
+  });
+  // detected stars, and the pattern between neighbors that the tracker matches to its catalog
+  ctx.strokeStyle = COL.accent; ctx.globalAlpha = 0.55;
+  det.forEach((p, i) => { let best = -1, bd = Infinity; det.forEach((q, j) => { if (j !== i) { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; best = j; } } }); if (best >= 0) { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(det[best][0], det[best][1]); ctx.stroke(); } });
+  ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
+  det.forEach((p) => { ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, TAU); ctx.stroke(); });
+  ctx.lineWidth = 1; ctx.restore();
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(x0 + 0.5, y0 + 0.5, side - 1, side - 1);
+  const lost = det.length < ST.need;
+  ctx.font = UI(700, 14); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = lost ? COL.bad : COL.good; ctx.fillText(lost ? 'Lost: too few stars to match' : `Tracking: ${det.length} stars matched`, x0, y0 + side + 16);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'right';
+  ctx.fillText(`streak ${fx(Lpx, 1)} px · faintest ${fx(lim, 1)} mag`, x0 + side, y0 + side + 16);
+  SIM.starsNow = det.length;
+}
+/* accelerometer: a scene sketch beside a close-up of the proof mass in its case */
+function drawAccel(ctx, W, H) {
+  const A = accelScene(S.scene), wide = W > H * 1.05;
+  const sx = wide ? W * 0.3 : W / 2, sy = wide ? H * 0.46 : H * 0.27, sr = Math.min(wide ? W * 0.24 : W * 0.4, wide ? H * 0.36 : H * 0.2);
+  const ax = wide ? W * 0.76 : W / 2, ay = wide ? H * 0.46 : H * 0.7, ah = Math.min(H * (wide ? 0.6 : 0.4), 260), aw = ah * 0.62;
+  ctx.textBaseline = 'middle';
+  // scene
+  if (S.scene === 'desk') {
+    ctx.fillStyle = COL.rule; ctx.fillRect(sx - sr, sy + sr * 0.2, 2 * sr, 10); ctx.fillRect(sx - sr * 0.85, sy + sr * 0.2, 10, sr * 0.7); ctx.fillRect(sx + sr * 0.85 - 10, sy + sr * 0.2, 10, sr * 0.7);
+    ctx.fillStyle = COL.mass; ctx.fillRect(sx - 18, sy + sr * 0.2 - 28, 36, 28);
+    arrow2(ctx, sx - 34, sy + sr * 0.2 - 30, sx - 34, sy + sr * 0.2 + sr * 0.45, COL.muted, 2, 9);
+    arrow2(ctx, sx + 34, sy + sr * 0.2 + 2, sx + 34, sy + sr * 0.2 - sr * 0.5, COL.accent, 2.5, 10);
+    ctx.font = UI(600, 13); ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; ctx.fillText('gravity', sx - 42, sy + sr * 0.5);
+    ctx.fillStyle = COL.accent; ctx.textAlign = 'left'; ctx.fillText('the desk pushes up', sx + 42, sy - sr * 0.15);
+  } else {
+    const er = sr * 0.55, u = TAU * simT / 16;
+    ctx.fillStyle = COL.earth; ctx.beginPath(); ctx.arc(sx, sy, er, 0, TAU); ctx.fill();
+    ctx.strokeStyle = COL.rule; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(sx, sy, sr * 0.92, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    if (S.scene === 'drag') { ctx.fillStyle = COL.earth; ctx.globalAlpha = 0.1; ctx.beginPath(); ctx.arc(sx, sy, sr * 1.02, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
+    const px = sx + sr * 0.92 * Math.cos(u), py = sy - sr * 0.92 * Math.sin(u), tx = -Math.sin(u), ty = -Math.cos(u);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(Math.atan2(ty, tx)); ctx.fillStyle = COL.mass; ctx.fillRect(-12, -8, 24, 16);
+    if (S.scene === 'burn') { ctx.fillStyle = COL.accent; ctx.globalAlpha = 0.75 + 0.25 * Math.sin(simT * 40); ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(-34 - 6 * Math.sin(simT * 31), 0); ctx.lineTo(-12, 5); ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.restore();
+    arrow2(ctx, px, py, px + (sx - px) * 0.4, py + (sy - py) * 0.4, COL.muted, 2, 9);
+    if (S.scene === 'burn') arrow2(ctx, px, py, px + tx * 46, py + ty * 46, COL.accent, 2.5, 10);
+    if (S.scene === 'drag') arrow2(ctx, px, py, px - tx * 22, py - ty * 22, COL.accent, 2, 8);
+    ctx.font = UI(600, 13); ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+    ctx.fillText(S.scene === 'burn' ? 'gravity (grey) and thrust (orange)' : S.scene === 'drag' ? 'gravity (grey) and a little drag (orange)' : 'only gravity acts: free fall', sx, sy + sr + 20);
+  }
+  // close-up: case, springs, proof mass shifted against the specific force
+  const f = A.f, disp = f > 0 ? clamp((Math.log10(f) + 7) / 8, 0.04, 1) * ah * 0.17 : 0;
+  // the mass lags opposite to the specific force; draw the force pointing up on the desk, forward in a burn, back in drag
+  const dirUp = S.scene === 'desk' ? 1 : S.scene === 'burn' ? 1 : S.scene === 'drag' ? -1 : 0;
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 2; ctx.strokeRect(ax - aw / 2, ay - ah / 2, aw, ah); ctx.lineWidth = 1;
+  const ms = aw * 0.42, my = ay + dirUp * disp;
+  ctx.strokeStyle = COL.spring; ctx.lineWidth = 1.5;
+  spring(ctx, ax, ay - ah / 2 + 2, ax, my - ms / 2, 7, 9); spring(ctx, ax, my + ms / 2, ax, ay + ah / 2 - 2, 7, 9); ctx.lineWidth = 1;
+  ctx.fillStyle = COL.mass; ctx.fillRect(ax - ms / 2, my - ms / 2, ms, ms);
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax - aw / 2 + 4, ay); ctx.lineTo(ax + aw / 2 - 4, ay); ctx.stroke(); ctx.setLineDash([]);
+  if (f > 0) arrow2(ctx, ax + aw / 2 + 22, ay, ax + aw / 2 + 22, ay - dirUp * Math.max(18, disp * 3), COL.accent, 2.5, 10);
+  ctx.font = UI(700, 15); ctx.fillStyle = COL.ink; ctx.textAlign = 'center';
+  ctx.fillText(`reads ${f > 0 ? fg(f / G0, 3) + ' g' : '0'}`, ax, ay + ah / 2 + 20);
+  ctx.font = MONO; ctx.fillStyle = COL.muted;
+  ctx.fillText(f > 0 ? `${fg(f, 3)} m/s²` : 'proof mass floats centered', ax, ay + ah / 2 + 38);
+  ctx.fillText(wide ? (S.scene === 'desk' ? '(up)' : S.scene === 'burn' ? '(along the thrust)' : S.scene === 'drag' ? '(against the motion)' : '') : '', ax, ay + ah / 2 + 54);
+  ctx.font = UI(600, 12.5); ctx.fillStyle = COL.muted; ctx.fillText('mass offset drawn on a log scale', ax, ay - ah / 2 - 14);
+}
+const SIM = { starsNow: 0 };
+function drawMain() {
+  if (!['gyro', 'star', 'accel'].includes(S.sensor)) return;
+  const ctx = actx, { W, H } = canvasSetup(animCv, ctx, COL.view);
+  if (!COL.ink) return;
+  if (S.sensor === 'gyro') { if (S.gyro === 'mems') drawMems(ctx, W, H); else drawSagnac(ctx, W, H); }
+  else if (S.sensor === 'star') drawStar(ctx, W, H);
+  else drawAccel(ctx, W, H);
+}
+
+/* =========================================================
+   Second pane: each sensor's readout
+   ========================================================= */
+const ppCv = el('pp'), pctx = ppCv.getContext('2d');
+let capH = 30;
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+/* a plain x-y frame with ticks; returns mapping functions */
+function plotFrame(ctx, box, xr, yr, opt = {}) {
+  const { l, t, w, h } = box, logx = opt.logx, logy = opt.logy;
+  const tx = (v) => (logx ? Math.log10(v) : v), ty = (v) => (logy ? Math.log10(v) : v);
+  const X = (v) => l + (tx(v) - tx(xr[0])) / (tx(xr[1]) - tx(xr[0])) * w, Y = (v) => t + h - (ty(v) - ty(yr[0])) / (ty(yr[1]) - ty(yr[0])) * h;
+  const xv = logx ? Array.from({ length: Math.floor(tx(xr[1])) - Math.ceil(tx(xr[0])) + 1 }, (_, i) => Math.pow(10, Math.ceil(tx(xr[0])) + i)) : ticksOf(xr[0], xr[1], w / 70).v;
+  const yt = logy ? null : ticksOf(yr[0], yr[1], h / 36);
+  const yv = logy ? Array.from({ length: Math.floor(ty(yr[1])) - Math.ceil(ty(yr[0])) + 1 }, (_, i) => Math.pow(10, Math.ceil(ty(yr[0])) + i)) : yt.v;
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.beginPath();
+  if (!opt.noX) xv.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + h); });
+  yv.forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + w, y); });
+  ctx.stroke(); ctx.strokeRect(l + 0.5, t + 0.5, w - 1, h - 1);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  const xd = logx ? 0 : ticksOf(xr[0], xr[1], w / 70).d;
+  if (!opt.noX) xv.forEach((v) => ctx.fillText(logx ? pow10(Math.round(Math.log10(v))) : (opt.xfmt ? opt.xfmt(v) : fx(v, xd)), X(v), t + h + 12));
+  ctx.textAlign = 'right';
+  yv.forEach((v) => ctx.fillText(logy ? pow10(Math.round(Math.log10(v))) : fx(v, yt.d), l - 6, Y(v)));
+  if (opt.xlab) { ctx.textAlign = 'center'; ctx.fillText(opt.xlab, l + w / 2, t + h + 28); }
+  if (opt.ylab) { ctx.textAlign = 'left'; ctx.fillText(opt.ylab, Math.max(4, l - 50), t - 12); }
+  return { X, Y };
+}
+function paneSun(ctx, W, H) {
+  const r = sunNow(), top = 44, bh = Math.max(60, (H - top - capH - 30) * 0.42);
+  // six cell currents
+  const n = 6, gap = 8, l = 50, w = (W - l - 16 - gap * (n - 1)) / n, base = top + bh;
+  const Fr = plotFrame(ctx, { l, t: top, w: W - l - 16, h: bh }, [0, 1], [0, 1.3], { ylab: 'cell current, full sun = 1', noX: true });
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(l, Math.round(Fr.Y(1)) + 0.5); ctx.lineTo(W - 16, Math.round(Fr.Y(1)) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+  r.I.forEach((v, i) => {
+    const x = l + i * (w + gap), y = Fr.Y(Math.min(v, 1.3));
+    ctx.fillStyle = COL['ax' + (Math.floor(i / 2) + 1)]; ctx.globalAlpha = i % 2 ? 0.55 : 1; ctx.fillRect(x, y, w, base - y); ctx.globalAlpha = 1;
+    ctx.font = MONO; ctx.fillStyle = COL.ink; ctx.textAlign = 'center'; ctx.fillText(fx(v, 2), x + w / 2, Math.min(y - 9, base - 9));
+    ctx.fillStyle = COL.muted; ctx.fillText(CELL_NAMES[i], x + w / 2, base + 12);
+  });
+  // sky map, azimuth across and elevation up
+  const t2 = base + 46, h2 = H - t2 - capH - 52;
+  if (h2 < 50) return;
+  const F2 = plotFrame(ctx, { l, t: t2, w: W - l - 16, h: h2 }, [-180, 180], [-90, 90], { xlab: 'azimuth in the body frame, deg', ylab: 'elevation, deg', xfmt: (v) => fx(v, 0) });
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t2, W - l - 16, h2); ctx.clip();
+  ctx.fillStyle = COL.sun; ctx.globalAlpha = 0.4;
+  for (let i = 1; i < sunTrail.length; i++) { const [a, e] = sunTrail[i]; ctx.fillRect(F2.X(a) - 1, F2.Y(e) - 1, 2, 2); }
+  ctx.globalAlpha = 1;
+  // where each cell looks
+  [[0, 0, 0], [180, 0, 1], [90, 0, 2], [-90, 0, 3], [0, 90, 4], [0, -90, 5]].forEach(([a, e, i]) => {
+    ctx.strokeStyle = COL['ax' + (Math.floor(i / 2) + 1)]; ctx.strokeRect(F2.X(a) - 5, F2.Y(e) - 5, 10, 10);
+  });
+  if (!S.eclipse) { const [a, e] = [S.sunAz, S.sunEl]; ctx.fillStyle = COL.sun; ctx.beginPath(); ctx.arc(F2.X(a), F2.Y(e), 7, 0, TAU); ctx.fill(); }
+  if (r.est) {
+    const [a, e] = azElOf(r.est), x = F2.X(a), y = F2.Y(e);
+    ctx.strokeStyle = COL.est; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke(); ctx.lineWidth = 1;
+  }
+  ctx.restore();
+}
+function paneEarth(ctx, W, H) {
+  const E = earthNow(), top = 40, side = Math.min(W - 24, H - top - capH - 24), cx = W / 2, cy = top + side / 2, R = side / 2, amax = 125 * D2R;
+  // azimuthal equidistant image about the boresight b3, seen looking along it: b1 to the right, b2 down
+  const P = (d) => { const a = Math.acos(clamp(d[2], -1, 1)), p = Math.atan2(d[1], d[0]); return [cx + R * a / amax * Math.cos(p), cy + R * a / amax * Math.sin(p)]; };
+  ctx.fillStyle = COL.space; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+  const limb = limbDirs(E.n, E.rho, 160).map(P);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
+  ctx.fillStyle = COL.ir; ctx.globalAlpha = 0.85; ctx.beginPath(); limb.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.restore();
+  ctx.strokeStyle = COL['space-ink']; ctx.globalAlpha = 0.4;
+  [30, 60, 90, 120].forEach((a) => { ctx.beginPath(); ctx.arc(cx, cy, R * a * D2R / amax, 0, TAU); ctx.stroke(); });
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.font = MONO; ctx.fillStyle = COL['space-ink']; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  [30, 60, 90].forEach((a) => ctx.fillText(`${a}°`, cx + 3, cy - R * a * D2R / amax - 8));
+  // the disc center found from the limb, and the boresight
+  const c = P(E.n);
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(c[0] - 8, c[1]); ctx.lineTo(c[0] + 8, c[1]); ctx.moveTo(c[0], c[1] - 8); ctx.lineTo(c[0], c[1] + 8); ctx.stroke();
+  ctx.lineWidth = 1; ctx.strokeStyle = COL.accent; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, TAU); ctx.stroke();
+  ctx.font = UI(600, 13); ctx.fillStyle = COL['space-ink']; ctx.textAlign = 'right';
+  ctx.fillText('+b̂₁ →', cx + R - 10, cy + 14);
+  ctx.textAlign = 'left'; ctx.fillText('↓ +b̂₂', cx + 6, cy + R - 16);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(`disc center: roll ${fs(E.roll, 1)}°, pitch ${fs(E.pitch, 1)}°`, 10, H - capH - 12);
+}
+function paneMag(ctx, W, H) {
+  const l = 54, t = 72, w = W - l - 16, h = H - t - capH - 48;
+  if (h < 60) return;
+  const N = 180, rows = [];
+  let mx = 0;
+  for (let i = 0; i <= N; i++) { const m = magAt(TAU * i / N); rows.push([...m.Bb.map((x) => x * 1e6), norm(m.B) * 1e6]); mx = Math.max(mx, ...m.Bb.map((x) => Math.abs(x) * 1e6), norm(m.B) * 1e6); }
+  const Beq = B0 * (RE / (RE + S.magAlt * 1e3)) ** 3 * 1e6, ym = Math.max(mx, 2 * Beq) * 1.08;
+  const F = plotFrame(ctx, { l, t, w, h }, [0, 360], [-ym, ym], { xlab: 'orbit position from the ascending node, deg', ylab: 'field in the body frame, µT', xfmt: (v) => fx(v, 0) });
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, w, h); ctx.clip();
+  [Beq, 2 * Beq].forEach((v) => { ctx.strokeStyle = COL.muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(l, Math.round(F.Y(v)) + 0.5); ctx.lineTo(l + w, Math.round(F.Y(v)) + 0.5); ctx.stroke(); ctx.setLineDash([]); });
+  const cols = [COL.ax1, COL.ax2, COL.ax3, COL.ink], wid = [1.6, 1.6, 1.6, 2.6];
+  for (let k = 0; k < 4; k++) { ctx.strokeStyle = cols[k]; ctx.lineWidth = wid[k]; ctx.beginPath(); rows.forEach((r, i) => { const x = F.X(360 * i / N), y = F.Y(r[k]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke(); }
+  ctx.lineWidth = 1;
+  const u = ((magU() % TAU) + TAU) % TAU * R2D, xn = Math.round(F.X(u)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xn, t); ctx.lineTo(xn, t + h); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('equator', l + 4, F.Y(Beq) - 8); ctx.fillText('pole', l + 4, F.Y(2 * Beq) - 8);
+  // legend
+  const leg = [['B₁ along track', COL.ax1], ['B₂ across', COL.ax2], ['B₃ down', COL.ax3], ['|B|', COL.ink]];
+  let lx = l; ctx.font = UI(600, 12.5);
+  leg.forEach(([s, c]) => { ctx.fillStyle = c; ctx.fillRect(lx, 36, 14, 3); ctx.fillText(s, lx + 18, 38); lx += ctx.measureText(s).width + 28; });
+}
+function paneStar(ctx, W, H) {
+  const l = 50, t = 52, w = W - l - 16, h = H - t - capH - 48;
+  if (h < 60) return;
+  const n0 = expectedStars(0, S.stExp), ym = Math.max(n0 * 1.15, 6);
+  const F = plotFrame(ctx, { l, t, w, h }, [0, 5], [0, ym], { xlab: 'turn rate, deg/s', ylab: 'stars bright enough to detect (average)' });
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, w, h); ctx.clip();
+  ctx.fillStyle = COL.bad; ctx.globalAlpha = 0.08; ctx.fillRect(l, F.Y(ST.need), w, t + h - F.Y(ST.need)); ctx.globalAlpha = 1;
+  ctx.strokeStyle = COL.bad; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(l, Math.round(F.Y(ST.need)) + 0.5); ctx.lineTo(l + w, Math.round(F.Y(ST.need)) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 200; i++) { const rt = 5 * i / 200, x = F.X(rt), y = F.Y(expectedStars(rt, S.stExp)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = COL.ink; ctx.beginPath(); ctx.arc(F.X(S.stRate), F.Y(expectedStars(S.stRate, S.stExp)), 5, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.font = MONO; ctx.fillStyle = COL.bad; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(`fewer than ${ST.need}: lost`, l + w - 6, F.Y(ST.need) + 12);
+}
+function paneGyro(ctx, W, H) {
+  const l = 62, t = 52, w = W - l - 16, h = H - t - capH - 48;
+  if (h < 60) return;
+  const g = gyroOut(), Wr = (deg) => deg / 3600 * D2R;
+  const k = S.gyro === 'fog' ? 8 * Math.PI * S.turns * g.A / (S.lam * 1e-9 * CL) : S.gyro === 'rlg' ? 4 * g.A / (S.lam * 1e-9 * g.L) : 2 * MEMS.v;
+  const f = (d) => k * Wr(d);
+  const xr = [1e-2, 1e6], yr = [Math.pow(10, Math.floor(Math.log10(f(xr[0])))), Math.pow(10, Math.ceil(Math.log10(f(xr[1]))))];
+  const lab = S.gyro === 'fog' ? 'phase shift, rad' : S.gyro === 'rlg' ? 'beat frequency, Hz' : 'Coriolis acceleration, m/s²';
+  const F = plotFrame(ctx, { l, t, w, h }, xr, yr, { logx: true, logy: true, xlab: 'rotation rate, deg/h (3600 deg/h = 1 deg/s)', ylab: lab });
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, w, h); ctx.clip();
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(F.X(xr[0]), F.Y(f(xr[0]))); ctx.lineTo(F.X(xr[1]), F.Y(f(xr[1]))); ctx.stroke(); ctx.lineWidth = 1;
+  const xe = Math.round(F.X(EARTH_RATE)) + 0.5; ctx.strokeStyle = COL.muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(xe, t); ctx.lineTo(xe, t + h); ctx.stroke(); ctx.setLineDash([]);
+  if (S.omega > 0) { ctx.fillStyle = COL.ink; ctx.beginPath(); ctx.arc(F.X(clamp(S.omega, xr[0], xr[1])), F.Y(f(clamp(S.omega, xr[0], xr[1]))), 5, 0, TAU); ctx.fill(); }
+  ctx.restore();
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText("Earth's spin", xe + 4, t + 12);
+}
+function paneAccel(ctx, W, H) {
+  const l = 98, t = 56, w = W - l - 20, h = H - t - capH - 50;
+  if (h < 60) return;
+  const sc = ['desk', 'orbit', 'burn', 'drag'], names = ['On a desk', 'In orbit', 'Burn', 'Drag'];
+  const xr = [1e-9, 10], X = (v) => l + (Math.log10(v) - Math.log10(xr[0])) / (Math.log10(xr[1]) - Math.log10(xr[0])) * w;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  for (let e = -9; e <= 1; e++) { const x = Math.round(X(Math.pow(10, e))) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + h); }
+  ctx.stroke();
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let e = -9; e <= 1; e += 2) ctx.fillText(pow10(e), X(Math.pow(10, e)), t + h + 12);
+  ctx.fillText('reading, in g (log scale)', l + w / 2, t + h + 28);
+  const rh = h / 4;
+  sc.forEach((s, i) => {
+    const A = accelScene(s), bh = Math.min(rh * 0.56, 34), y = t + i * rh + (rh - bh) / 2, on = s === S.scene, v = A.f / G0;
+    ctx.font = UI(on ? 700 : 600, 14); ctx.fillStyle = on ? COL.ink : COL.muted; ctx.textAlign = 'right'; ctx.fillText(names[i], l - 10, y + bh / 2);
+    if (v > xr[0]) { ctx.fillStyle = on ? COL.accent : COL.muted; ctx.globalAlpha = on ? 1 : 0.45; ctx.fillRect(l, y, X(Math.min(v, xr[1])) - l, bh); ctx.globalAlpha = 1; }
+    const txt = v > 0 ? `${fg(v, 3)} g` : '0, exactly', xe = v > xr[0] ? X(Math.min(v, xr[1])) : l;
+    ctx.font = MONO; ctx.textAlign = xe + 70 > l + w ? 'right' : 'left'; ctx.fillStyle = xe + 70 > l + w ? COL.panel : COL.ink;
+    ctx.fillText(txt, xe + (xe + 70 > l + w ? -6 : 6), y + bh / 2);
+  });
+}
+const SUITE_LABEL = { sun: 'Sun sensor', earth: 'Earth sensor', mag: 'Magnetometer', star: 'Star tracker', gyro: 'Gyroscopes', accel: 'Accelerometers' };
+function suiteResult() {
+  const U = S.suite, out = [];
+  const vecs = [];
+  if (U.sun && !U.eclipse) vecs.push('the Sun direction');
+  if (U.earth) vecs.push('straight down (nadir)');
+  if (U.mag) vecs.push("Earth's magnetic field");
+  const starOK = U.star && !U.fast;
+  let att;
+  if (starOK) att = { c: 'var(--good)', h: 'Full attitude, to arcseconds.', t: `The star tracker alone fixes all three axes.${vecs.length ? ' The other sensors are backups.' : ''}` };
+  else if (vecs.length >= 2) att = { c: 'var(--good)', h: 'Full attitude.', t: `Two directions, ${vecs.slice(0, 2).join(' and ')}, fix all three axes (Wahba's problem). Accuracy is set by the coarser sensor.` };
+  else if (vecs.length === 1) att = { c: 'var(--warn)', h: 'Two axes only.', t: `One direction, ${vecs[0]}, leaves the rotation about it unknown.` };
+  else att = { c: 'var(--bad)', h: 'No attitude measurement.', t: 'Nothing in this suite measures a direction right now.' };
+  out.push(att);
+  if (U.gyro) out.push({ c: 'var(--good)', h: 'Turning rates measured.', t: `Gyros give the rates directly. Integrating them carries the attitude forward${att.c === 'var(--good)' ? ' between measurements' : ' from the last good fix'}, with an error that grows slowly (drift) until the next fix.` });
+  else out.push({ c: 'var(--warn)', h: 'No rate sensor.', t: 'Rates must be estimated from how the measured attitude changes, which is noisier and slower.' });
+  if (U.accel) out.push({ c: 'var(--muted)', h: 'Accelerometers:', t: 'measure burns and drag, not attitude. In orbit they read almost nothing.' });
+  if (U.sun && U.eclipse) out.push({ c: 'var(--bad)', h: 'Sun sensor dark:', t: "in Earth's shadow it gives no output." });
+  if (U.star && U.fast) out.push({ c: 'var(--bad)', h: 'Star tracker lost:', t: 'turning at 3°/s smears the stars, so it cannot match them to its catalog until the turn slows.' });
+  const any = Object.keys(SUITE_LABEL).some((k) => U[k]);
+  if (U.gyro && U.accel) out.push({ c: 'var(--muted)', h: 'An IMU:', t: 'gyros and accelerometers packaged together, usually blended with the other sensors by a Kalman filter.' });
+  if (!any) out.unshift({ c: 'var(--bad)', h: 'Empty suite.', t: 'Tick some sensors on the left.' });
+  return out;
+}
+function paneSum() {
+  const res = suiteResult();
+  el('suiteView').innerHTML = `<div class="suite"><div class="res">${res.map((r) => `<p style="--c:${r.c}"><b>${r.h}</b> ${r.t}</p>`).join('')}</div></div>`;
+}
+function drawPane() {
+  if (S.sensor === 'sum') return;
+  const ctx = pctx, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  ({ sun: paneSun, earth: paneEarth, mag: paneMag, star: paneStar, gyro: paneGyro, accel: paneAccel })[S.sensor](ctx, W, H);
+}
+function drawAll() { drawMain(); drawPane(); }
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const li = (c, nm, txt, now) => `<span class="sw" style="--sw:${c}"></span><span><span class="nm" style="--c:${c}">${nm}</span> ${txt}${now ? `<span class="now">${now}</span>` : ''}</span>`;
+const TERMS = {
+  sun: [['Photodiode or solar cell', 'A small device that turns light into an electric current. More light, more current.'], ['Cosine law', 'A flat cell collects light in proportion to the cosine of the angle between its face and the Sun: all of it face-on, none edge-on.'], ['Coarse and fine sun sensors', 'Coarse ones, like these cells, give the direction to about a degree. Fine ones cast sunlight through a slit or mask onto a detector and reach a hundredth of a degree.'], ['Eclipse', "The part of the orbit in Earth's shadow, where a sun sensor sees nothing."], ['Albedo (Earthshine)', 'Sunlight reflected by Earth, about 30% of what falls on it. A coarse sun sensor cannot tell it from the Sun.']],
+  earth: [['Nadir', 'Straight down, toward the center of Earth.'], ['Horizon (limb)', "The edge of Earth's disc against space. In the infrared the warm Earth stands out sharply from cold space, day or night."], ['Angular radius ρ', 'Half the angle Earth fills as seen from the spacecraft. Large in low orbit, small from far away.'], ['Roll, pitch and yaw', 'Rotations about the along-track, cross-track and down directions of the local-level frame.'], ['Local-level frame (LVLH)', 'Axes that move with the spacecraft around its orbit: one along the motion, one straight down, one across.']],
+  mag: [['Magnetic field', "The invisible field around Earth that turns a compass needle. It is measured in tesla; near Earth it is tens of microtesla (µT)."], ['Dipole', "A field shaped like a bar magnet's. Earth's field is roughly a dipole whose axis is tilted about 11° from the spin axis."], ['Magnetic latitude', 'Latitude measured from the magnetic equator rather than the geographic one.'], ['Field model', 'A formula or table (such as the IGRF) that gives the field at any position, so the measured field can be compared with where it should point.'], ['Fluxgate and magnetoresistive sensors', 'The two common kinds of spacecraft magnetometer. Both give the three components of the field.']],
+  star: [['Star tracker', 'A camera with a computer that photographs stars, identifies them, and computes the attitude.'], ['Pattern matching', 'Identifying stars from the angles between them, compared against a catalog.'], ['Exposure', 'How long the camera collects light for one picture.'], ['Magnitude', 'Star brightness on a reversed log scale: each step of 1 is 2.5 times fainter; bright stars are 0 to 2, the faintest seen by eye about 6.'], ['Arcsecond', 'One 3600th of a degree.']],
+  gyro: [['Rate gyro', 'A sensor that measures how fast it turns about its axis. Three of them give the angular velocity vector.'], ['Sagnac effect', 'Light sent both ways around a turning loop takes slightly longer one way. The difference is proportional to the turn rate.'], ['Fiber optic gyro (FOG)', 'Uses a long coil of optical fiber, so the light goes around many times and the delay adds up; it measures the phase shift between the two beams.'], ['Ring laser gyro (RLG)', 'A laser whose light circulates both ways around a closed path of mirrors. Turning makes the two beams differ slightly in frequency, and the beat between them is counted.'], ['MEMS gyro', 'A microscopic vibrating structure on a chip. Turning pushes the vibrating mass sideways (the Coriolis effect), and the chip senses that motion.'], ['Bias and drift', 'A small false rate that a gyro reports even when still. Integrated over time it becomes a growing attitude error.']],
+  accel: [['Specific force', 'All the forces on the body except gravity, divided by its mass. It is what an accelerometer measures.'], ['Proof mass', 'The small mass inside an accelerometer, held by springs. The case pushes on it through the springs; the springs’ stretch is the reading.'], ['Free fall', 'Moving under gravity alone. An orbiting spacecraft is in free fall all the time, so its accelerometers read about zero.'], ['g', 'Standard gravity, 9.81 m/s².'], ['IMU', 'An inertial measurement unit: three gyros and three accelerometers in one box.']],
+  sum: [['Vector sensor', 'A sensor that measures a direction (to the Sun, to Earth, along the field, to stars) in the body frame.'], ['Attitude determination', 'Working out the spacecraft’s orientation from sensor readings.'], ["Wahba's problem", 'Finding the rotation that best lines up measured directions with their known directions in a reference frame.'], ['Kalman filter', 'An estimator that propagates the attitude with the gyros and corrects it whenever vector measurements arrive, weighting each by its accuracy.'], ['IMU', 'Gyros and accelerometers (sometimes a magnetometer) in one unit.']],
+};
+const GIVES = {
+  sun: [['Measures', 'the direction to the Sun'], ['Kind', 'one vector'], ['Leaves unknown', 'rotation about the Sun line'], ['Typical accuracy', '0.005° (fine) to 3° (coarse)'], ['Weak spots', "blind in Earth's shadow; Earthshine fools coarse cells"]],
+  earth: [['Measures', 'straight down (nadir), from the horizon'], ['Kind', 'one vector'], ['Leaves unknown', 'yaw, the rotation about nadir'], ['Typical accuracy', '0.05° to 1°'], ['Weak spots', 'the atmosphere blurs the edge; Earth is not a perfect sphere; Sun or Moon in view confuse it']],
+  mag: [['Measures', "Earth's magnetic field vector"], ['Kind', 'one vector'], ['Leaves unknown', 'rotation about the field'], ['Typical accuracy', '1° to 5°, set mainly by the field model'], ['Weak spots', "the spacecraft's own currents and magnets; weak far from Earth"]],
+  star: [['Measures', 'directions to many stars'], ['Kind', 'full attitude'], ['Leaves unknown', 'nothing, with three or more stars'], ['Typical accuracy', '1 arcsecond to 1 arcminute'], ['Weak spots', 'loses lock when turning fast; blinded by the Sun, Earth or Moon']],
+  gyro: [['Measures', 'turning rate about each axis'], ['Kind', 'angular velocity'], ['Leaves unknown', 'the attitude itself: rates must be integrated from a known start'], ['Typical drift', '0.003°/h to 1°/h'], ['Weak spots', 'bias makes the integrated attitude drift, so it needs fixes from vector sensors']],
+  accel: [['Measures', 'specific force: every push except gravity'], ['Kind', 'linear acceleration'], ['Leaves unknown', 'attitude, in orbit'], ['Used for', 'measuring burns and drag'], ['Weak spots', 'bias; reads almost nothing in orbit']],
+  sum: [['Vectors', 'sun sensor, Earth sensor, magnetometer, star tracker'], ['Rates', 'gyroscopes'], ['Pushes', 'accelerometers'], ['Two vectors', 'fix all three axes'], ['One vector', 'leaves the rotation about it unknown']],
+};
+const MODEL = {
+  sun: `<div><div class="lab">Each cell</div><div><i>I<sub>i</sub></i> = <i>I</i><sub>0</sub> max(0, <i>n̂<sub>i</sub></i> · <i>ŝ</i>)</div></div>
+    <div><div class="lab">Reconstruction</div><div><i>ŝ</i> ∝ (<i>I</i><sub>+1</sub> − <i>I</i><sub>−1</sub>, <i>I</i><sub>+2</sub> − <i>I</i><sub>−2</sub>, <i>I</i><sub>+3</sub> − <i>I</i><sub>−3</sub>)</div></div>
+    <p class="note">For each axis only one cell of the pair can see the Sun, so the difference is exactly that component of <i>ŝ</i>. Earthshine adds 0.3 max(0, <i>n̂<sub>i</sub></i> · nadir), with nadir along −<i>b̂</i><sub>3</sub>.</p>`,
+  earth: `<div><div class="lab">Earth's angular radius</div><div><i>ρ</i> = asin(<i>R</i><sub>E</sub>/(<i>R</i><sub>E</sub> + <i>h</i>))</div></div>
+    <div><div class="lab">Nadir in the body frame (3-2-1)</div><div><i>n̂</i> = (−sin <i>θ</i>, sin <i>φ</i> cos <i>θ</i>, cos <i>φ</i> cos <i>θ</i>)</div></div>
+    <div><div class="lab">Recovered</div><div><i>θ</i> = −asin <i>n</i><sub>1</sub>, &nbsp;<i>φ</i> = atan2(<i>n</i><sub>2</sub>, <i>n</i><sub>3</sub>); &nbsp;<i>ψ</i> does not appear</div></div>
+    <p class="note">The horizon is the cone of half-angle ρ about nadir. Yaw is the first rotation, about nadir itself, so it leaves the cone and the picture unchanged.</p>`,
+  mag: `<div><div class="lab">Dipole field</div><div><i>B</i> = <i>B</i><sub>0</sub>(<i>R</i><sub>E</sub>/<i>r</i>)³ [3(<i>m̂</i> · <i>r̂</i>)<i>r̂</i> − <i>m̂</i>]</div></div>
+    <div><div class="lab">Strength</div><div>|<i>B</i>| = <i>B</i><sub>0</sub>(<i>R</i><sub>E</sub>/<i>r</i>)³ √(1 + 3 sin² <i>λ</i><sub>m</sub>)</div></div>
+    <p class="note"><i>B</i><sub>0</sub> = 31.2 µT at the surface on the magnetic equator; <i>λ</i><sub>m</sub> is magnetic latitude. The dipole is held fixed in inertial space here (Earth's rotation is ignored over this short look), and real fields differ from a dipole by up to about 10%.</p>`,
+  star: `<div><div class="lab">Streak length</div><div><i>ℓ</i> = <i>ω t</i><sub>exp</sub> / (70″ per pixel)</div></div>
+    <div><div class="lab">Faintest star detected</div><div><i>m</i><sub>lim</sub> = 6.5 + 2.5 log(<i>t</i><sub>exp</sub>/0.1 s) − 2.5 log(1 + <i>ℓ</i>/3 px)</div></div>
+    <p class="note">A simple model: a star's light is spread over a three-pixel spot, and turning stretches it into a streak, so less light lands on each pixel. Stars are a synthetic field with realistic counts by magnitude.</p>`,
+  gyro: `<div><div class="lab">Sagnac delay, one loop of area A</div><div>Δ<i>t</i> = 4<i>A</i>Ω / <i>c</i>²</div></div>
+    <div><div class="lab">Fiber optic, N turns</div><div>Δ<i>φ</i> = 8π<i>NA</i>Ω / (<i>λc</i>)</div></div>
+    <div><div class="lab">Ring laser, path length L</div><div>Δ<i>f</i> = 4<i>A</i>Ω / (<i>λL</i>)</div></div>
+    <div><div class="lab">MEMS</div><div><i>a</i><sub>c</sub> = −2Ω × <i>v</i> &nbsp;(Coriolis, Lesson 6)</div></div>`,
+  accel: `<div><div class="lab">What it reads</div><div><i>f</i> = <i>a</i> − <i>g</i></div></div>
+    <div><div class="lab">Cases</div><div>desk: <i>a</i> = 0, <i>f</i> = −<i>g</i> (1 g up); &nbsp;orbit: <i>a</i> = <i>g</i>, <i>f</i> = 0; &nbsp;burn: <i>f</i> = <i>F</i>/<i>m</i>; &nbsp;drag: <i>f</i> = ½<i>ρv</i>²<i>C</i><sub>D</sub><i>A</i>/<i>m</i></div></div>
+    <p class="note">Gravity at the orbit is <i>μ</i>/<i>r</i>². Drag uses an exponential atmosphere (moderate solar activity) and <i>C</i><sub>D</sub> = 2.2.</p>`,
+  sum: `<div><div class="lab">Two vectors make an attitude</div><div>known in the reference frame <i>r<sub>i</sub></i>, measured in the body <i>b<sub>i</sub></i> = <i>C r<sub>i</sub></i></div></div>
+    <div><div class="lab">Rates make an attitude history</div><div><i>q̇</i> = ½ <i>q</i> ⊗ (0, <i>ω</i>)</div></div>
+    <p class="note">The Star Tracker Explorer solves the first with Davenport's q-method and shows the second drifting between star fixes.</p>`,
+};
+function card() {
+  const sen = S.sensor;
+  let t, s, list = [], watch;
+  if (sen === 'sun') {
+    const r = sunNow(), sv = sunDir(S.sunAz, S.sunEl);
+    t = S.eclipse ? "In Earth's shadow the sun sensor is blind" : S.albedo ? 'Earthshine pulls the estimate off the Sun' : 'Six solar cells find the Sun';
+    s = `Each face of this spacecraft carries a small solar cell. A cell's current is largest when it faces the Sun squarely and falls off with the cosine of the angle, reaching zero when the Sun is edge-on or behind it. Subtracting the reading of each cell from the one on the opposite face gives one component of the Sun's direction, in the spacecraft's own axes.${S.eclipse ? " In Earth's shadow every cell reads zero, so there is nothing to work with until the spacecraft comes back into sunlight." : ''}${S.albedo && !S.eclipse ? ' Here Earth below also lights the bottom cell. The sensor cannot tell that light from the Sun, so the estimate is pulled toward Earth.' : ''}`;
+    list = [0, 1, 2].map((k) => li(`var(--ax${k + 1})`, `Along b̂${'₁₂₃'[k]}:`, `the + cell reads ${fx(r.I[2 * k], 2)} and the − cell ${fx(r.I[2 * k + 1], 2)}, so the component is ${fs(r.v[k], 2)}.`, `true component ${fs(sv[k], 3)}`));
+    list.push(li('var(--est)', 'Estimate:', r.est ? `off the true Sun by ${fx(r.err, r.err < 1 ? 3 : 1)}°.` : 'none: no cell sees enough light.', ''));
+    watch = S.eclipse ? 'Every bar in the readout is at zero, and the purple estimate is gone.' : S.albedo ? 'The −b̂₃ cell (bottom) stays lit by Earth even when the Sun is overhead, and the purple cross in the sky map sits off the gold Sun.' : 'As the Sun sweeps around, at most three cells are lit at once, one from each pair, and the purple estimate stays on the gold Sun. Try the Earthshine and noise settings.';
+  } else if (sen === 'earth') {
+    const E = earthNow();
+    t = 'The horizon gives roll and pitch, but not yaw';
+    s = `An Earth sensor looks down in the infrared, where the warm Earth stands out against cold space, and finds the edge of Earth's disc. The middle of the disc is straight down. Knowing which way is down tells how the spacecraft is tipped (roll and pitch), but turning it about the down direction (yaw) leaves the picture exactly the same. From ${fg(S.alt, 3)} km, Earth fills a disc ${fx(2 * E.rho * R2D, 1)}° across.`;
+    list = [li('var(--ax1)', 'Roll:', `set to ${fs(S.roll, 1)}°, measured ${fs(E.roll, 1)}°.`, ''), li('var(--ax2)', 'Pitch:', `set to ${fs(S.pitch, 1)}°, measured ${fs(E.pitch, 1)}°.`, ''), li('var(--ax3)', 'Yaw:', `set to ${fs(S.yaw, 0)}°, not measured. Another sensor, such as a sun sensor or magnetometer, has to supply it.`, '')];
+    watch = S.yawSpin ? 'The spacecraft spins about the down direction in the 3D view, while the sensor picture on the right does not change at all.' : 'Turn on "Spin in yaw": the spacecraft turns in the 3D view, but the sensor picture on the right stays still. Then change the altitude and watch the disc shrink.';
+  } else if (sen === 'mag') {
+    const m = magAt(magU()), Bn = norm(m.B);
+    t = 'A magnetometer measures a field that changes around the orbit';
+    s = "Earth's magnetic field is roughly that of a bar magnet near its center. A magnetometer measures the field's direction and strength in the spacecraft's axes. Comparing that with a model of the field at the spacecraft's position gives one direction for attitude. The field is twice as strong over the magnetic poles as over the magnetic equator, and it weakens with the cube of the distance from Earth's center.";
+    list = [li('var(--field)', 'Field now:', `${fx(Bn * 1e6, 1)} µT at magnetic latitude ${fs(m.lat * R2D, 0)}°, ${fx(Bn / m.Beq, 2)} times its equator value.`, `body (${m.Bb.map((x) => fs(x * 1e6, 1)).join(', ')}) µT`)];
+    watch = S.inc < 15 ? 'Near the equator the field barely changes along the orbit, so the magnetometer gives nearly the same direction everywhere. Raise the inclination to see it swing.' : 'The readout: over one orbit the black |B| curve swings between the equator and pole lines, and the components change sign as the field direction turns.';
+  } else if (sen === 'star') {
+    const n = SIM.starsNow, lost = n < ST.need;
+    t = lost ? 'Too fast: the stars smear and the tracker loses lock' : 'A star tracker needs a steady spacecraft';
+    s = 'A star tracker is a small camera that photographs the stars, identifies them by the pattern they make, and computes the full attitude from their positions, to a few arcseconds. If the spacecraft turns during the exposure, each star smears into a streak. Its light spreads over more pixels, so the fainter stars drop out.';
+    list = [li('var(--accent)', 'Streak:', `${fx(streakPx(S.stRate, S.stExp), 1)} pixels long; the faintest star still detected is magnitude ${fx(limitMag(S.stRate, S.stExp), 1)}.`, ''), li(lost ? 'var(--bad)' : 'var(--good)', lost ? 'Lost:' : 'Tracking:', `${n} stars matched in view${lost ? `, fewer than the ${ST.need} it needs` : ''}.`, '')];
+    watch = 'Raise the turn rate: the streaks lengthen and the matched stars drop out. A shorter exposure keeps stars sharp but collects less light. The readout shows the average count against rate.';
+  } else if (sen === 'gyro') {
+    const g = gyroOut();
+    if (S.gyro === 'mems') {
+      t = 'A vibrating mass feels the rotation';
+      s = 'A MEMS gyro shakes a tiny mass back and forth thousands of times a second. When the chip turns, the Coriolis effect from Lesson 6 pushes the moving mass sideways, by an amount proportional to the turn rate. The chip measures that sideways motion. MEMS gyros are tiny and cheap, which suits small satellites, but they drift more than optical gyros.';
+      list = [li('var(--beam2)', 'Coriolis push:', `${sci(g.aCor, 2)} m/s², or ${sci(g.aCor / G0, 2)} g, at ${fg(S.omega, 4)}°/h.`, '')];
+      watch = 'The mass moves along a line when the chip is still. As the rate rises its path opens into an ellipse: the sideways part is the measurement.';
+    } else {
+      t = 'Light takes longer going with the turn';
+      s = `Split a beam of light and send the halves opposite ways around a loop. If the loop is still, they arrive back together. If it turns, the finish line moves: the half going the same way as the turn has farther to go and arrives later. The delay, Δt = 4AΩ/c², is tiny, ${S.gyro === 'fog' ? 'so a fiber optic gyro winds the fiber into many turns and measures the phase shift between the two beams.' : 'so a ring laser gyro instead keeps light circulating both ways in a laser cavity, where the delay shows up as a small frequency difference, and counts the beat between them.'}`;
+      list = [li('var(--beam2)', 'One loop:', `delay ${sci(g.dt, 2)} s at ${fg(S.omega, 4)}°/h.`, ''), S.gyro === 'fog' ? li('var(--accent)', `${fg(S.turns, 4)} turns:`, `phase shift ${sci(g.dphi, 2)} rad, using ${fg(g.fiber, 3)} m of fiber.`, '') : li('var(--accent)', 'Beat frequency:', `${fg(g.df, 3)} Hz.`, '')];
+      watch = 'In the cartoon (light slowed enormously, not to scale), the blue half going against the turn gets back first and the red half going with it arrives later. Set the rate to "Still" and they arrive together.';
+    }
+  } else if (sen === 'accel') {
+    const A = accelScene(S.scene);
+    const T = { desk: 'On a desk: 1 g, straight up', orbit: `In orbit: zero, though gravity is ${fx(A.g, 1)} m/s²`, burn: 'During a burn: thrust divided by mass', drag: 'Drag: a tiny reading' };
+    t = T[S.scene];
+    s = `An accelerometer is a small mass on springs inside a case. It measures how hard the case must push on the mass to keep it moving with the case. Gravity pulls equally on the mass and the case, so it never shows up; every other push does. ${({ desk: 'On a desk the case is held up by the desk, so the springs must hold the mass up too: the reading is 1 g upward, which is how a phone knows which way is down.', orbit: 'In orbit only gravity acts, on the case and the mass alike, so they fall together and the springs do nothing: the reading is zero. An accelerometer cannot tell a satellite which way is down.', burn: 'During a burn the engine pushes the case, and the springs must push the mass along with it: the reading is the thrust divided by the spacecraft mass.', drag: 'Thin air at this altitude drags the spacecraft back a little; the reading is that drag divided by the mass.' })[S.scene]}`;
+    list = [li('var(--muted)', 'Gravity here:', `${fx(A.g, 2)} m/s², which the accelerometer cannot feel.`, ''), li('var(--accent)', 'Reading:', A.f > 0 ? `${fg(A.f, 3)} m/s² (${fg(A.f / G0, 3)} g), ${A.dir}.` : 'zero.', '')];
+    watch = S.scene === 'orbit' ? 'The proof mass floats in the middle of its case: nothing but gravity acts. Compare the readings of the four situations in the readout.' : 'The readout compares all four situations on one log scale: drag is millions of times smaller than 1 g.';
+  } else {
+    t = 'Which sensor tells you what';
+    s = 'Direction sensors (Sun, Earth, magnetic field, stars) each give one or more vectors in the body frame. One vector leaves the rotation about it unknown; two fix the attitude completely. Gyros give the turning rate, which carries the attitude forward between measurements. Accelerometers measure pushes, not attitude. Real spacecraft carry several kinds and blend them, usually with a Kalman filter.';
+    watch = 'Build a suite on the left. Try a sun sensor alone, then add a magnetometer; then put the spacecraft in shadow, and add gyros to carry it through.';
+  }
+  return { t, s, list, watch };
+}
+function checks() {
+  const sen = S.sensor, out = [];
+  if (sen === 'sun') {
+    const sv = sunDir(S.sunAz, S.sunEl), clean = sunSensor(sv, { eclipse: false, albedo: false, noise: 0, draws: noiseDraws });
+    out.push({ s: clean.err < 1e-9 ? 'ok' : 'bad', t: 'Perfect cells give the Sun exactly', sub: `error ${sci(clean.err * D2R, 1)} rad` });
+    out.push({ s: Math.abs(clean.m - 1) < 1e-12 ? 'ok' : 'bad', t: 'The differences form a unit vector', sub: `|v| = ${fx(clean.m, 12)}` });
+    const both = [0, 1, 2].filter((k) => clean.I[2 * k] > 0 && clean.I[2 * k + 1] > 0).length;
+    out.push({ s: both === 0 ? 'ok' : 'bad', t: 'Never both cells of a pair lit by the Sun', sub: `pairs with both lit: ${both}` });
+    const dark = sunSensor(sv, { eclipse: true, albedo: false, noise: 0, draws: noiseDraws });
+    out.push({ s: dark.est === null ? 'ok' : 'bad', t: "No estimate in Earth's shadow", sub: `largest cell reading ${fx(Math.max(...dark.I), 2)}` });
+  } else if (sen === 'earth') {
+    const E = earthNow(), n0 = nadirBody(Cbo(S.roll * D2R, S.pitch * D2R, 0)), dn = norm(sub(E.n, n0));
+    out.push({ s: Math.abs(E.roll - S.roll) < 1e-9 && Math.abs(E.pitch - S.pitch) < 1e-9 ? 'ok' : 'bad', t: 'Roll and pitch recovered from the disc center', sub: `errors ${sci(Math.abs(E.roll - S.roll), 0)}°, ${sci(Math.abs(E.pitch - S.pitch), 0)}°` });
+    out.push({ s: dn < 1e-12 ? 'ok' : 'bad', t: 'The picture does not depend on yaw', sub: `nadir moves by ${sci(dn, 0)} between yaw 0° and yaw ${fx(S.yaw, 0)}°` });
+    out.push({ s: 'ok', t: "Earth's angular radius ρ = asin(R/(R + h))", sub: `${fx(E.rho * R2D, 2)}° at ${fg(S.alt, 3)} km` });
+  } else if (sen === 'mag') {
+    const m = magAt(magU()), Bn = norm(m.B), Bf = m.Beq * Math.sqrt(1 + 3 * Math.sin(m.lat) ** 2);
+    out.push({ s: Math.abs(Bn - Bf) < 1e-15 ? 'ok' : 'bad', t: '|B| matches the dipole strength formula', sub: `${fx(Bn * 1e6, 4)} vs ${fx(Bf * 1e6, 4)} µT` });
+    const r = RE + S.magAlt * 1e3, mh = dipoleAxis(S.tilt), pole = norm(dipoleB(scl(mh, -r), S.tilt)), eq = norm(dipoleB(scl(unit(cross(mh, [0, 1, 0])), r), S.tilt));
+    out.push({ s: Math.abs(pole / eq - 2) < 1e-12 ? 'ok' : 'bad', t: 'Over a magnetic pole the field is twice as strong', sub: `pole / equator = ${fx(pole / eq, 6)}` });
+    out.push({ s: Math.abs(norm(m.Bb) - Bn) < 1e-15 ? 'ok' : 'bad', t: 'Body components keep the strength', sub: `|B_body| = ${fx(norm(m.Bb) * 1e6, 4)} µT` });
+  } else if (sen === 'star') {
+    const lim = limitMag(S.stRate, S.stExp), L = streakPx(S.stRate, S.stExp);
+    out.push({ s: 'ok', t: 'Streak = rate × exposure / pixel size', sub: `${fg(S.stRate, 3)}°/s × ${fg(S.stExp, 3)} s / ${fx(ST.scale * 3600, 0)}″ = ${fx(L, 2)} px` });
+    out.push({ s: SIM.starsNow >= ST.need ? 'ok' : 'bad', t: `At least ${ST.need} stars to match`, sub: `${SIM.starsNow} matched now; faintest detected ${fx(lim, 2)} mag` });
+  } else if (sen === 'gyro') {
+    const g = gyroOut();
+    out.push({ s: g.W === 0 || Math.abs(g.dtExact / g.dt - 1) < 1e-9 ? 'ok' : 'bad', t: 'Travel-time difference = 4AΩ/c²', sub: `${sci(g.dt, 3)} s; the exact value differs by a fraction (Ωr/c)² = ${sci((g.W * S.radius / 100 / CL) ** 2, 1)}` });
+    out.push({ s: Math.abs(g.dphi - TAU * CL * g.dt * S.turns / (S.lam * 1e-9)) <= 1e-12 * Math.max(1e-30, g.dphi) ? 'ok' : 'bad', t: 'FOG phase = 2π (c/λ) N Δt', sub: `${sci(g.dphi, 3)} rad` });
+    out.push({ s: Math.abs(g.df - 2 * (S.radius / 100) * g.W / (S.lam * 1e-9)) <= 1e-12 * Math.max(1e-30, g.df) ? 'ok' : 'bad', t: 'RLG beat for a circle: 4AΩ/(λL) = 2rΩ/λ', sub: `${fg(g.df, 4)} Hz` });
+    out.push({ s: 'ok', t: 'MEMS Coriolis acceleration = 2Ωv', sub: `2 × ${sci(g.W, 2)} rad/s × ${fx(MEMS.v, 3)} m/s = ${sci(g.aCor, 2)} m/s²` });
+  } else if (sen === 'accel') {
+    const d = accelScene('desk'), o = accelScene('orbit'), b = accelScene('burn');
+    out.push({ s: d.f === G0 ? 'ok' : 'bad', t: 'On a desk it reads 1 g up', sub: `${fx(d.f, 5)} m/s²` });
+    out.push({ s: o.f === 0 && o.g > 0 ? 'ok' : 'bad', t: 'In orbit it reads zero, though gravity acts', sub: `gravity ${fx(o.g, 3)} m/s², reading ${fx(o.f, 3)}` });
+    out.push({ s: Math.abs(b.f - S.thrust / S.mass) < 1e-12 ? 'ok' : 'bad', t: 'A burn reads F/m', sub: `${fg(S.thrust, 4)} N / ${fg(S.mass, 4)} kg = ${fg(b.f, 4)} m/s²` });
+  } else {
+    out.push({ s: 'na', t: 'One vector leaves one rotation unknown', sub: 'see the magnetometer-only case in the Star Tracker Explorer' });
+  }
+  return out;
+}
+let lastCard = '';
+function updateReadouts() {
+  el('tOut').textContent = fx(simT, simT < 100 ? 1 : 0);
+  const c = card(), key = S.sensor + c.t + c.s + c.list.join('') + c.watch;
+  if (key !== lastCard) {
+    el('stTitle').innerHTML = c.t; el('stSub').innerHTML = c.s;
+    el('stList').innerHTML = c.list.map((x) => `<li>${x}</li>`).join(''); el('stList').hidden = !c.list.length;
+    el('stWatch').innerHTML = c.watch ? `<span class="lbl">Watch</span>${c.watch}` : ''; el('stWatch').hidden = !c.watch;
+    lastCard = key;
+  }
+  el('checks').innerHTML = checks().map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+  if (S.sensor === 'sum') paneSum();
+}
+const SUM_ROWS = [
+  ['Sun sensor', 'direction to the Sun', 'vector', 'rotation about the Sun line', '0.005°–3°', "blind in Earth's shadow"],
+  ['Earth sensor', 'nadir, from the horizon', 'vector', 'yaw (about nadir)', '0.05°–1°', 'needs Earth in view'],
+  ['Magnetometer', 'magnetic field', 'vector', 'rotation about B', '1°–5°', 'needs a field model'],
+  ['Star tracker', 'directions to many stars', 'full attitude', 'nothing', '1″–1′', 'slow turns only; avoid Sun'],
+  ['Gyroscopes', 'turning rate', 'rate', 'attitude itself (integrate)', '0.003–1°/h drift', 'drift needs fixes'],
+  ['Accelerometers', 'specific force', 'acceleration', 'attitude, in orbit', 'µg', 'thrust and drag only'],
+  ['IMU', 'gyros + accelerometers', 'rate + acceleration', 'attitude needs vector fixes', '—', 'blended by a Kalman filter'],
+];
+function staticRail() {
+  const sen = S.sensor;
+  el('terms').innerHTML = TERMS[sen].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  el('gives').innerHTML = GIVES[sen].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  el('model').innerHTML = MODEL[sen];
+  el('sumView').innerHTML = `<table class="sum"><thead><tr><th>Sensor</th><th>Measures</th><th>Leaves unknown</th><th>Typical accuracy</th><th>Catch</th></tr></thead><tbody>${SUM_ROWS.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[3]}</td><td class="k">${r[4]}</td><td>${r[5]}</td></tr>`).join('')}</tbody></table><p class="note" style="margin-top:10px">Accuracy ranges are typical of flight hardware (after Wertz and Larson, <i>Space Mission Analysis and Design</i>). This course assumes perfect sensors.</p>`;
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+const TITLES = {
+  sun: ['Body frame', 'Cell currents and the Sun in the sky', 'Bars: each cell\'s current. Map: the Sun (gold) and its estimate (purple ✕) in the body frame; squares mark where each cell faces.'],
+  earth: ['Spacecraft over Earth', "The sensor's picture", 'Looking along b̂₃ (the boresight), 125° to the edge. The infrared Earth disc; + marks its center, the measured nadir.'],
+  mag: ['Earth and its field', 'Field along one orbit', 'The field measured by a nadir-pointing spacecraft over one orbit; the dashed line moves with the spacecraft.'],
+  star: ['Tracker image', 'Stars detected against turn rate', 'The tracker needs at least three stars to recognize the pattern.'],
+  gyro: ['Gyro, simplified', 'Output against rotation rate', 'The output is proportional to the rate; the dot is the current setting.'],
+  accel: ['Accelerometer', 'Reading in each situation', 'Specific force: every push except gravity.'],
+  sum: ['Sensors at a glance', 'What your suite gives', ''],
+};
+function syncVisibility() {
+  const sen = S.sensor, is3D = ['sun', 'earth', 'mag'].includes(sen);
+  $$('[data-for]').forEach((g) => { g.hidden = !g.dataset.for.split(' ').includes(sen); });
+  $$('[data-gy]').forEach((g) => { g.hidden = !g.dataset.gy.split(' ').includes(S.gyro); });
+  $$('[data-sc]').forEach((g) => { g.hidden = !g.dataset.sc.split(' ').includes(S.scene); });
+  el('gl').hidden = !is3D || !G; el('labels').hidden = !is3D; el('viewbar').hidden = !is3D || !G;
+  el('anim').hidden = is3D || sen === 'sum'; el('sumView').hidden = sen !== 'sum';
+  el('pp').hidden = sen === 'sum'; el('suiteView').hidden = sen !== 'sum';
+  el('views').classList.toggle('wide', sen === 'sum');
+  if (glFail) glFail.hidden = !is3D;
+  const T = TITLES[sen];
+  el('viewTitle').textContent = sen === 'gyro' ? (S.gyro === 'mems' ? 'MEMS gyro, simplified' : S.gyro === 'fog' ? 'Fiber optic gyro, simplified' : 'Ring laser gyro, simplified') : T[0];
+  el('paneTitle').textContent = T[1]; el('paneCap').textContent = T[2];
+  el('viewCap').textContent = sen === 'earth' ? 'The spacecraft is drawn larger than life. The orange cone grazes Earth at the horizon.' : sen === 'mag' ? 'Field lines of the tilted dipole; the arrow is the field at the spacecraft.' : sen === 'gyro' && S.gyro !== 'mems' ? 'Not to scale: the light is slowed down enormously so the delay can be seen.' : '';
+  $$('[data-sensor]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sensor === sen)));
+}
+function rebuild(opts = {}) {
+  if (G) setStatic3D();
+  syncInputs(); syncVisibility(); staticRail();
+  lastCard = ''; noiseAt = -Infinity;
+  updateReadouts(); drawAll();
+  if (opts.fit && G) fit(viewDir('iso'));
+}
+function setSensor(sen) {
+  S.sensor = sen; S.speed = SPEEDS[sen];
+  rebuild({ fit: true });
+  requestAnimationFrame(() => { if (G) { resize(); fit(viewDir('iso')); } drawAll(); });
+}
+function restart() {
+  simT = 0; sunTrail = [];
+  if (sweep0) { S.sunAz = sweep0[0]; S.sunEl = sweep0[1]; }
+  if (S.yawSpin) S.yaw = yaw0;
+  rebuild();
+}
+/* per-frame motion that belongs to the sensors themselves */
+const SWEEP_AXIS = unit([0.3, -0.5, 0.81]);
+function advance(dt) {
+  simT += dt;
+  if (S.sensor === 'sun' && S.sunSweep) {
+    const s = rotAbout(sunDir(S.sunAz, S.sunEl), SWEEP_AXIS, 18 * D2R * dt), ae = azElOf(s);
+    S.sunAz = ae[0]; S.sunEl = ae[1];
+    sunTrail.push([S.sunAz, S.sunEl]); if (sunTrail.length > 600) sunTrail.shift();
+    syncSunInputs();
+  }
+  if (S.sensor === 'earth' && S.yawSpin) { S.yaw = ((S.yaw + 20 * dt + 180) % 360 + 360) % 360 - 180; setBox('yawR', S.yaw); setBox('yawN', fmt(S.yaw)); }
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (Number.isFinite(v) ? String(+v.toFixed(3)) : '');
+/* range, number box, key, minimum, and an optional log mapping for the range */
+const PAIRS = [['azR', 'azN', 'sunAz'], ['elR', 'elN', 'sunEl'], ['noiseR', 'noiseN', 'noise', 0],
+  ['altR', 'altN', 'alt', 100, true], ['rollR', 'rollN', 'roll'], ['pitchR', 'pitchN', 'pitch'], ['yawR', 'yawN', 'yaw'],
+  ['incR', 'incN', 'inc', 0], ['maltR', 'maltN', 'magAlt', 100], ['tiltR', 'tiltN', 'tilt', 0],
+  ['srateR', 'srateN', 'stRate', 0], ['sexpR', 'sexpN', 'stExp', 0.005],
+  ['omR', 'omN', 'omega', 0, true], ['radR', 'radN', 'radius', 0.1], ['turnsR', 'turnsN', 'turns', 1, true], ['lamR', 'lamN', 'lam', 100],
+  ['aaltR', 'aaltN', 'accAlt', 150], ['thrR', 'thrN', 'thrust', 0], ['massR', 'massN', 'mass', 1], ['amR', 'amN', 'aOverM', 0.0001]];
+const toRange = (key, v, log) => (log ? (v > 0 ? Math.log10(v) : -2.5) : v);
+const fromRange = (key, v, log) => (log ? (key === 'omega' && v <= -2.45 ? 0 : Math.pow(10, v)) : v);
+function syncInputs() {
+  PAIRS.forEach(([r, n, k, , log]) => { el(r).value = toRange(k, S[k], log); el(n).value = fmt(S[k]); });
+  el('chkSweep').checked = S.sunSweep; el('chkAlbedo').checked = S.albedo; el('chkEclipse').checked = S.eclipse;
+  el('chkYaw').checked = S.yawSpin; el('chkLabels').checked = S.labels;
+  $$('#gyroSeg [data-gyro]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gyro === S.gyro)));
+  $$('#sceneSeg [data-scene]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scene === S.scene)));
+  $$('[data-su]').forEach((c) => { c.checked = !!S.suite[c.dataset.su]; });
+  syncSpeed();
+}
+/* the animation moves these inputs; a box being typed in is left alone */
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncSunInputs() { setBox('azR', S.sunAz); setBox('azN', fmt(S.sunAz)); setBox('elR', S.sunEl); setBox('elN', fmt(S.sunEl)); }
+function speedText() { const s = S.speed; return (s < 10 ? s.toFixed(1) : s.toFixed(0)) + '×'; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, key, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  const set = (v) => {
+    if (key === 'turns') v = Math.max(1, Math.round(v));
+    S[key] = v;
+    if (key === 'sunAz' || key === 'sunEl') { S.sunSweep = false; sweep0 = null; sunTrail = []; }
+    if (key === 'yaw') { S.yawSpin = false; }
+    rebuild();
+    if (key === 'alt' && G && S.sensor === 'earth') fit();
+  };
+  r.addEventListener('input', () => { const v = fromRange(key, +r.value, log); n.value = fmt(v); set(v); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(S[key]); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = toRange(key, v, log); set(v);
+  });
+});
+el('chkSweep').addEventListener('change', (e) => { S.sunSweep = e.target.checked; sweep0 = S.sunSweep ? [S.sunAz, S.sunEl] : null; sunTrail = []; rebuild(); });
+el('chkAlbedo').addEventListener('change', (e) => { S.albedo = e.target.checked; rebuild(); if (G) fit(); });
+el('chkEclipse').addEventListener('change', (e) => { S.eclipse = e.target.checked; rebuild(); });
+el('chkYaw').addEventListener('change', (e) => { S.yawSpin = e.target.checked; yaw0 = S.yaw; rebuild(); });
+el('chkLabels').addEventListener('change', (e) => { S.labels = e.target.checked; });
+$$('[data-alt]').forEach((b) => b.addEventListener('click', () => { S.alt = +b.dataset.alt; rebuild(); if (G) fit(); }));
+$$('#gyroSeg [data-gyro]').forEach((b) => b.addEventListener('click', () => { S.gyro = b.dataset.gyro; S.lam = S.gyro === 'rlg' ? 633 : 1550; rebuild(); }));
+$$('[data-om]').forEach((b) => b.addEventListener('click', () => { S.omega = +b.dataset.om; rebuild(); }));
+$$('#sceneSeg [data-scene]').forEach((b) => b.addEventListener('click', () => { S.scene = b.dataset.scene; rebuild(); }));
+$$('[data-su]').forEach((c) => c.addEventListener('change', () => { S.suite[c.dataset.su] = c.checked; lastCard = ''; updateReadouts(); }));
+$$('[data-sensor]').forEach((b) => b.addEventListener('click', () => setSensor(b.dataset.sensor)));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+el('playBtn').addEventListener('click', () => setPlaying(!S.playing));
+el('resetBtn').addEventListener('click', restart);
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+const ORDER = ['sun', 'earth', 'mag', 'star', 'gyro', 'accel', 'sum'];
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') restart();
+  else if (k === 'f') fit();
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+  else if (k >= '1' && k <= '7') setSensor(ORDER[+k - 1]);
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+let glFail = null;
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => { resize(); }).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  glFail = document.createElement('div'); glFail.className = 'glfail';
+  glFail.textContent = 'The 3D view could not start. The readouts and the other sensors still work.';
+  vp.appendChild(glFail);
+}
+COL = readColors();
+new ResizeObserver(() => drawAll()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+sweep0 = [S.sunAz, S.sunEl];
+setPlaying(S.playing);
+setSensor('sun');
+applyTheme();
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawAll);
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) advance(dtReal * S.speed);
+  roAcc += dtReal;
+  if (roAcc > 0.1) {
+    roAcc = 0;
+    if (S.noise > 0 && simT - noiseAt > 0.05) { noiseDraws = noiseDraws.map(() => gauss()); noiseAt = simT; }
+    updateReadouts();
+  }
+  if (G && ['sun', 'earth', 'mag'].includes(S.sensor)) {
+    updateDynamic();
+    G.lamp.position.copy(G.cam.position); G.lamp.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawAll();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__sens = { S, setSensor, rebuild, advance, restart, setPlaying, t: () => simT, sunNow, earthNow, magAt, gyroOut, accelScene, expectedStars, limitMag, suiteResult, checks, G: () => G };
+})();
+</script>
+</body>
+</html>
