@@ -10,6 +10,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `attitude-parameter-explorer/` | Lessons 3–5 attitude parameters: DCM, axis/angle, Euler angles, quaternion, linked |
 | `gimbal-lock-explorer/` | Lesson 4 Euler-angle singularities: three-gimbal mechanism, slews past gimbal lock |
 | `polhode-explorer/` | Torque-free rigid body: energy/momentum ellipsoids, angular velocity, polhode, and an inertial view of a box with the same inertias |
+| `star-tracker-explorer/` | Lesson 22 attitude determination: Wahba's problem and Davenport's q-method with real stars, pointing vs roll accuracy, App. A sun sensor and magnetometer, gyro drift and star fixes |
 | `spinning-top-explorer/` | Lesson 23 spinning top: precession, nutation, turning points, Appendix A gyroscope |
 | `misaligned-burn-simulator/` | Lesson 24 misaligned burn: bounded rates, epicycloid, impulse and pulse torques |
 | `nutation-damping-explorer/` | Lesson 25 damping: no damper, −bω torque and App. B rotor damper side by side; oblate vs prolate |
@@ -21,6 +22,8 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 3. `git add . && git commit -m "Add nutation demo" && git push` to `main`. The publish workflow copies it to the public repo, and Pages redeploys a minute or two later.
 
 Apps load Three.js and fonts from public CDNs, so viewers need an internet connection.
+
+The Star Tracker Explorer embeds star positions from the [HYG database](https://github.com/astronexus/HYG-Database) (v4.1, CC BY-SA 4.0): the stars brighter than magnitude 5, with close pairs merged.
 
 ## Publishing
 The workflow copies everything except `README.md`, `CLAUDE.md`, `.gitattributes` and the `.git`, `.github` and `.claude` folders, and deletes from the public repo anything deleted here. It also writes a short README into the public repo. Anyone can read the published apps' source in their browser; keeping this repo private hides only its history and the files above.
