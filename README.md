@@ -17,6 +17,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `misaligned-burn-simulator/` | Lesson 24 misaligned burn: bounded rates, epicycloid, impulse and pulse torques |
 | `nutation-damping-explorer/` | Lesson 25 damping: no damper, −bω torque and App. B rotor damper side by side; oblate vs prolate |
 | `gyrostat-explorer/` | Lesson 26 gyrostats: wheel momentum and the unstable band, effective major axis with a damper, momentum bias, wheel spin-up |
+| `momentum-precession-explorer/` | Lesson 27 momentum precession: a steady torque on a momentum-bias platform, precession and nutation as a cycloid, three wheel sizes against a pointing requirement, wheel sizing chart, outside vs internal damping |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
