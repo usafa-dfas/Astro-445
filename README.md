@@ -11,6 +11,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `gimbal-lock-explorer/` | Lesson 4 Euler-angle singularities: three-gimbal mechanism, slews past gimbal lock |
 | `polhode-explorer/` | Torque-free rigid body: energy/momentum ellipsoids, angular velocity, polhode, and an inertial view of a box with the same inertias |
 | `star-tracker-explorer/` | Lesson 22 attitude determination: Wahba's problem and Davenport's q-method with real stars, pointing vs roll accuracy, App. A sun sensor and magnetometer, gyro drift and star fixes |
+| `attitude-actuator-explorer/` | Lesson 22 actuators: one slew with reaction wheels, CMGs, thrusters and torque rods side by side; saturation and dumping, wheel failure, CMG singularity, thruster limit cycle, rods and the field direction |
 | `spinning-top-explorer/` | Lesson 23 spinning top: precession, nutation, turning points, Appendix A gyroscope |
 | `misaligned-burn-simulator/` | Lesson 24 misaligned burn: bounded rates, epicycloid, impulse and pulse torques |
 | `nutation-damping-explorer/` | Lesson 25 damping: no damper, −bω torque and App. B rotor damper side by side; oblate vs prolate |
