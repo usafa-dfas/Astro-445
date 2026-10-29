@@ -1,0 +1,1611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Libration Capture Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 29 apps). Control rail | three satellites beside a phase-plane or capture-map pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --sep: #7340c2;
+  --up: #08808f;
+  --inv: #b0306f;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --sep: #ac8dff; --up: #35c3cc; --inv: #ff7ab8; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --sep: #ac8dff; --up: #35c3cc; --inv: #ff7ab8; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+
+ul.methods { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); }
+ul.methods b { color: var(--ink); font-weight: 600; }
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 30 · Gravity gradient</div>
+      <h1>Libration Capture Explorer</h1>
+    </div>
+    <p class="lede">A gravity-gradient satellite pitches like a pendulum about the local vertical, and with nothing to stop it, it swings forever. <b>How big a disturbance can it absorb before it tumbles, and how does a damper settle it, the right way up or upside down?</b> Fly three satellites side by side and follow them on the phase plane.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>P</kbd></dt><dd>Phase plane or capture map</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit run 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="free">Free libration<small>10°, 45°, 80°</small></button>
+        <button class="btn" type="button" data-preset="sep">Near the separatrix<small>tumble or not</small></button>
+        <button class="btn" type="button" data-preset="damp">Damper ζ = 0.1<small>L30 App., step 2</small></button>
+        <button class="btn" type="button" data-preset="capture">Capture<small>L30 App., step 3</small></button>
+        <button class="btn" type="button" data-preset="heavy">Heavier damping<small>ζ up to 0.7</small></button>
+        <button class="btn" type="button" data-preset="light">Light damping<small>many turns first</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Satellite and orbit</h2>
+      <div class="trio">
+        <div class="lab">Inertia<span class="u">kg·m²</span></div>
+        <label><span><span class="sym">I<sub>r</sub></span> roll</span><input type="number" id="I0" min="0.01" step="any" aria-label="Roll moment of inertia"></label>
+        <label><span><span class="sym">I<sub>p</sub></span> pitch</span><input type="number" id="I1" min="0.01" step="any" aria-label="Pitch moment of inertia"></label>
+        <label><span><span class="sym">I<sub>y</sub></span> yaw</span><input type="number" id="I2" min="0.01" step="any" aria-label="Yaw moment of inertia"></label>
+      </div>
+      <div class="slider">
+        <label for="altR" title="Height of the circular orbit above the Earth's surface">alt<span class="u">km</span></label>
+        <input type="range" id="altR" min="2.2" max="4.62" step="0.002" aria-label="Altitude slider, logarithmic">
+        <input type="number" id="altN" min="150" step="any" aria-label="Altitude, km">
+      </div>
+      <p class="subnote" id="satNote"></p>
+      <div class="slider">
+        <label for="orbR" title="How long each run lasts">run<span class="u">orbits</span></label>
+        <input type="range" id="orbR" min="0.5" max="12" step="0.5" aria-label="Run length slider">
+        <input type="number" id="orbN" min="0.1" step="any" aria-label="Run length, orbits">
+      </div>
+      <p class="note">Pitch only: the boom stays in the orbit plane and turns about the orbit normal. Roll and yaw stay zero, so the motion is exactly the pendulum of the notes, at any angle.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three satellites</h2>
+      <div class="seg" role="group" aria-label="Run to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Run 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Run 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Run 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="slider">
+          <label for="thR" title="Starting pitch angle from the local vertical; 0 is boom toward the Earth">θ₀<span class="u">deg</span></label>
+          <input type="range" id="thR" min="-90" max="270" step="0.5" aria-label="Starting pitch angle slider">
+          <input type="number" id="thN" step="any" aria-label="Starting pitch angle, deg">
+        </div>
+        <div class="slider">
+          <label for="wR" title="Starting pitch rate relative to the orbit frame">θ̇₀<span class="u">°/s</span></label>
+          <input type="range" id="wR" min="-0.4" max="0.4" step="0.0005" aria-label="Starting pitch rate slider">
+          <input type="number" id="wN" step="any" aria-label="Starting pitch rate, deg/s">
+        </div>
+        <div class="row swaps"><span class="lbl">rate</span>
+          <button class="btn" type="button" data-wl="0">0</button>
+          <button class="btn" type="button" data-wl="0.9">0.9 ωₗ</button>
+          <button class="btn" type="button" data-wl="1.3">1.3 ωₗ</button>
+          <button class="btn" type="button" data-wl="2">2 ωₗ</button>
+        </div>
+        <div class="slider">
+          <label for="zR" title="Damping ratio of the libration damper, zeta = cd/(2 Ip omega_l)"><span class="sym">ζ</span><span class="u">damper</span></label>
+          <input type="range" id="zR" min="0" max="1" step="0.005" aria-label="Damping ratio slider">
+          <input type="number" id="zN" min="0" step="any" aria-label="Damping ratio">
+        </div>
+        <div class="row"><button class="btn" type="button" id="zAllBtn">Give all three runs this ζ</button></div>
+        <p class="note" id="runNote"></p>
+      </div>
+      <p class="note">θ is the pitch angle of the boom from the local vertical: 0° with the boom (and its amber tip mass) toward the Earth, 180° upside down. Click the phase plane to set the start of the run being edited.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkContours"> Energy contours</label>
+        <label class="check"><input type="checkbox" id="chkTrace"> Trace of the tip mass</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <p class="note">The 3D view is at true scale and looks along the orbit normal, so the pitch swing is in the picture. Each satellite is drawn larger than life over an Earth far below.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Orbit frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl">true scale · amber tip mass = Earth-facing end when upright</div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Phase plane or capture map"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Phase plane</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="pp">Phase plane</button>
+            <button class="btn" type="button" data-pane="map">Capture map</button>
+          </div>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="1" max="4.3" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Orbit 1</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="th">Pitch θ</button>
+          <button class="btn" type="button" data-q="E">Energy</button>
+          <button class="btn" type="button" data-q="A">Amplitude</button>
+          <button class="btn" type="button" data-q="w">Pitch rate</button>
+        </div>
+        <button class="btn" type="button" id="logBtn" aria-pressed="false">Log scale</button>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>How big a disturbance can a gravity-gradient satellite absorb before it tumbles, and how does a damper settle it?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Libration</dt>
+          <dd>A swing back and forth about the local vertical, like a pendulum. A gravity-gradient satellite librates with a period of about an hour.</dd>
+          <dt>Tumbling</dt>
+          <dd>Turning end over end relative to the Earth, because the satellite had too much energy to be turned back.</dd>
+          <dt>Phase plane</dt>
+          <dd>A plot of rate against angle. Each motion traces a curve; closed loops are librations, wavy lines running across are tumbles.</dd>
+          <dt>Separatrix</dt>
+          <dd>The curve between the two kinds of motion. It passes through the unstable, horizontal attitudes at ±90°.</dd>
+          <dt>Damping ratio <span class="sym">ζ</span></dt>
+          <dd>How strongly the damper resists the swinging, compared with what would stop it in one swing (ζ = 1).</dd>
+          <dt>Capture</dt>
+          <dd>A tumbling satellite losing enough energy to start librating instead. It may end with the boom toward the Earth or pointing away.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Three runs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Run</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="runBody"></tbody>
+      </table>
+      <p class="note" id="runTabNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>The satellite <span class="unit">pitch</span></h2>
+      <dl class="kv" id="satKv"></dl>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>How damping is provided</h2>
+      <ul class="methods">
+        <li><b>Passive mechanical dampers.</b> A pendulum, spring-mass or hinged second boom at the tip, coupled through viscous fluid or eddy currents. Internal, so like Lesson 25's damper rotors it works best tuned to the libration frequency.</li>
+        <li><b>Magnetic hysteresis rods.</b> Soft magnetic rods magnetized back and forth by the Earth's field as the satellite swings, losing a little energy each cycle. No moving parts, no power; common on small satellites.</li>
+        <li><b>Active magnetic damping.</b> Magnetic torquers driven by rate or magnetometer readings. An outside torque; the rate model here is its average effect, though torquers can push only across the local field.</li>
+      </ul>
+      <p class="note">Roll and yaw need damping too, and only the arrangement <span class="sym">I<sub>p</sub></span> &gt; <span class="sym">I<sub>r</sub></span> &gt; <span class="sym">I<sub>y</sub></span> survives it (Lesson 29). The Gravity-Gradient Explorer's "Gyroscopic only" preset shows the other case. In an eccentric orbit the orbit frame turns unevenly and drives a forced libration once per orbit, which damping limits but cannot remove.</p>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Large-angle pitch, with the damper</div>
+          <div><i>I</i><sub>p</sub><i>θ̈</i> + <i>c</i><sub>d</sub><i>θ̇</i> + 3ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>r</sub> − <i>I</i><sub>y</sub>) sin <i>θ</i> cos <i>θ</i> = 0</div>
+          <div><i>k</i><sub>2</sub> = (<i>I</i><sub>r</sub> − <i>I</i><sub>y</sub>)/<i>I</i><sub>p</sub>, &nbsp;ω<sub>l</sub> = √(3<i>k</i><sub>2</sub>) ω<sub>c</sub></div>
+        </div>
+        <div class="box">
+          <div class="lab">Energy and the separatrix</div>
+          <div><i>E</i> = ½<i>θ̇</i><sup>2</sup> + (3/2)ω<sub>c</sub><sup>2</sup><i>k</i><sub>2</sub> sin<sup>2</sup><i>θ</i>, &nbsp;<i>E</i><sub>sep</sub> = (3/2)ω<sub>c</sub><sup>2</sup><i>k</i><sub>2</sub></div>
+          <div>tumbles if |<i>θ̇</i>| &gt; ω<sub>l</sub> at <i>θ</i> = 0; &nbsp;<i>dE</i>/<i>dt</i> = −(<i>c</i><sub>d</sub>/<i>I</i><sub>p</sub>)<i>θ̇</i><sup>2</sup></div>
+        </div>
+        <div>
+          <div class="lab">Damper and periods</div>
+          <div>ζ = <i>c</i><sub>d</sub>/(2<i>I</i><sub>p</sub>ω<sub>l</sub>), &nbsp;time constant 1/(ζω<sub>l</sub>), &nbsp;ω<sub>d</sub> = ω<sub>l</sub>√(1 − ζ<sup>2</sup>)</div>
+          <div>undamped swing of amplitude <i>θ</i><sub>m</sub>: period 4<i>K</i>(sin <i>θ</i><sub>m</sub>)/ω<sub>l</sub></div>
+        </div>
+        <p class="note">The simulation integrates the pitch equation exactly as written, with fixed-step RK4, in a circular orbit (μ = 398 600 km³/s², <i>R</i><sub>E</sub> = 6378 km). The capture map integrates the same equation in units of 1/ω<sub>l</sub>, where only ζ matters. "Captured" is the moment the energy first falls below <i>E</i><sub>sep</sub>; after that the satellite can only settle in the well it is in.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+/* complete elliptic integral of the first kind, by the arithmetic-geometric mean */
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+function hexRGB(h) {
+  const s = h.replace('#', ''), f = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)];
+}
+/* an angle shown in [-90, 270) degrees, so both stable attitudes sit in the middle of the plot */
+const wrapShow = (thDeg) => ((thDeg + 90) % 360 + 360) % 360 - 90;
+
+/* =========================================================
+   Physics
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378e3;
+const orbitOf = (altKm) => { const R = RE + altKm * 1e3, wc = Math.sqrt(MU / (R * R * R)); return { R, wc, T: TAU / wc }; };
+let P = {};
+/* the pitch pendulum in units of 1/omega_l: theta'' = -(1/2) sin 2 theta - 2 zeta theta' */
+function stepN(th, w, h, z) {
+  const f = (a, b) => -0.5 * Math.sin(2 * a) - 2 * z * b;
+  const k1 = w, l1 = f(th, w), k2 = w + 0.5 * h * l1, l2 = f(th + 0.5 * h * k1, k2), k3 = w + 0.5 * h * l2, l3 = f(th + 0.5 * h * k2, k3), k4 = w + h * l3, l4 = f(th + h * k3, k4);
+  return [th + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4), w + h / 6 * (l1 + 2 * l2 + 2 * l3 + l4)];
+}
+/* normalized energy: E/Esep = w^2 + sin^2 theta, with w the rate in units of omega_l */
+const eN = (th, w) => w * w + Math.sin(th) ** 2;
+/* where a start ends up: the well it is captured into (even multiple of pi: upright), when and where */
+function fate(th0, w0, z, tmax = 600, h = TAU / 160) {
+  let th = th0, w = w0, t = 0;
+  if (eN(th, w) < 1) return { start: true, k: Math.round(th / Math.PI), t: 0, th };
+  if (!(z > 0)) return { never: true };
+  while (t < tmax) {
+    const n = stepN(th, w, h, z); th = n[0]; w = n[1]; t += h;
+    if (eN(th, w) < 1) return { k: Math.round(th / Math.PI), t, th };
+  }
+  return { never: true };
+}
+const upright = (k) => ((k % 2) + 2) % 2 === 0;
+
+/* ---------- three runs ----------
+   y = [theta, theta-dot, D]: pitch from the orbit frame (not wrapped), its rate, and the energy per unit Ip the damper took */
+const Ys = [0, 1, 2].map(() => new Float64Array(3));
+let simT = 0, hStep = 1;
+function f2(r, th, w) { return -1.5 * P.wc * P.wc * P.k2 * Math.sin(2 * th) - P.L[r].cdI * w; }
+function rk4(r, h) {
+  const Y = Ys[r], th = Y[0], w = Y[1], c = P.L[r].cdI;
+  const k1 = w, l1 = f2(r, th, w);
+  const k2 = w + 0.5 * h * l1, l2 = f2(r, th + 0.5 * h * k1, k2);
+  const k3 = w + 0.5 * h * l2, l3 = f2(r, th + 0.5 * h * k2, k3);
+  const k4 = w + h * l3, l4 = f2(r, th + h * k3, k4);
+  Y[0] = th + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+  Y[1] = w + h / 6 * (l1 + 2 * l2 + 2 * l3 + l4);
+  Y[2] += h / 6 * c * (k1 * k1 + 2 * k2 * k2 + 2 * k3 * k3 + k4 * k4);
+}
+const Eof = (th, w) => 0.5 * w * w + 1.5 * P.wc * P.wc * P.k2 * Math.sin(th) ** 2;
+const ErOf = (r) => Eof(Ys[r][0], Ys[r][1]) / P.Esep;
+/* how far a librating run swings in its well, from its energy */
+const ampOf = (Er) => (Er < 1 ? Math.asin(Math.sqrt(Math.max(0, Er))) : NaN);
+/* the exact period of an undamped swing of energy Er (Er < 1) */
+const periodExact = (Er) => 4 * ellipK(Math.sqrt(Er)) / P.wl;
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (th0, w0, z, name) => ({ th0, w0, z, name: name || '' });
+const S = {
+  I: [115, 120, 15], alt: 500, orbits: 3,
+  runs: [mkRun(0, 0.13, 0.1), mkRun(86, 0.13, 0.1), mkRun(0, 0.13, 0)],
+  edit: 0, shown: [true, true, true],
+  speed: 470, playing: !reduceMotion,
+  pane: 'pp', logY: false,
+  show: { contours: true, trace: true, labels: true },
+};
+let currentPreset = 'capture';
+
+/* ---------- per-run records ---------- */
+const REC = [0, 1, 2].map(() => ({}));
+const BAND = 1 * D2R;   // "settled" means staying within 1 degree of the equilibrium, as in the appendix
+function resetRecords() {
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], E0 = Eof(Y[0], Y[1]);
+    REC[r] = { E0, errE: 0, cap: E0 < P.Esep ? { t: 0, th: Y[0], k: Math.round(Y[0] / Math.PI), start: true } : null, zc: [], zcS: [], lastD: null, tOut: 0, revs: 0, lnA: [] };
+  }
+}
+function trackRun(r) {
+  const R = REC[r], Y = Ys[r], E = Eof(Y[0], Y[1]);
+  R.errE = Math.max(R.errE, Math.abs(E + Y[2] - R.E0) / P.Esep);
+  if (!R.cap && E < P.Esep) R.cap = { t: simT, th: Y[0], k: Math.round(Y[0] / Math.PI) };
+  if (R.cap) {
+    const dev = Y[0] - R.cap.k * Math.PI;
+    if (Math.abs(dev) >= BAND) R.tOut = simT;
+    // once per swing, at the same phase: upward crossings of the equilibrium, for the period and the decay rate
+    const A = ampOf(E / P.Esep), z = P.L[r].z;
+    if (R.lastD && R.lastD[1] < 0 && dev >= 0 && (z === 0 || A < 15 * D2R)) {
+      const tc = R.lastD[0] + (simT - R.lastD[0]) * (-R.lastD[1]) / (dev - R.lastD[1]);
+      R.zc.push(tc); if (A < 6 * D2R) R.zcS.push(tc);
+      if (A > 1e-7 && A < 8 * D2R) R.lnA.push([tc, Math.log(A)]);
+    }
+    R.lastD = [simT, dev];
+  }
+}
+
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HQ = { th: [], thw: [], w: [], E: [], A: [] };
+Object.keys(HQ).forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) {
+    Ht[j] = Ht[i];
+    Object.values(HQ).forEach((arr) => { for (let r = 0; r < 3; r++) arr[r][j] = arr[r][i]; });
+  }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], Er = ErOf(r);
+    HQ.th[r][i] = Y[0] * R2D; HQ.thw[r][i] = wrapShow(Y[0] * R2D); HQ.w[r][i] = Y[1] * R2D;
+    HQ.E[r][i] = Er; HQ.A[r][i] = Er < 1 ? ampOf(Er) * R2D : NaN;
+  }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(200000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    for (let r = 0; r < 3; r++) rk4(r, h);
+    simT += h;
+    for (let r = 0; r < 3; r++) trackRun(r);
+    histPush(false);
+  }
+}
+
+/* =========================================================
+   3D scene: three boom satellites in the orbit frame, the Earth below
+   ========================================================= */
+const DQ = qaa(1, 0, 0, Math.PI);   // orbit frame to display: x flight, z up
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.5, BOOM = 0.95, TRAIL_N = 1200;
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 35 }), edge: new THREE.LineBasicMaterial(),
+    boom: new THREE.MeshPhongMaterial({ shininess: 50 }), tip: new THREE.MeshPhongMaterial({ shininess: 60 }),
+    panel: new THREE.MeshPhongMaterial({ shininess: 70, side: THREE.DoubleSide }),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+    vert: new THREE.LineDashedMaterial({ dashSize: 0.06, gapSize: 0.05 }), arc: new THREE.LineBasicMaterial(),
+    trace: [0, 1, 2].map(() => new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 })),
+  };
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  const ground = new THREE.Group(); scene.add(ground);
+  ground.add(new THREE.Mesh(sphereGeo, M.earth));
+  { const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) { const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a)); }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) { const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c)); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    ground.add(new THREE.LineSegments(geo, M.grid)); }
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    // the bus at the zenith end (body -p3), the boom down along +p3 to the tip mass
+    const bus = new THREE.Mesh(boxGeo, M.hull), be = new THREE.LineSegments(edgeGeo, M.edge);
+    bus.scale.set(0.36, 0.36, 0.3); be.scale.copy(bus.scale); bus.position.set(0, 0, -0.42); be.position.copy(bus.position);
+    const pan = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.26), M.panel); pan.position.set(0, 0, -0.42); pan.rotation.x = Math.PI / 2;
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 10).rotateX(Math.PI / 2), M.boom);
+    boom.scale.set(1, 1, BOOM + 0.27); boom.position.set(0, 0, (BOOM - 0.27) / 2 - 0.27 + 0.27 / 2 + 0.0);
+    boom.position.z = (-0.27 + BOOM) / 2;
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), M.tip); tip.position.set(0, 0, BOOM);
+    veh.add(bus, be, pan, boom, tip);
+    const vert = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 1.4), new THREE.Vector3(0, 0, -1.55)]), M.vert); vert.computeLineDistances(); lane.add(vert);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((TRAIL_N + 1) * 3), 3));
+    const trace = new THREE.Line(geo, M.trace[r]); trace.frustumCulled = false; lane.add(trace);
+    return { lane, veh, trace };
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanes };
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic() {
+  const { off } = laneOffsets();
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.shown[r];
+    L.lane.visible = on; if (!on) continue;
+    L.lane.position.set(off[r], 0, 0);
+    const q = qmul(DQ, qaa(0, 1, 0, Ys[r][0]));
+    L.veh.quaternion.set(q[1], q[2], q[3], q[0]);
+    // trace of the tip mass, from the history (recent part)
+    const pos = L.trace.geometry.attributes.position.array;
+    let o = 0;
+    if (S.show.trace && hN > 1) {
+      const i0 = Math.max(0, hN - TRAIL_N);
+      for (let i = i0; i < hN; i++) { const th = HQ.th[r][i] * D2R; pos[o++] = BOOM * Math.sin(th); pos[o++] = 0; pos[o++] = -BOOM * Math.cos(th); }
+    }
+    L.trace.geometry.attributes.position.needsUpdate = true;
+    L.trace.geometry.setDrawRange(0, o / 3); L.trace.visible = o > 3;
+    laneGeo[r].off = off[r];
+  }
+}
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = { lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')), down: mkLabel('to Earth ↓', 'var(--muted)', 'small') };
+const laneKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  let first = -1;
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r] && S.show.labels;
+    const html = `${runHTML(r)}<span class="ex">${stateWord(r)}</span>`;
+    if (html !== laneKey[r]) { LB.lane[r].innerHTML = html; laneKey[r] = html; }
+    if (on) { placeLabel(LB.lane[r], [laneGeo[r].off, 0, 1.55]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+  }
+  if (S.show.labels && first >= 0) placeLabel(LB.down, [laneGeo[first].off, 0, -1.7], 34, 0); else LB.down.hidden = true;
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'frame', 'sep', 'up', 'inv', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  MAPC.imgKey = '';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = Cc('hull'); M.edge.color = Cc('edge'); M.boom.color = Cc('edge'); M.tip.color = Cc('face'); M.tip.emissive = Cc('face').multiplyScalar(0.2);
+    M.panel.color = Cc('hull-top');
+    M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line'); M.vert.color = Cc('muted');
+    M.trace.forEach((m, r) => { m.color = Cc('run' + r); });
+  }
+  drawPlot(); drawPane();
+}
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO = HAS3D ? new THREE.Vector3(0.35, -1, 0.3).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = ISO.clone();
+  const n = laneOffsets().n, rho = 1.5 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2);
+  const c = new THREE.Vector3(0, 0, -0.05);
+  G.controls.target.copy(c);
+  G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(0.0001, -1, 0.0001).normalize();
+  return ISO.clone();
+}
+
+/* =========================================================
+   Second pane: the phase plane, or the capture map
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H, dpr };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function drawPane() { if (S.pane === 'pp') drawPP(); else drawMap(); }
+/* shared frame for both panes: theta from -90 to 270 deg across, rate in deg/s up */
+const PANE = { geom: null };
+function paneFrame(ctx, W, H, ymaxN) {
+  const m = { l: 60, r: 16, t: 70, b: capH + 42 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 80 || ph < 60) return null;
+  const wl = P.wl * R2D, y1 = ymaxN * wl;
+  const X = (d) => m.l + (d + 90) / 360 * pw, Y = (v) => m.t + (y1 - v) / (2 * y1) * ph;
+  return { m, pw, ph, X, Y, y1, wl };
+}
+function paneAxes(ctx, F) {
+  const { m, pw, ph, X, Y, y1 } = F;
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.beginPath();
+  [-90, 0, 90, 180, 270].forEach((d) => { const x = Math.round(X(d)) + 0.5; ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); });
+  const yt = ticksOf(-y1, y1, ph / 32);
+  yt.v.forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); });
+  ctx.stroke(); ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(m.l, Math.round(Y(0)) + 0.5); ctx.lineTo(m.l + pw, Math.round(Y(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center'; [-90, 0, 90, 180, 270].forEach((d) => ctx.fillText(String(d).replace('-', MINUS), X(d), m.t + ph + 12));
+  ctx.fillText('θ, deg from the local vertical', m.l + pw / 2, m.t + ph + 28);
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), m.l - 6, Y(v)));
+  ctx.textAlign = 'left'; ctx.fillText('θ̇, °/s', 6, m.t - 28);
+  ctx.font = UIF(600, 12); ctx.textAlign = 'center';
+  [[0, 'upright', COL.up], [180, 'inverted', COL.inv], [90, 'horizontal', COL.muted]].forEach(([d, t, c]) => { ctx.fillStyle = c; ctx.fillText(t, X(d), m.t - 12); });
+}
+/* phase plane */
+function drawPP() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  let ymaxN = 1.6;
+  for (let r = 0; r < 3; r++) if (S.shown[r]) ymaxN = Math.max(ymaxN, 1.12 * Math.abs(S.runs[r].w0) / (P.wl * R2D), 1.12 * Math.sqrt(Math.max(0, REC[r].E0 / P.Esep)));
+  ymaxN = Math.min(ymaxN, 6);
+  const F = paneFrame(ctx, W, H, ymaxN); PANE.geom = F;
+  if (!F) return;
+  const { m, pw, ph, X, Y, wl } = F;
+  paneAxes(ctx, F);
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  // energy contours: rate = omega_l sqrt(e - sin^2 theta)
+  const contour = (e, col, lw, dash) => {
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash || []);
+    for (const sg of [1, -1]) {
+      ctx.beginPath(); let on = false;
+      for (let i = 0; i <= 720; i++) {
+        const d = -90 + i / 2, s2 = Math.sin(d * D2R) ** 2, q = e - s2;
+        if (q < 0) { on = false; continue; }
+        const x = X(d), y = Y(sg * wl * Math.sqrt(q));
+        if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true;
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  };
+  if (S.show.contours) {
+    ctx.globalAlpha = 0.55;
+    [0.05, 0.2, 0.45, 0.75].forEach((e) => contour(e, COL.muted, 1));
+    [1.4, 2.2, 3.4, 5, 8, 13, 20].forEach((e) => { if (Math.sqrt(e) < ymaxN * 1.05) contour(e, COL.muted, 1); });
+    ctx.globalAlpha = 1;
+  }
+  contour(1 + 1e-9, COL.sep, 2.2);
+  // tumble threshold through the upright and inverted attitudes
+  ctx.fillStyle = COL.sep; ctx.font = MONO; ctx.textAlign = 'left';
+  ctx.fillText(`ωₗ = ${fg(wl, 3)}°/s`, X(4), Y(wl) - 10);
+  // the runs: history wrapped into the plot, broken where the angle wraps
+  for (let r = 0; r < 3; r++) {
+    if (!S.shown[r] || hN < 1) continue;
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.8; ctx.beginPath();
+    let lx = null;
+    for (let i = 0; i < hN; i++) {
+      const d = HQ.thw[r][i], x = X(d), y = Y(HQ.w[r][i]);
+      if (lx === null || Math.abs(x - lx) > pw / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      lx = x;
+    }
+    ctx.stroke(); ctx.lineWidth = 1;
+    const j = hN - 1;
+    ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(HQ.thw[r][j]), Y(HQ.w[r][j]), 5.5, 0, TAU); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+    // start, and the capture point
+    const R = S.runs[r];
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X(wrapShow(R.th0)), Y(R.w0), 6, 0, TAU); ctx.stroke();
+    const c = REC[r].cap;
+    if (c && !c.start) { const x = X(wrapShow(c.th * R2D)), y = Y(Ys[r][1] * 0 + capRate(r)); ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); ctx.stroke(); }
+    ctx.lineWidth = 1;
+  }
+  // equilibria
+  const dot = (d, col, fill) => { ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(d), Y(0), 4.5, 0, TAU); if (fill) ctx.fill(); else ctx.stroke(); ctx.lineWidth = 1; };
+  dot(0, COL.up, true); dot(180, COL.inv, true); dot(90, COL.muted, false); dot(-90, COL.muted, false); dot(270, COL.muted, false);
+  ctx.restore();
+}
+/* the rate at the moment of capture, from the history */
+function capRate(r) {
+  const c = REC[r].cap; if (!c) return 0;
+  let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < c.t) lo = mid + 1; else hi = mid; }
+  return HQ.w[r][Math.min(lo, hN - 1)];
+}
+/* capture map: where each start ends up, for one damping ratio; computed a few rows per frame */
+const MAPC = { z: -1, NX: 144, NY: 96, Y1: 3, cls: null, next: 0, imgKey: '', cv: null };
+function mapStart() {
+  const z = S.runs[S.edit].z;
+  if (MAPC.z === z && MAPC.cls) return;
+  MAPC.z = z; MAPC.cls = new Uint8Array(MAPC.NX * MAPC.NY); MAPC.next = 0; MAPC.imgKey = '';
+}
+/* 1 upright from the start, 2 inverted from the start, 3 captured upright, 4 captured inverted, 5 never */
+function mapWork(budgetMs) {
+  if (!MAPC.cls || MAPC.next >= MAPC.cls.length) return;
+  const t0 = performance.now(), { NX, NY, Y1 } = MAPC;
+  while (MAPC.next < MAPC.cls.length && performance.now() - t0 < budgetMs) {
+    const k = MAPC.next++, i = k % NX, j = Math.floor(k / NX);
+    const th = (-90 + (i + 0.5) / NX * 360) * D2R, w = Y1 - (j + 0.5) / NY * 2 * Y1, f = fate(th, w, MAPC.z, 400);
+    MAPC.cls[k] = f.never ? 5 : f.start ? (upright(f.k) ? 1 : 2) : (upright(f.k) ? 3 : 4);
+  }
+  MAPC.imgKey = '';
+}
+function mapImage() {
+  const key = MAPC.next + '|' + MAPC.z + '|' + COL.view;
+  if (MAPC.imgKey === key && MAPC.cv) return MAPC.cv;
+  const { NX, NY } = MAPC, cv = MAPC.cv || document.createElement('canvas'); cv.width = NX; cv.height = NY;
+  const c = cv.getContext('2d'), img = c.createImageData(NX, NY), bg = hexRGB(COL.view), up = hexRGB(COL.up), inv = hexRGB(COL.inv), mu = hexRGB(COL.muted);
+  const mix = (a, al) => [bg[0] + (a[0] - bg[0]) * al, bg[1] + (a[1] - bg[1]) * al, bg[2] + (a[2] - bg[2]) * al];
+  const pal = [bg, mix(up, 0.28), mix(inv, 0.28), mix(up, 0.62), mix(inv, 0.62), mix(mu, 0.12)];
+  for (let k = 0; k < NX * NY; k++) { const p = pal[k < MAPC.next ? MAPC.cls[k] : 0]; img.data[4 * k] = p[0]; img.data[4 * k + 1] = p[1]; img.data[4 * k + 2] = p[2]; img.data[4 * k + 3] = 255; }
+  c.putImageData(img, 0, 0);
+  MAPC.cv = cv; MAPC.imgKey = key;
+  return cv;
+}
+function drawMap() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  mapStart();
+  const F = paneFrame(ctx, W, H, MAPC.Y1); PANE.geom = F;
+  if (!F) return;
+  const { m, pw, ph, X, Y, wl } = F;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(mapImage(), m.l, m.t, pw, ph);
+  ctx.imageSmoothingEnabled = true;
+  paneAxes(ctx, F);
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  ctx.strokeStyle = COL.sep; ctx.lineWidth = 2;
+  for (const sg of [1, -1]) { ctx.beginPath(); for (let i = 0; i <= 720; i++) { const d = -90 + i / 2, y = Y(sg * wl * Math.cos(d * D2R) * Math.sign(Math.cos(d * D2R))); if (i) ctx.lineTo(X(d), y); else ctx.moveTo(X(d), y); } ctx.stroke(); }
+  ctx.lineWidth = 1;
+  for (let r = 0; r < 3; r++) {
+    if (!S.shown[r]) continue;
+    const R = S.runs[r], x = X(wrapShow(R.th0)), y = Y(R.w0);
+    ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, r === S.edit ? 7 : 5.5, 0, TAU); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+    if (S.runs[r].z !== MAPC.z) { ctx.strokeStyle = COL['run' + r]; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.stroke(); }
+  }
+  ctx.restore();
+  if (MAPC.next < MAPC.cls.length) { ctx.font = MONO; ctx.fillStyle = COL.ink; ctx.textAlign = 'right'; ctx.fillText(`computing ${Math.round(100 * MAPC.next / MAPC.cls.length)}%`, m.l + pw - 6, m.t + 12); }
+}
+ppCv.addEventListener('pointerdown', (e) => {
+  const F = PANE.geom; if (!F) return;
+  const d = -90 + (e.offsetX - F.m.l) / F.pw * 360, v = F.y1 - (e.offsetY - F.m.t) / F.ph * 2 * F.y1;
+  if (d < -90 || d > 270 || Math.abs(v) > F.y1) return;
+  const R = S.runs[S.edit];
+  R.th0 = +d.toFixed(1); R.w0 = +v.toPrecision(3); R.name = ''; currentPreset = 'custom';
+  rebuild();
+});
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'th', hoverX: null, m: { l: 62, r: 16, t: 20, b: 24 } };
+const QINFO = {
+  th: { unit: 'pitch θ, deg (not wrapped; dotted lines every 180°)', series: [['th', []]], log: false, grid180: true },
+  E: { unit: 'energy / separatrix energy (tumbling above 1)', series: [['E', []]], log: true, ref: 1 },
+  A: { unit: 'libration amplitude, deg (from the energy)', series: [['A', []]], log: true },
+  w: { unit: 'pitch rate θ̇, °/s', series: [['w', []]], log: false, wl: true },
+};
+const logOn = () => S.logY && QINFO[PL.q].log;
+function setLegend() {
+  const info = QINFO[PL.q];
+  el('hlegs').innerHTML = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+  el('logBtn').hidden = !info.log;
+  el('logBtn').setAttribute('aria-pressed', String(S.logY));
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], logy = logOn(), To = P.T;
+  const x0 = 0, x1 = Math.max(simT, P.tEnd, 1e-3) / To;
+  let mn = Infinity, mx = -Infinity, mnPos = Infinity;
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k]) continue;
+    info.series.forEach(([key]) => { const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; if (v > 0 && v < mnPos) mnPos = v; } });
+  }
+  if (info.ref) { mx = Math.max(mx, info.ref * 1.2); mn = Math.min(mn, 0); }
+  if (info.wl) { mx = Math.max(mx, P.wl * R2D * 1.1); mn = Math.min(mn, -P.wl * R2D * 1.1); }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let y0, y1;
+  if (logy) {
+    if (!isFinite(mnPos)) mnPos = 1e-3;
+    y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(mx, mnPos * 10)) + 1e-9));
+    y0 = Math.max(Math.pow(10, Math.floor(Math.log10(mnPos))), y1 * 1e-5);
+  } else {
+    let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
+    y0 = mn - 0.08 * span; y1 = mx + 0.08 * span;
+    if (mn >= 0 && mn < 0.3 * span) y0 = 0;
+  }
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw;
+  const L0 = Math.log10(y0), L1 = Math.log10(y1);
+  const Yp = logy ? (v) => t + (L1 - Math.log10(Math.max(v, y0 * 1e-3))) / (L1 - L0) * ph : (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  let yv, yd = 0;
+  if (logy) { yv = []; for (let e = Math.ceil(L0 - 1e-9); e <= Math.floor(L1 + 1e-9); e++) yv.push(Math.pow(10, e)); }
+  else if (info.grid180 && y1 - y0 > 360) { yv = []; const s = (y1 - y0) > 2000 ? 360 : 180; for (let v = Math.ceil(y0 / s) * s; v <= y1; v += s) yv.push(v); }
+  else { const yt = ticksOf(y0, y1, ph / 30); yv = yt.v; yd = yt.d; }
+  const xt = ticksOf(x0, x1, pw / 70);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yv.forEach((v) => ctx.fillText(logy ? (v >= 0.01 && v < 1e4 ? String(+v.toPrecision(1)) : pow10(Math.round(Math.log10(v)))) : fx(v, yd), l - 6, Yp(v)));
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(info.unit, 6, 9); ctx.fillText('orbits', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  const hline = (v, col, dash) => { const y = Math.round(Yp(v)) + 0.5; ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; };
+  if (info.grid180) for (let v = Math.ceil(y0 / 180) * 180; v <= y1; v += 180) hline(v, Math.round(v / 180) % 2 === 0 ? COL.up : COL.inv, [2, 3]);
+  if (info.ref) hline(info.ref, COL.sep, [6, 4]);
+  if (info.wl) { hline(P.wl * R2D, COL.sep, [6, 4]); hline(-P.wl * R2D, COL.sep, [6, 4]); }
+  if (PL.q === 'A' && logy) hline(1, COL.muted, [3, 3]);
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k] || hN < 2) continue;
+    const a = HQ[info.series[0][0]][k];
+    ctx.strokeStyle = COL['run' + k]; ctx.lineWidth = 1.8; ctx.beginPath();
+    if (hN <= pw * 2) {
+      let on = false;
+      for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) { on = false; continue; } const x = X(Ht[i] / To), y = Yp(v); if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; }
+    } else {
+      let px = null, lo = 0, hi = 0, ly = 0;
+      for (let i = 0; i < hN; i++) {
+        const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) continue;
+        const x = Math.floor(X(Ht[i] / To)), y = Yp(v);
+        if (x !== px) { if (px === null) ctx.moveTo(x, y); else { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); } px = x; lo = hi = y; }
+        else { if (y < lo) lo = y; if (y > hi) hi = y; }
+        ly = y;
+      }
+      if (px !== null) { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); }
+    }
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
+  const xc = Math.round(X(simT / To)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = (x0 + (PL.hoverX - l) / pw * (x1 - x0)) * To;
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i] / To), key = info.series[0][0];
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`${fx(Ht[i] / To, 3)} orbits · ${fx(Ht[i] / 60, 1)} min`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`run ${k + 1}  ${fg(HQ[key][k][i], 4)}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const autoName = (r) => `${fn(S.runs[r].th0)}°, ${fn(S.runs[r].w0)}°/s`;
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = (r) => runName(r) + (S.runs[r].z > 0 ? `, ζ ${fn(S.runs[r].z)}` : '');
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const deg = (rad, d) => `${fg(rad * R2D, d || 3)}°`;
+const orbs = (t) => t / P.T;
+const capWell = (k) => (upright(k) ? 'upright' : 'inverted');
+/* one word for the 3D label */
+function stateWord(r) {
+  const R = REC[r], Er = ErOf(r);
+  if (Er >= 1) return 'tumbling';
+  const k = R.cap ? R.cap.k : Math.round(Ys[r][0] / Math.PI), A = ampOf(Er);
+  return `${capWell(k)} ±${A < 0.01 * D2R ? '0' : fg(A * R2D, 2)}°`;
+}
+function runTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  let h = '';
+  h += row('Start θ₀ <span class="u">°</span>', (r) => cell(r, fn(S.runs[r].th0)));
+  h += row('Start rate θ̇₀ <span class="u">°/s</span>', (r) => cell(r, fn(S.runs[r].w0)));
+  h += row(`Start energy / ${SYM('E<sub>sep</sub>')}`, (r) => { const e = REC[r].E0 / P.Esep; return cell(r, fg(e, 3), e >= 1 ? 'bad' : ''); });
+  h += row(`Damping ratio ${SYM('ζ')}`, (r) => cell(r, fn(S.runs[r].z)), true);
+  h += row(`${SYM('c<sub>d</sub>')} <span class="u">N·m·s</span>`, (r) => cell(r, fg(P.L[r].cd, 3)));
+  h += row('Time constant <span class="u">orbits</span>', (r) => cell(r, S.runs[r].z > 0 ? fg(orbs(P.L[r].tau), 3) : '∞'));
+  h += row('Predicted outcome', (r) => { const f = P.L[r].fate; return cell(r, f.never ? ST('bad', REC[r].E0 >= P.Esep ? 'tumbles' : '?') : ST(upright(f.k) ? 'ok' : 'warn', (f.start ? 'librates ' : '') + capWell(f.k))); }, true);
+  h += row('Predicted capture at <span class="u">°</span>', (r) => { const f = P.L[r].fate; return cell(r, !f.never && !f.start ? fx(((f.th * R2D) % 360 + 360) % 360, 0) : '—'); });
+  h += row('Simulated capture at <span class="u">°</span>', (r) => { const c = REC[r].cap; return cell(r, c && !c.start ? fx(((c.th * R2D) % 360 + 360) % 360, 0) : c ? 'started inside' : '—'); });
+  h += row('…after <span class="u">orbits</span>', (r) => { const c = REC[r].cap; return cell(r, c && !c.start ? fg(orbs(c.t), 3) : '—'); });
+  h += row('Swing now <span class="u">±°</span>', (r) => { const A = ampOf(ErOf(r)); return cell(r, isFinite(A) ? fg(A * R2D, 3) : 'tumbling'); }, true);
+  h += row('Within 1° to stay, after <span class="u">orbits</span>', (r) => { const A = ampOf(ErOf(r)); return cell(r, A < BAND ? fg(orbs(REC[r].tOut), 3) : '—'); });
+  h += row('Measured period <span class="u">min</span>', (r) => { const z = REC[r].zc; return cell(r, z.length >= 2 ? fg((z[z.length - 1] - z[0]) / (z.length - 1) / 60, 4) : '—'); });
+  el('runBody').innerHTML = h;
+  el('runTabNote').innerHTML = `Predicted from a quick integration at the start; simulated as it runs. "Within 1° to stay" is the last time the swing reached 1°, the measure the appendix uses.`;
+}
+function satKv() {
+  const wl = P.wl, ok = P.k2 > 0;
+  const rows = [
+    [`Orbit rate ${SYM('ω<sub>c</sub>')}, period`, `${sci(P.wc, 3)}<span class="u">rad/s</span> · ${fg(P.T / 60, 4)}<span class="u">min</span>`],
+    [`${SYM('k<sub>2</sub>')} = (${SYM('I<sub>r</sub>')} − ${SYM('I<sub>y</sub>')})/${SYM('I<sub>p</sub>')}`, fg(P.k2, 3)],
+    [`Libration frequency ${SYM('ω<sub>l</sub>')} = √(3${SYM('k<sub>2</sub>')})${SYM('ω<sub>c</sub>')}`, ok ? `${sci(wl, 3)}<span class="u">rad/s</span>` : 'pitch unstable'],
+    ['…as a tumble threshold', ok ? `${fg(wl * R2D, 3)}<span class="u">°/s</span>` : '—'],
+    ['Small-swing period', ok ? `${fg(TAU / wl / 60, 3)}<span class="u">min</span>` : '—'],
+    [`Damping ${SYM('c<sub>d</sub>')} for ${SYM('ζ')} = 0.1, 2${SYM('ζI<sub>p</sub>ω<sub>l</sub>')}`, ok ? `${fg(0.2 * S.I[1] * wl, 3)}<span class="u">N·m·s</span>` : '—'],
+    [`…time constant 1/(${SYM('ζω<sub>l</sub>')})`, ok ? `${fg(10 / wl, 3)}<span class="u">s</span> · ${fg(10 / wl / P.T, 3)}<span class="u">orbits</span>` : '—'],
+    ['…10° to 1°, linear estimate ln 10 time constants', ok ? `${fg(Math.LN10 * 10 / wl / P.T, 3)}<span class="u">orbits</span>` : '—'],
+    ['…damped period', ok ? `${fg(TAU / (wl * Math.sqrt(0.99)) / 60, 3)}<span class="u">min</span>` : '—'],
+  ];
+  el('satKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+/* the plain-language card */
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), wl = P.wl * R2D;
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const now = (r) => `<span class="now">now θ ${fs(wrapShow(Ys[r][0] * R2D), 1)}° · θ̇ ${fs(Ys[r][1] * R2D, 4)}°/s · energy ${fg(ErOf(r), 3)} × separatrix</span></span>`;
+  const outcome = (r) => {
+    const c = REC[r].cap, Er = ErOf(r);
+    if (Er >= 1) return S.runs[r].z > 0 ? `tumbling for now, but losing energy every turn; expected to end ${P.L[r].fate.never ? 'still tumbling' : capWell(P.L[r].fate.k)}.` : 'tumbling end over end, for good: no damper to remove the energy.';
+    const A = ampOf(Er), k = c ? c.k : Math.round(Ys[r][0] / Math.PI);
+    if (c && !c.start) return `captured at ${fx(((c.th * R2D) % 360 + 360) % 360, 0)}° after ${fg(orbs(c.t), 2)} orbits, now ${capWell(k)} and swinging ±${fg(A * R2D, 2)}°.`;
+    return `librates ${capWell(k)}, ±${fg(A * R2D, 2)}° now${S.runs[r].z > 0 ? ', shrinking' : ', for ever'}.`;
+  };
+  let t, s, runs = vis.map((r) => head(r) + outcome(r) + now(r)), watch;
+  const sc = currentPreset;
+  if (sc === 'free') {
+    const per = (r) => fg(periodExact(REC[r].E0 / P.Esep) / 60, 3);
+    t = 'Without damping, a libration never dies out';
+    s = `The pitch equation is a pendulum: gravity gradient pulls the boom back toward the vertical, and nothing takes energy out, so each run swings at the same amplitude for ever. Bigger swings take longer: ${vis.map((r) => `${fn(S.runs[r].th0)}° takes ${per(r)} min`).join(', ')}, against ${fg(TAU / P.wl / 60, 3)} min for a small one. No swing can pass 90°: there the boom is horizontal, the unstable attitude.`;
+    watch = 'The phase plane: each run is a closed loop around the upright point. The bigger the loop, the closer it hugs the purple separatrix.';
+  } else if (sc === 'sep') {
+    t = `Faster than ωₗ = ${fg(wl, 3)}°/s through the vertical, and it tumbles`;
+    s = `The separatrix energy, ${SYM('E<sub>sep</sub>')} = (3/2)${SYM('ω<sub>c</sub>')}²${SYM('k<sub>2</sub>')}, is the energy of a boom balanced horizontally. A satellite passing the vertical at rate ${SYM('θ̇')} has energy ½${SYM('θ̇')}², so it gets over the horizontal only if ${SYM('θ̇')} &gt; ${SYM('ω<sub>l</sub>')}, the libration frequency itself. Two runs differ by 2% in starting rate: one turns back just short of 90°, slowly, and the other creeps over and keeps going end over end.`;
+    watch = 'The phase plane: the runs either side of the purple separatrix go different ways near ±90°, where they slow almost to a stop. The "Pitch θ" history shows the tumbling run climbing through 180° after 180°.';
+  } else if (sc === 'damp') {
+    const r = 1, z = S.runs[r].z, tau = P.L[r].tau;
+    t = 'A damper turns the libration into a decaying swing';
+    s = `Lesson 30's damper is a torque −${SYM('c<sub>d</sub>')}${SYM('θ̇')} on the pitch rate relative to the orbit. With ${SYM('ζ')} = ${fn(z)} it takes ${SYM('c<sub>d</sub>')} = 2${SYM('ζI<sub>p</sub>ω<sub>l</sub>')} = ${fg(P.L[r].cd, 3)} N·m·s, and the swing shrinks with time constant 1/(${SYM('ζω<sub>l</sub>')}) = ${fg(tau, 3)} s, about ${fg(orbs(tau), 2)} orbit. A 10° swing falls to 1° in about ln 10 time constants; the simulation counts ${REC[r].tOut > 0 && ampOf(ErOf(r)) < BAND ? fg(orbs(REC[r].tOut), 3) : 'about 2.3'} orbits (the appendix: 2.27). Run 1 has no damper; run 3 has three times as much.`;
+    watch = 'The "Amplitude" history on a log scale: the damped runs fall in straight lines, slope ζωₗ; the phase plane shows them spiraling in to the upright point.';
+  } else if (sc === 'capture') {
+    t = 'Two almost identical deployments end in opposite orientations';
+    s = `Each boom deploys while pitching at 1.3${SYM('ω<sub>l</sub>')} = ${fg(1.3 * wl, 3)}°/s relative to the orbit, faster than the tumble threshold, so at first it tumbles. With ${SYM('ζ')} = 0.1 it loses energy on every turn, and within about half an orbit drops below the separatrix and is captured, but into whichever well it happens to be in. Starting upright, run 1 is captured near 132° and settles inverted, boom away from the Earth. Starting at 86°, run 2 is captured near 324° and settles upright. Run 3 has no damper and never stops tumbling. That is why gravity-gradient missions check which way up they were captured, and carry a way to turn the satellite over.`;
+    watch = 'The phase plane: the damped runs spiral across the separatrix (× marks the capture) and settle on the teal upright point or the magenta inverted one. The "Capture map" shows how finely the two outcomes are interleaved.';
+  } else if (sc === 'heavy') {
+    t = 'More damping settles faster, up to a point';
+    s = `The time constant 1/(${SYM('ζω<sub>l</sub>')}) shrinks as ${SYM('ζ')} grows: ${vis.map((r) => `${fn(S.runs[r].z)} gives ${fg(orbs(P.L[r].tau), 2)} orbits`).join(', ')}. Near ${SYM('ζ')} = 1 the swing no longer overshoots at all. But gravity-gradient torques are tiny, so a real damper's torque must be tiny too: these ratios need ${vis.map((r) => fg(P.L[r].cd, 2)).join(', ')} N·m·s, and in practice librations take orbits, not minutes, to die out.`;
+    watch = 'The "Pitch θ" history: the lightly damped run rings for a few swings, the heavily damped one creeps back with hardly an overshoot.';
+  } else if (sc === 'light') {
+    t = 'A light damper takes many turns to capture a fast tumble';
+    s = `Energy drains at the rate (${SYM('c<sub>d</sub>')}/${SYM('I<sub>p</sub>')})${SYM('θ̇')}², so a light damper takes many revolutions to bring a fast tumble below the separatrix. Each run starts at 2${SYM('ω<sub>l</sub>')} through the vertical, four times the separatrix energy. Where each finally lands, upright or inverted, depends on the exact damping and start: change ${SYM('ζ')} slightly and the answer can flip.`;
+    watch = 'The "Energy" history on a log scale: a staircase down to the separatrix line, one step per half turn, then the smooth decay of a libration. Open the capture map at a low ζ to see the bands get finer.';
+  } else {
+    t = REC.some((R, r) => S.shown[r] && ErOf(r) >= 1) ? 'Some runs are tumbling' : 'All three runs are librating';
+    s = `Below the separatrix energy a run librates about the upright or the inverted attitude; above it, it tumbles. A damper (${SYM('ζ')} &gt; 0) only ever lowers the energy, so a tumbling run is eventually captured into one well or the other, and a librating one settles. Click the phase plane to start the edited run anywhere.`;
+    watch = 'The phase plane and the capture map: a run started in a colored band ends in that band\'s attitude.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  const orb = simT / P.T;
+  el('tOut').textContent = `${fx(orb, 2)} orbits · ${fx(simT / 60, simT < 6000 ? 1 : 0)} min`;
+  el('phaseChip').textContent = `Orbit ${Math.min(Math.floor(orb + 1e-9) + 1, Math.ceil(S.orbits - 1e-9) || 1)} of ${fn(S.orbits)}`;
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  runTable(); satKv(); checks();
+}
+function checks() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), items = [];
+  if (P.k2 > 0 && S.I[0] === 115 && S.I[1] === 120 && S.I[2] === 15 && S.alt === 500) {
+    const ok = Math.abs(P.wl / 1.75e-3 - 1) < 0.005 && Math.abs(P.wl * R2D - 0.100) < 0.0005;
+    items.push({ s: ok ? 'ok' : 'bad', t: 'Appendix step 1: ωₗ = 1.75 × 10⁻³ rad/s = 0.100°/s', sub: `computed ${sci(P.wl, 3)} rad/s = ${fg(P.wl * R2D, 4)}°/s` });
+  }
+  if (simT > 0) {
+    const e = Math.max(...vis.map((r) => REC[r].errE));
+    items.push({ s: e < 1e-7 ? 'ok' : e < 1e-5 ? 'warn' : 'bad', t: 'Energy balance: E + damper losses stays at its start', sub: `largest drift ${sci(e, 1)} of the separatrix energy` });
+  }
+  vis.forEach((r) => {
+    const R = REC[r], Z = S.runs[r].z, z = Z === 0 ? R.zc : R.zcS;
+    if (z.length < 2 || !R.cap) return;
+    const meas = (z[z.length - 1] - z[0]) / (z.length - 1);
+    if (Z === 0) {
+      const ex = periodExact(R.E0 / P.Esep);
+      items.push({ s: Math.abs(meas / ex - 1) < 1e-3 ? 'ok' : 'bad', t: `Run ${r + 1}: period matches 4K(sin θₘ)/ωₗ`, sub: `measured ${fg(meas / 60, 5)} min vs exact ${fg(ex / 60, 5)} min (small swing ${fg(TAU / P.wl / 60, 4)})` });
+    } else if (Z < 1 && ampOf(ErOf(r)) < 15 * D2R) {
+      const want = TAU / (P.wl * Math.sqrt(1 - Z * Z));
+      items.push({ s: Math.abs(meas / want - 1) < 0.01 ? 'ok' : 'warn', t: `Run ${r + 1}: damped period 2π/(ωₗ√(1 − ζ²))`, sub: `measured ${fg(meas / 60, 4)} min vs ${fg(want / 60, 4)} min` });
+    }
+  });
+  vis.forEach((r) => {
+    const R = REC[r], Z = S.runs[r].z, pts = R.lnA;
+    if (!(Z > 0) || Z >= 0.5 || pts.length < 3) return;
+    // least-squares slope of ln(amplitude), against the linear decay rate zeta omega_l
+    let sx = 0, sy = 0, sxx = 0, sxy = 0; pts.forEach(([x, y]) => { sx += x; sy += y; sxx += x * x; sxy += x * y; });
+    const n = pts.length, sl = (n * sxy - sx * sy) / (n * sxx - sx * sx), want = -Z * P.wl;
+    if ((pts[pts.length - 1][0] - pts[0][0]) < 0.3 * P.T) return;
+    items.push({ s: Math.abs(sl / want - 1) < 0.03 ? 'ok' : 'warn', t: `Run ${r + 1}: the swing decays at ζωₗ`, sub: `time constant ${fg(-1 / sl, 4)} s measured vs ${fg(1 / (Z * P.wl), 4)} s` });
+  });
+  if (currentPreset === 'damp' && P.k2 > 0) {
+    const R = REC[1];
+    if (ampOf(ErOf(1)) < BAND && R.tOut > 0) items.push({ s: Math.abs(orbs(R.tOut) - 2.27) < 0.03 ? 'ok' : 'warn', t: 'Appendix step 2: 10° falls inside 1° in 2.27 orbits', sub: `simulated ${fg(orbs(R.tOut), 3)} orbits; cd = ${fg(P.L[1].cd, 3)} N·m·s, time constant ${fg(P.L[1].tau, 4)} s` });
+  }
+  if (currentPreset === 'capture') {
+    const want = [[132, false], [324, true]];
+    [0, 1].forEach((r) => {
+      const c = REC[r].cap; if (!c || c.start) return;
+      const a = ((c.th * R2D) % 360 + 360) % 360, okA = Math.abs(a - want[r][0]) < 3, okW = upright(c.k) === want[r][1];
+      items.push({ s: okA && okW ? 'ok' : 'bad', t: `Appendix step 3: run ${r + 1} captured near ${want[r][0]}°, ${want[r][1] ? 'upright' : 'inverted'}`, sub: `simulated ${fx(a, 1)}°, ${capWell(c.k)}, after ${fg(orbs(c.t), 2)} orbits` });
+    });
+  }
+  vis.forEach((r) => {
+    const c = REC[r].cap, f = P.L[r].fate;
+    if (!c || c.start || f.never || f.start) return;
+    items.push({ s: c.k === f.k ? 'ok' : 'warn', t: `Run ${r + 1}: ends where the quick prediction said`, sub: `${capWell(c.k)}, capture at ${fx(((c.th * R2D) % 360 + 360) % 360, 1)}° vs predicted ${fx(((f.th * R2D) % 360 + 360) % 360, 1)}°` });
+  });
+  if (!items.length) items.push({ s: 'na', t: 'Press Play to run the checks', sub: '' });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function derive() {
+  const o = orbitOf(S.alt), [Ir, Ip, Iy] = S.I, k2 = (Ir - Iy) / Ip;
+  const wl = k2 > 0 ? Math.sqrt(3 * k2) * o.wc : NaN;
+  P = { R: o.R, wc: o.wc, T: o.T, tEnd: S.orbits * o.T, k2, wl, Esep: 1.5 * o.wc * o.wc * Math.abs(k2) || 1e-30 };
+  P.L = S.runs.map((R) => {
+    const z = k2 > 0 ? R.z : 0, cd = 2 * z * Ip * (wl || 0);
+    const L = { z, cd, cdI: cd / Ip, tau: z > 0 ? 1 / (z * wl) : Infinity };
+    L.fate = k2 > 0 ? fate(R.th0 * D2R, R.w0 * D2R / wl, z, Math.max(400, S.orbits * TAU * 1.6 * Math.sqrt(3 * k2) * 1.5)) : { never: true };
+    return L;
+  });
+}
+function resetRuns() {
+  derive();
+  for (let r = 0; r < 3; r++) { const Y = Ys[r]; Y[0] = S.runs[r].th0 * D2R; Y[1] = S.runs[r].w0 * D2R; Y[2] = 0; }
+  simT = 0;
+  let wmax = 2 * P.wc; S.runs.forEach((R) => { wmax = Math.max(wmax, Math.abs(R.w0) * D2R + (P.wl || 0) * 1.5); });
+  hStep = Math.min(P.T / 2000, 0.05 / wmax);
+  hN = 0; hLast = -Infinity; hDt = P.tEnd / 4000;
+  resetRecords();
+  histPush(true);
+}
+function rebuild() {
+  pastEnd = false;
+  resetRuns();
+  syncInputs(); setLegend();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+const PAIRS = [
+  ['altR', 'altN', (v) => { S.alt = v; }, () => S.alt, 150, true],
+  ['orbR', 'orbN', (v) => { S.orbits = v; }, () => S.orbits, 0.1, false],
+  ['thR', 'thN', (v) => { S.runs[S.edit].th0 = v; S.runs[S.edit].name = ''; }, () => S.runs[S.edit].th0, -720, false],
+  ['wR', 'wN', (v) => { S.runs[S.edit].w0 = v; S.runs[S.edit].name = ''; }, () => S.runs[S.edit].w0, -5, false],
+  ['zR', 'zN', (v) => { S.runs[S.edit].z = v; }, () => S.runs[S.edit].z, 0, false],
+];
+const toRange = (v, log) => (log ? Math.log10(v) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  for (let i = 0; i < 3; i++) setBox('I' + i, fmt(S.I[i]));
+  el('satNote').textContent = P.k2 > 0 ? `k₂ = ${fg(P.k2, 3)} · ωₗ = ${fg(P.wl * R2D, 3)}°/s · ${fg(TAU / P.wl / 60, 3)} min swing` : 'Iy > Ir: pitch is unstable, choose Ir > Iy';
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  const L = P.L[S.edit];
+  el('runNote').innerHTML = `${SYM('c<sub>d</sub>')} = ${fg(L.cd, 3)} N·m·s · time constant ${S.runs[S.edit].z > 0 ? fg(orbs(L.tau), 3) + ' orbits' : '∞'} · start at ${fg(REC[S.edit].E0 / P.Esep, 3)} × the separatrix energy`;
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  el('chkContours').checked = S.show.contours; el('chkTrace').checked = S.show.trace; el('chkLabels').checked = S.show.labels;
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  el('paneTitle').textContent = S.pane === 'pp' ? 'Phase plane' : 'Capture map';
+  el('paneCap').innerHTML = S.pane === 'pp'
+    ? 'Rate against angle. Closed loops around the teal upright point or the magenta inverted point are librations; the purple separatrix through ±90° divides them from tumbling. Circles mark each start, × the capture. Click to start the edited run there.'
+    : `Where each start ends up, for ${SYM('ζ')} = ${fn(S.runs[S.edit].z)} (run ${S.edit + 1}, the one being edited). Teal: ends upright; magenta: ends inverted; pale: already librating at the start; deeper: captured from a tumble. Grey: still tumbling after the time limit, or no damping. A ring marks a run with a different ${SYM('ζ')}.`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return `${fg(s, 2)}× · 1 orbit in ${fg(P.T / s, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); currentPreset = 'custom'; rebuild(); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(get()); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = toRange(v, log); set(v); currentPreset = 'custom'; rebuild();
+  });
+});
+for (let i = 0; i < 3; i++) el('I' + i).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) { S.I[i] = Math.max(0.01, v); currentPreset = 'custom'; } rebuild(); });
+function setEdit(r) { S.edit = r; syncInputs(); drawPane(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+$$('[data-wl]').forEach((b) => b.addEventListener('click', () => { if (!(P.wl > 0)) return; const R = S.runs[S.edit]; R.w0 = +(+b.dataset.wl * P.wl * R2D).toPrecision(4); R.name = ''; currentPreset = 'custom'; rebuild(); }));
+el('zAllBtn').addEventListener('click', () => { const z = S.runs[S.edit].z; S.runs.forEach((R) => { R.z = z; }); currentPreset = 'custom'; rebuild(); });
+el('chkContours').addEventListener('change', (e) => { S.show.contours = e.target.checked; drawPane(); });
+el('chkTrace').addEventListener('change', (e) => { S.show.trace = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => {
+  const r = +b.dataset.run; S.shown[r] = !S.shown[r];
+  if (!S.shown.some(Boolean)) S.shown[r] = true;
+  syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts();
+}));
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+el('logBtn').addEventListener('click', () => { S.logY = !S.logY; setLegend(); drawPlot(); });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* the boom satellite of the appendix, flown the stable way: 120 on the orbit normal, 500 km */
+const PRESETS = {
+  free: { orbits: 3, tab: 'th', runs: [[10, 0, 0, '10°'], [45, 0, 0, '45°'], [80, 0, 0, '80°']] },
+  sep: { orbits: 3, tab: 'th', runs: [[0, ['wl', 0.95], 0], [0, ['wl', 0.99], 0], [0, ['wl', 1.01], 0]] },
+  damp: { orbits: 4, tab: 'A', logY: true, runs: [[10, 0, 0, '10°, no damper'], [10, 0, 0.1, '10°'], [10, 0, 0.3, '10°']] },
+  capture: { orbits: 3, tab: 'th', runs: [[0, ['wl', 1.3], 0.1, 'from 0°'], [86, ['wl', 1.3], 0.1, 'from 86°'], [0, ['wl', 1.3], 0, 'from 0°']] },
+  heavy: { orbits: 2, tab: 'th', runs: [[30, 0, 0.1, '30°'], [30, 0, 0.4, '30°'], [30, 0, 0.7, '30°']] },
+  light: { orbits: 12, tab: 'E', logY: true, runs: [[0, ['wl', 2], 0.02, '2 ωₗ'], [0, ['wl', 2], 0.025, '2 ωₗ'], [0, ['wl', 2], 0.03, '2 ωₗ']] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  S.I = [115, 120, 15]; S.alt = 500; S.orbits = p.orbits; S.logY = !!p.logY;
+  const o = orbitOf(S.alt), wl = Math.sqrt(3 * (S.I[0] - S.I[2]) / S.I[1]) * o.wc * R2D;
+  S.runs = p.runs.map(([th, w, z, nm]) => mkRun(th, Array.isArray(w) ? +(w[1] * wl).toPrecision(4) : w, z, nm));
+  S.shown = [true, true, true];
+  S.speed = +(o.T / 12).toPrecision(2);
+  PL.q = p.tab;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= P.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(S.pane === 'pp' ? 'map' : 'pp');
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The phase plane, the capture map, the plots and the analysis still work.';
+  vp.appendChild(d);
+  el('exagLbl').hidden = true;
+  $$('.viewport .viewbar, #runChips').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('capture');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= P.tEnd) { dt = Math.max(0, P.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (S.pane === 'map') { mapStart(); mapWork(7); }
+  if (G) {
+    updateDynamic();
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__lib = { S, P: () => P, Ys, REC, advance, rebuild, applyPreset, updateReadouts, fate, periodExact, ErOf, t: () => simT, hist: () => ({ hN, Ht, HQ }), map: MAPC, mapStart, mapWork, setPlaying, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
