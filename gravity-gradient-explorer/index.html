@@ -1,0 +1,2131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gravity-Gradient Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 27 apps). Control rail | three satellites beside a stability-map or torque pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --torque: #7340c2;
+  --tidal: #e07a14;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --torque: #ac8dff; --tidal: #ffa24a; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --torque: #ac8dff; --tidal: #ffa24a; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lessons 28–29 · Gravity gradient</div>
+      <h1>Gravity-Gradient Explorer</h1>
+    </div>
+    <p class="lede">Gravity pulls a little harder on the end of a satellite nearest the Earth, and that difference makes a small torque that can hold a long satellite pointed at the Earth. <b>Which way must it fly to stay pointed there, and what does it do when disturbed?</b> Fly three satellites side by side in a circular orbit and place them on the stability map.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>V</kbd></dt><dd>Orbit frame or whole orbit</dd>
+            <dt><kbd>P</kbd></dt><dd>Stability map or torque</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit run 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="eq">Turn with the orbit<small>L28 kinematics</small></button>
+        <button class="btn" type="button" data-preset="tilt">10° tilt<small>L28 App., torque</small></button>
+        <button class="btn" type="button" data-preset="ab">Option A vs B<small>L29 App.</small></button>
+        <button class="btn" type="button" data-preset="gyro">Gyroscopic only<small>± damping</small></button>
+        <button class="btn" type="button" data-preset="axi">Symmetric boom<small>yaw neutral</small></button>
+        <button class="btn" type="button" data-preset="wrong">Wrong axis down<small>unstable</small></button>
+        <button class="btn" type="button" data-preset="large">40° tilts<small>large angles</small></button>
+        <button class="btn" type="button" data-preset="kick">Big pitch kick<small>tumbles</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Orbit and damper</h2>
+      <div class="slider">
+        <label for="altR" title="Height of the circular orbit above the Earth's surface">alt<span class="u">km</span></label>
+        <input type="range" id="altR" min="2.2" max="4.62" step="0.002" aria-label="Altitude slider, logarithmic">
+        <input type="number" id="altN" min="150" step="any" aria-label="Altitude, km">
+      </div>
+      <p class="subnote" id="altNote"></p>
+      <div class="slider">
+        <label for="cdR" title="Libration damper: a torque -cd times the body rate relative to the orbit frame, on the runs that have it switched on"><span class="sym">c<sub>d</sub></span><span class="u">N·m·s</span></label>
+        <input type="range" id="cdR" min="0" max="0.3" step="0.001" aria-label="Damper coefficient slider">
+        <input type="number" id="cdN" min="0" step="any" aria-label="Damper coefficient, N·m·s">
+      </div>
+      <div class="slider">
+        <label for="orbR" title="How long each run lasts">run<span class="u">orbits</span></label>
+        <input type="range" id="orbR" min="0.5" max="10" step="0.5" aria-label="Run length slider">
+        <input type="number" id="orbN" min="0.1" step="any" aria-label="Run length, orbits">
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Three satellites</h2>
+      <div class="seg" role="group" aria-label="Run to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Run 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Run 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Run 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="trio">
+          <div class="lab">Inertia<span class="u">kg·m²</span></div>
+          <label><span><span class="sym">I<sub>r</sub></span> roll</span><input type="number" id="I0" min="0.01" step="any" aria-label="Roll moment of inertia, along the flight direction"></label>
+          <label><span><span class="sym">I<sub>p</sub></span> pitch</span><input type="number" id="I1" min="0.01" step="any" aria-label="Pitch moment of inertia, along the orbit normal"></label>
+          <label><span><span class="sym">I<sub>y</sub></span> yaw</span><input type="number" id="I2" min="0.01" step="any" aria-label="Yaw moment of inertia, along the local vertical"></label>
+        </div>
+        <div class="row swaps"><span class="lbl">swap</span>
+          <button class="btn" type="button" data-swap="0,1">roll ↔ pitch</button>
+          <button class="btn" type="button" data-swap="1,2">pitch ↔ yaw</button>
+          <button class="btn" type="button" data-swap="0,2">roll ↔ yaw</button>
+        </div>
+        <div class="trio">
+          <div class="lab">Start tilt<span class="u">deg</span></div>
+          <label>roll<input type="number" id="e0" step="any" aria-label="Starting roll angle, deg"></label>
+          <label>pitch<input type="number" id="e1" step="any" aria-label="Starting pitch angle, deg"></label>
+          <label>yaw<input type="number" id="e2" step="any" aria-label="Starting yaw angle, deg"></label>
+        </div>
+        <div class="trio">
+          <div class="lab">Start rate<span class="u">°/s vs orbit</span></div>
+          <label>roll<input type="number" id="w0" step="any" aria-label="Starting roll rate relative to the orbit frame, deg/s"></label>
+          <label>pitch<input type="number" id="w1" step="any" aria-label="Starting pitch rate relative to the orbit frame, deg/s"></label>
+          <label>yaw<input type="number" id="w2" step="any" aria-label="Starting yaw rate relative to the orbit frame, deg/s"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="chkDamp"> Libration damper on this run</label>
+        <p class="note" id="runNote"></p>
+      </div>
+      <p class="note">Body axes 1, 2, 3 start on the orbit frame: roll along the flight direction <span class="sym">ô</span><sub class="n">1</sub>, pitch on the orbit normal <span class="sym">ô</span><sub class="n">2</sub>, yaw on the local vertical <span class="sym">ô</span><sub class="n">3</sub> (toward the Earth). Rates are relative to the orbit frame, <span class="sym">ω</span><sub class="n">B/O</sub>.</p>
+    </section>
+
+    <section class="group">
+      <h2>Torque calculator <span class="unit">Lesson 28</span></h2>
+      <div class="trio">
+        <div class="lab">Moments<span class="u">kg·m²</span></div>
+        <label><span class="sym">I</span><sub class="n">1</sub><input type="number" id="cI0" min="0" step="any" aria-label="Principal moment I1"></label>
+        <label><span class="sym">I</span><sub class="n">2</sub><input type="number" id="cI1" min="0" step="any" aria-label="Principal moment I2"></label>
+        <label><span class="sym">I</span><sub class="n">3</sub><input type="number" id="cI2" min="0" step="any" aria-label="Principal moment I3"></label>
+      </div>
+      <div class="slider">
+        <label for="tiltR" title="How far the principal axis p3 is tilted away from the local vertical">tilt<span class="u">deg</span></label>
+        <input type="range" id="tiltR" min="0" max="90" step="0.5" aria-label="Tilt from the vertical slider">
+        <input type="number" id="tiltN" min="0" max="90" step="any" aria-label="Tilt from the vertical, deg">
+      </div>
+      <div class="row"><span class="lbl">about</span>
+        <div class="seg" role="group" aria-label="Axis the tilt is about" id="tiltAx">
+          <button class="btn" type="button" data-ax="0">p̂₁</button>
+          <button class="btn" type="button" data-ax="1">p̂₂</button>
+        </div>
+      </div>
+      <p class="note">Tilting the boom (<span class="sym">p̂</span><sub class="n">3</sub>) off the vertical about <span class="sym">p̂</span><sub class="n">1</sub> puts the nadir in the 2–3 plane, as in the Lesson 28 appendix. The answers are in the Torque section on the right and on the "Torque" pane. The calculator uses the orbit set above.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkTorque"> Gravity-gradient torque</label>
+        <label class="check"><input type="checkbox" id="chkTidal"> Tidal forces (gravity difference)</label>
+        <label class="check"><input type="checkbox" id="chkFrame"> Orbit-frame axes</label>
+        <label class="check"><input type="checkbox" id="chkTrace"> Trace of the Earth-facing end</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <div class="row"><span class="lbl">3D tilts</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">magnified</button>
+          <button class="btn" type="button" data-ex="1">true scale</button>
+        </div>
+      </div>
+      <p class="note">The disturbances are often a fraction of a degree, so the 3D view magnifies tilts by the factor shown under each satellite, up to 30°, then shrinks the magnification so a tumble still reads. The plots and the stability map are at true scale. Each satellite is drawn as the box with its inertias; its Earth-facing end (<span class="sym">+p̂</span><sub class="n">3</sub>) is amber.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle" id="viewTitle">Orbit frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Scene" id="sceneSeg">
+            <button class="btn" type="button" data-scene="lanes">Orbit frame</button>
+            <button class="btn" type="button" data-scene="orbit">Whole orbit</button>
+          </div>
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl"></div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Stability map or torque charts"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Stability map</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="map">Stability map</button>
+            <button class="btn" type="button" data-pane="tq">Torque</button>
+          </div>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="1" max="4.3" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Orbit 1</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="roll">Roll</button>
+          <button class="btn" type="button" data-q="pitch">Pitch</button>
+          <button class="btn" type="button" data-q="yaw">Yaw</button>
+          <button class="btn" type="button" data-q="ang">Total angle</button>
+          <button class="btn" type="button" data-q="off">Off vertical</button>
+          <button class="btn" type="button" data-q="tq">Torque</button>
+          <button class="btn" type="button" data-q="H">Energy</button>
+        </div>
+        <button class="btn" type="button" id="logBtn" aria-pressed="false">Log scale</button>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>Which way must a gravity-gradient satellite fly to stay pointed at the Earth, and what does it do when it is disturbed?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Gravity gradient</dt>
+          <dd>Gravity weakens with distance, so the end of a satellite nearest the Earth is pulled slightly harder than the far end. On a tilted satellite that difference twists it toward the vertical.</dd>
+          <dt>Local vertical, nadir</dt>
+          <dd>The line from the satellite to the center of the Earth. Nadir is straight down along it; zenith is straight up.</dd>
+          <dt>Orbit frame</dt>
+          <dd>Axes that travel with the satellite: <span class="sym">ô</span><sub class="n">1</sub> along the flight direction, <span class="sym">ô</span><sub class="n">3</sub> toward the Earth, <span class="sym">ô</span><sub class="n">2</sub> completing the set (opposite the orbit normal). It turns once per orbit.</dd>
+          <dt>Roll, pitch, yaw</dt>
+          <dd>Rotations about the flight direction, the orbit normal and the local vertical. The moments of inertia about those axes are <span class="sym">I<sub>r</sub></span>, <span class="sym">I<sub>p</sub></span> and <span class="sym">I<sub>y</sub></span>.</dd>
+          <dt>Libration</dt>
+          <dd>A slow back-and-forth swing about the vertical, like a pendulum, with periods of tens of minutes.</dd>
+          <dt>Stiffness and gyroscopic stability</dt>
+          <dd>Stable with stiffness means every tilt is pushed back, like a spring. Gyroscopic stability means the motion only circles around, held by the turning of the orbit; any energy loss undoes it.</dd>
+          <dt>Damper</dt>
+          <dd>Anything that turns the swinging into heat: a fluid or eddy-current damper on the boom, magnetic hysteresis rods, or magnetic torquers.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Stability, three runs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Run</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="stabBody"></tbody>
+      </table>
+      <p class="note" id="stabNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Torque <span class="unit">calculator</span></h2>
+      <dl class="kv" id="tqKv"></dl>
+    </section>
+
+    <section class="group">
+      <h2>Angular velocity <span class="unit" id="wHead">run 1, ×ωc</span></h2>
+      <dl class="kv" id="wKv"></dl>
+      <p class="note">ω<sub>B/A</sub> = ω<sub>B/O</sub> + <i>C</i><sub>B/O</sub>ω<sub>O/A</sub>, with ω<sub>O/A</sub> = [0, −ω<sub>c</sub>, 0] in the orbit frame. A satellite held in the orbit frame has ω<sub>B/O</sub> = 0, yet turns once per orbit in inertial space.</p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Gravity-gradient torque (Lesson 28)</div>
+          <div><i>g</i> = 3ω<sub>c</sub><sup>2</sup> <i>c</i><sup>×</sup><i>I c</i>, &nbsp;ω<sub>c</sub><sup>2</sup> = μ/<i>R</i><sub>c</sub><sup>3</sup>, &nbsp;<i>c</i> = <i>C</i><sub>B/O</sub>[0, 0, 1]<sup>T</sup></div>
+          <div><i>g</i> = 3ω<sub>c</sub><sup>2</sup>[(<i>I</i><sub>3</sub> − <i>I</i><sub>2</sub>)<i>c</i><sub>2</sub><i>c</i><sub>3</sub>, (<i>I</i><sub>1</sub> − <i>I</i><sub>3</sub>)<i>c</i><sub>1</sub><i>c</i><sub>3</sub>, (<i>I</i><sub>2</sub> − <i>I</i><sub>1</sub>)<i>c</i><sub>1</sub><i>c</i><sub>2</sub>]</div>
+        </div>
+        <div>
+          <div class="lab">Linearized about the orbit frame (Lesson 29)</div>
+          <div><i>I</i><sub>p</sub><i>θ̈</i><sub>p</sub> + 3ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>r</sub> − <i>I</i><sub>y</sub>)<i>θ</i><sub>p</sub> = 0, &nbsp;ω<sub>l</sub> = √(3<i>k</i><sub>2</sub>) ω<sub>c</sub></div>
+          <div><i>Mä</i> + <i>Gȧ</i> + <i>Ka</i> = 0, &nbsp;<i>K</i> = ω<sub>c</sub><sup>2</sup> diag(4(<i>I</i><sub>p</sub> − <i>I</i><sub>y</sub>), <i>I</i><sub>p</sub> − <i>I</i><sub>r</sub>)</div>
+          <div><i>s</i><sup>4</sup> + (1 + 3<i>k</i><sub>1</sub> + <i>k</i><sub>1</sub><i>k</i><sub>3</sub>)ω<sub>c</sub><sup>2</sup><i>s</i><sup>2</sup> + 4<i>k</i><sub>1</sub><i>k</i><sub>3</sub>ω<sub>c</sub><sup>4</sup> = 0</div>
+        </div>
+        <div class="box">
+          <div class="lab">Inertia ratios</div>
+          <div><i>k</i><sub>1</sub> = (<i>I</i><sub>p</sub> − <i>I</i><sub>y</sub>)/<i>I</i><sub>r</sub>, &nbsp;<i>k</i><sub>2</sub> = (<i>I</i><sub>r</sub> − <i>I</i><sub>y</sub>)/<i>I</i><sub>p</sub>, &nbsp;<i>k</i><sub>3</sub> = (<i>I</i><sub>p</sub> − <i>I</i><sub>r</sub>)/<i>I</i><sub>y</sub></div>
+          <div>stable with stiffness: <i>I</i><sub>p</sub> &gt; <i>I</i><sub>r</sub> &gt; <i>I</i><sub>y</sub> (<i>k</i><sub>1</sub> &gt; <i>k</i><sub>3</sub> &gt; 0)</div>
+        </div>
+        <div>
+          <div class="lab">Damper and energy</div>
+          <div><i>g</i><sub>d</sub> = −<i>c</i><sub>d</sub>ω<sub>B/O</sub>, &nbsp;<i>H</i> = ½ω<sub>B/O</sub><sup>T</sup><i>I</i>ω<sub>B/O</sub> + ½ω<sub>c</sub><sup>2</sup>(3<i>c</i><sup>T</sup><i>Ic</i> − <i>n</i><sup>T</sup><i>In</i>)</div>
+          <div><i>dH</i>/<i>dt</i> = −<i>c</i><sub>d</sub>|ω<sub>B/O</sub>|<sup>2</sup></div>
+        </div>
+        <p class="note">The simulation integrates the full nonlinear equations with fixed-step RK4: Euler's equations with the torque above and the damper, and the quaternion of the body relative to the orbit frame, in a circular orbit with μ = 398 600 km³/s² and <i>R</i><sub>E</sub> = 6378 km. <i>H</i>, the Jacobi integral, is the energy seen from the turning orbit frame; <i>n</i> is the orbit normal in body axes. Roll, pitch and yaw are the notes' 1-2-3 angles from the orbit frame, followed continuously through a tumble.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+const vec = (v, d, f) => `[${v.map((x) => (f || fs)(x, d)).join(', ')}]`;
+
+/* vectors and quaternions (scalar first; qrot(q, v_body) = v_orbit) */
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+/* quaternion of the rotation whose matrix has these columns */
+function qFromCols(a, b, c) {
+  const m00 = a[0], m11 = b[1], m22 = c[2], tr = m00 + m11 + m22;
+  let q;
+  if (tr > 0) { const s = 2 * Math.sqrt(tr + 1); q = [0.25 * s, (b[2] - c[1]) / s, (c[0] - a[2]) / s, (a[1] - b[0]) / s]; }
+  else if (m00 > m11 && m00 > m22) { const s = 2 * Math.sqrt(1 + m00 - m11 - m22); q = [(b[2] - c[1]) / s, 0.25 * s, (b[0] + a[1]) / s, (c[0] + a[2]) / s]; }
+  else if (m11 > m22) { const s = 2 * Math.sqrt(1 + m11 - m00 - m22); q = [(c[0] - a[2]) / s, (b[0] + a[1]) / s, 0.25 * s, (c[1] + b[2]) / s]; }
+  else { const s = 2 * Math.sqrt(1 + m22 - m00 - m11); q = [(a[1] - b[0]) / s, (c[0] + a[2]) / s, (c[1] + b[2]) / s, 0.25 * s]; }
+  return q;
+}
+/* complex numbers for the characteristic roots */
+const C = (re, im = 0) => ({ re, im });
+const cadd = (a, b) => C(a.re + b.re, a.im + b.im);
+const csub = (a, b) => C(a.re - b.re, a.im - b.im);
+const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+const cscl = (a, k) => C(a.re * k, a.im * k);
+const cabs = (a) => Math.hypot(a.re, a.im);
+function csqrt(a) {
+  const r = cabs(a), re = Math.sqrt(Math.max(0, (r + a.re) / 2));
+  let im = Math.sqrt(Math.max(0, (r - a.re) / 2));
+  if (a.im < 0) im = -im;
+  return C(re, im);
+}
+/* roots of a x^2 + b x + c, complex allowed */
+function quadRoots(a, b, c) {
+  const d = b * b - 4 * a * c;
+  if (d >= 0) { const s = Math.sqrt(d), q = -0.5 * (b + (b >= 0 ? s : -s)); return q === 0 ? [C(0), C(0)] : [C(q / a), C(c / q)]; }
+  const s = Math.sqrt(-d) / (2 * a);
+  return [C(-b / (2 * a), s), C(-b / (2 * a), -s)];
+}
+/* every root of a polynomial (highest power first), Durand-Kerner */
+function polyRoots(a) {
+  const n = a.length - 1, c = a.map((x) => x / a[0]);
+  const rad = 1 + Math.max(...c.slice(1).map(Math.abs));
+  let z = []; for (let i = 0; i < n; i++) z.push(cscl(C(Math.cos(TAU * i / n + 0.4), Math.sin(TAU * i / n + 0.4)), 0.5 * rad));
+  for (let it = 0; it < 800; it++) {
+    let mx = 0;
+    for (let i = 0; i < n; i++) {
+      let p = C(1); for (let k = 1; k <= n; k++) p = cadd(cmul(p, z[i]), C(c[k]));
+      let d = C(1); for (let j = 0; j < n; j++) if (j !== i) d = cmul(d, csub(z[i], z[j]));
+      const dz = cdiv(p, d); z[i] = csub(z[i], dz); mx = Math.max(mx, cabs(dz));
+    }
+    if (mx < 1e-15 * rad) break;
+  }
+  return z;
+}
+/* complete elliptic integral of the first kind, by the arithmetic-geometric mean */
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+function hexRGB(h) {
+  const s = h.replace('#', ''), f = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)];
+}
+
+/* =========================================================
+   Physics
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378e3, ALT_GEO = 35786;
+const orbitOf = (altKm) => { const R = RE + altKm * 1e3, wc = Math.sqrt(MU / (R * R * R)); return { R, wc, T: TAU / wc }; };
+
+/* where an inertia ratio pair lies on the stability map: k1 = (Ip - Iy)/Ir, k3 = (Ip - Ir)/Iy */
+function classify(k1, k3) {
+  const eps = 1e-9, pitchOK = k1 - k3 > eps;
+  if (Math.abs(k1) <= eps && Math.abs(k3) <= eps) return 'none';
+  const b = 1 + 3 * k1 + k1 * k3, c = 4 * k1 * k3, ryOK = c > eps && b > 0 && b * b - 4 * c > eps;
+  if (Math.abs(k3) <= eps && pitchOK && k1 > 0) return 'axi';
+  if (pitchOK && ryOK) return k1 > 0 ? 'lag' : 'dd';
+  return !pitchOK && !ryOK ? 'both' : !pitchOK ? 'pitch' : 'ry';
+}
+const REGION = {
+  lag: { s: 'ok', t: 'stable, K > 0', long: 'stable with stiffness (K > 0)' },
+  dd: { s: 'warn', t: 'gyroscopic only', long: 'held only by gyroscopic coupling' },
+  axi: { s: 'warn', t: 'yaw neutral', long: 'stable in pitch and roll, neutral in yaw' },
+  pitch: { s: 'bad', t: 'pitch unstable', long: 'unstable in pitch (Iy > Ir)' },
+  ry: { s: 'bad', t: 'roll/yaw unstable', long: 'unstable in roll and yaw' },
+  both: { s: 'bad', t: 'unstable', long: 'unstable in pitch and in roll/yaw' },
+  none: { s: 'na', t: 'no torque', long: 'equal inertias: no gravity-gradient torque at all' },
+};
+/* inertias from a point on the map, keeping Ip */
+function inertiaFromK(k1, k3, Ip) {
+  const d = 1 - k1 * k3;
+  return [Ip * (1 - k3) / d, Ip, Ip * (1 - k1) / d];
+}
+/* the linearized motion about the orbit frame: the pitch pair and the roll/yaw quartic, with the damper if fitted */
+function linAnalysis(I, cd, wc) {
+  const [Ir, Ip, Iy] = I;
+  const k1 = (Ip - Iy) / Ir, k3 = (Ip - Ir) / Iy, k2 = (Ir - Iy) / Ip;
+  const reg = classify(k1, k3);
+  const pitch = quadRoots(Ip, cd, 3 * wc * wc * (Ir - Iy));
+  let ry;
+  if (cd === 0) {
+    // biquadratic in s^2, exact: purely imaginary roots stay exactly imaginary
+    const xs = quadRoots(1, 1 + 3 * k1 + k1 * k3, 4 * k1 * k3);
+    ry = []; xs.forEach((x) => { const s = csqrt(x); ry.push(cscl(s, wc), cscl(s, -wc)); });
+  } else {
+    const d = cd / wc, K1 = 4 * (Ip - Iy), K3 = Ip - Ir, h = Iy + Ir - Ip;
+    ry = polyRoots([Ir * Iy, d * (Ir + Iy), Ir * K3 + Iy * K1 + d * d + h * h, d * (K1 + K3), K1 * K3]).map((z) => cscl(z, wc));
+  }
+  const all = pitch.concat(ry), tiny = 1e-7 * wc;
+  all.forEach((z) => { if (Math.abs(z.re) < tiny) z.re = 0; if (Math.abs(z.im) < tiny) z.im = 0; });
+  const maxRe = Math.max(...all.map((z) => z.re));
+  const hasZero = all.some((z) => cabs(z) < 1e-6 * wc);
+  const pitchW = Math.max(pitch[0].im, pitch[1].im);
+  const ryW = Array.from(new Set(ry.filter((z) => z.im > 0).map((z) => +z.im.toPrecision(10)))).sort((a, b) => a - b);
+  const wl = k2 > 0 ? Math.sqrt(3 * k2) * wc : NaN;
+  let status;
+  if (maxRe > 1e-9 * wc) status = 'grows';
+  else if (hasZero) status = 'neutral';
+  else if (maxRe < 0) status = 'settles';
+  else status = 'librates';
+  return { k1, k2, k3, reg, pitch, ry, all, maxRe, hasZero, pitchW, ryW, wl, status };
+}
+/* gravity-gradient torque in body axes, for the nadir direction c in body axes */
+function ggTorque(I, c, wc) {
+  const Ic = [I[0] * c[0], I[1] * c[1], I[2] * c[2]], x = cross(c, Ic), k = 3 * wc * wc;
+  return [k * x[0], k * x[1], k * x[2]];
+}
+/* the same torque summed over six point masses with exact inverse-square gravity (no binomial expansion) */
+function pointMassTorque(I, c, R) {
+  const d = 10, J = [(I[1] + I[2] - I[0]) / 4, (I[0] + I[2] - I[1]) / 4, (I[0] + I[1] - I[2]) / 4];
+  const Rv = [-R * c[0], -R * c[1], -R * c[2]];   // from the Earth's center to the satellite, body axes
+  let g = [0, 0, 0];
+  for (let i = 0; i < 3; i++) for (const sgn of [1, -1]) {
+    const m = Math.max(0, J[i]) / (d * d), rho = [0, 0, 0]; rho[i] = sgn * d;
+    const p = [Rv[0] + rho[0], Rv[1] + rho[1], Rv[2] + rho[2]], pn = norm(p), f = -MU * m / (pn * pn * pn);
+    const t = cross(rho, [f * p[0], f * p[1], f * p[2]]);
+    g = [g[0] + t[0], g[1] + t[1], g[2] + t[2]];
+  }
+  return g;
+}
+
+/* ---------- three runs, one integrator ----------
+   y = [qw, qx, qy, qz, w1, w2, w3, D]: the body attitude relative to the orbit frame, the inertial body rates
+   omega_B/A in body axes, and the energy the damper has removed */
+const NY = 8;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 1;
+let P = {};
+function deriv(r, y, out) {
+  const I = S.runs[r].I, wc = P.wc, cd = P.L[r].cd;
+  const q = [y[0], y[1], y[2], y[3]], qc = qconj(q);
+  const o2 = qrot(qc, [0, 1, 0]), c = qrot(qc, [0, 0, 1]);
+  const w1 = y[4], w2 = y[5], w3 = y[6];
+  // omega_B/O = omega_B/A - C_B/O omega_O/A, with omega_O/A = -wc o2
+  const u1 = w1 + wc * o2[0], u2 = w2 + wc * o2[1], u3 = w3 + wc * o2[2];
+  const qw = y[0], qx = y[1], qy = y[2], qz = y[3];
+  out[0] = -0.5 * (qx * u1 + qy * u2 + qz * u3);
+  out[1] = 0.5 * (qw * u1 + qy * u3 - qz * u2);
+  out[2] = 0.5 * (qw * u2 + qz * u1 - qx * u3);
+  out[3] = 0.5 * (qw * u3 + qx * u2 - qy * u1);
+  const H1 = I[0] * w1, H2 = I[1] * w2, H3 = I[2] * w3;
+  const k = 3 * wc * wc, Ic1 = I[0] * c[0], Ic2 = I[1] * c[1], Ic3 = I[2] * c[2];
+  out[4] = (-(w2 * H3 - w3 * H2) + k * (c[1] * Ic3 - c[2] * Ic2) - cd * u1) / I[0];
+  out[5] = (-(w3 * H1 - w1 * H3) + k * (c[2] * Ic1 - c[0] * Ic3) - cd * u2) / I[1];
+  out[6] = (-(w1 * H2 - w2 * H1) + k * (c[0] * Ic2 - c[1] * Ic1) - cd * u3) / I[2];
+  out[7] = cd * (u1 * u1 + u2 * u2 + u3 * u3);
+}
+function rk4(r, h) {
+  const Y = Ys[r];
+  deriv(r, Y, K1);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, K2);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, K3);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, K4);
+  for (let i = 0; i < NY; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[0], Y[1], Y[2], Y[3]);
+  Y[0] /= n; Y[1] /= n; Y[2] /= n; Y[3] /= n;
+}
+/* measurements of one run */
+const qOf = (r) => { const Y = Ys[r]; return [Y[0], Y[1], Y[2], Y[3]]; };
+const nadirB = (q) => qrot(qconj(q), [0, 0, 1]);
+function ratesOf(r) {
+  const Y = Ys[r], q = qOf(r), o2 = qrot(qconj(q), [0, 1, 0]), wc = P.wc;
+  const wBA = [Y[4], Y[5], Y[6]], wOA = [-wc * o2[0], -wc * o2[1], -wc * o2[2]];
+  return { wBA, wOA, wBO: [wBA[0] - wOA[0], wBA[1] - wOA[1], wBA[2] - wOA[2]] };
+}
+/* the Jacobi integral: energy seen from the turning orbit frame */
+function Hof(r) {
+  const I = S.runs[r].I, q = qOf(r), qc = qconj(q), c = qrot(qc, [0, 0, 1]), n = qrot(qc, [0, 1, 0]), u = ratesOf(r).wBO;
+  let h = 0;
+  for (let i = 0; i < 3; i++) h += 0.5 * I[i] * u[i] * u[i] + 0.5 * P.wc * P.wc * (3 * I[i] * c[i] * c[i] - I[i] * n[i] * n[i]);
+  return h;
+}
+const Heq = (r) => 0.5 * P.wc * P.wc * (3 * S.runs[r].I[2] - S.runs[r].I[1]);
+/* roll, pitch, yaw: C_B/O = R3(yaw) R2(pitch) R1(roll) */
+function eulerOf(q) {
+  const qc = qconj(q), a = qrot(qc, [1, 0, 0]), b = qrot(qc, [0, 1, 0]), c = qrot(qc, [0, 0, 1]);
+  return [Math.atan2(-b[2], c[2]), Math.asin(clamp(a[2], -1, 1)), Math.atan2(-a[1], a[0])];
+}
+const qFromEuler = (e) => qmul(qmul(qaa(1, 0, 0, e[0]), qaa(0, 1, 0, e[1])), qaa(0, 0, 1, e[2]));
+/* follow the angles continuously: of the two equivalent sets, take the one nearest the last */
+const prevE = [null, null, null];
+const wrapNear = (a, ref) => a + TAU * Math.round((ref - a) / TAU);
+function eulerCont(r, q) {
+  const e = eulerOf(q), p = prevE[r];
+  if (!p) { prevE[r] = e; return e; }
+  const c1 = e.map((v, i) => wrapNear(v, p[i])), c2 = [e[0] + Math.PI, Math.PI - e[1], e[2] + Math.PI].map((v, i) => wrapNear(v, p[i]));
+  const dist = (c) => Math.abs(c[0] - p[0]) + Math.abs(c[1] - p[1]) + Math.abs(c[2] - p[2]);
+  const out = dist(c1) <= dist(c2) ? c1 : c2;
+  prevE[r] = out; return out;
+}
+const rotAngle = (q) => 2 * Math.acos(clamp(Math.abs(q[0]), 0, 1));
+const offVertical = (q) => Math.acos(clamp(nadirB(q)[2], -1, 1));
+
+/* the notes' linear pitch response, as a dashed reference */
+function pitchLin(r, t) {
+  const R = S.runs[r], L = P.L[r], th0 = R.e0[1] * D2R, w0 = R.w0[1] * D2R, [a, b] = L.pitch;
+  if (Math.abs(a.im) > 0) {
+    const sg = a.re, wd = Math.abs(a.im);
+    return Math.exp(sg * t) * (th0 * Math.cos(wd * t) + (w0 - sg * th0) / wd * Math.sin(wd * t));
+  }
+  const s1 = a.re, s2 = b.re;
+  if (Math.abs(s1 - s2) < 1e-12) return Math.exp(s1 * t) * (th0 + (w0 - s1 * th0) * t);
+  const B = (w0 - s1 * th0) / (s2 - s1), A = th0 - B;
+  return A * Math.exp(s1 * t) + B * Math.exp(s2 * t);
+}
+/* exact period of a pure pitch swing: a pendulum in 2 theta, 4 K(sin theta_max)/omega_l */
+function pitchExactPeriod(r) {
+  const R = S.runs[r], L = P.L[r];
+  if (!(L.k2 > 0)) return NaN;
+  const wl = L.wl, th0 = R.e0[1] * D2R, w0 = R.w0[1] * D2R;
+  const s2 = Math.sin(th0) ** 2 + (w0 * w0) / (wl * wl);
+  if (s2 >= 1) return NaN;
+  return 4 * ellipK(Math.sqrt(s2)) / wl;
+}
+const pitchOnly = (r) => { const R = S.runs[r]; return R.e0[0] === 0 && R.e0[2] === 0 && R.w0[0] === 0 && R.w0[2] === 0; };
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (I, e0, w0, damp, name) => ({ I: I.slice(), e0: (e0 || [0, 0, 0]).slice(), w0: (w0 || [0, 0, 0]).slice(), damp: !!damp, name: name || '' });
+const S = {
+  alt: 500, cd: 0.042, orbits: 3,
+  runs: [mkRun([115, 120, 15]), mkRun([115, 120, 15]), mkRun([115, 120, 15])],
+  edit: 0, shown: [true, true, true],
+  calc: { I: [120, 115, 15], tilt: 10, ax: 0 },
+  speed: 470, playing: !reduceMotion,
+  scene: 'lanes', pane: 'map', logY: false, exag: 'auto',
+  show: { torque: true, tidal: false, frame: true, trace: true, labels: true },
+};
+let currentPreset = 'ab';
+
+/* ---------- per-run records ---------- */
+const REC = [0, 1, 2].map(() => ({}));
+function resetRecords() {
+  for (let r = 0; r < 3; r++) {
+    const q = qOf(r);
+    REC[r] = { H0: Hof(r), Hscale: 1, errH: 0, A0: rotAngle(q), t1: null, t2: null, a1: 0, a2: 0, grow: NaN, zc: [], lastP: null, offMax: offVertical(q), pAmp: 0 };
+    REC[r].Hscale = Math.max(Math.abs(REC[r].H0 - Heq(r)), 1e-9 * P.wc * P.wc * (S.runs[r].I[0] + S.runs[r].I[1] + S.runs[r].I[2]));
+  }
+}
+/* the energy balance, the libration period and the growth rate, sample by sample */
+function trackRun(r, e) {
+  const R = REC[r], q = qOf(r), Y = Ys[r];
+  R.errH = Math.max(R.errH, Math.abs(Hof(r) + Y[7] - R.H0) / R.Hscale);
+  const off = offVertical(q); if (off > R.offMax) R.offMax = off;
+  // upward zero crossings of pitch, for the libration period
+  const p = e[1];
+  if (R.lastP && R.lastP[1] < 0 && p >= 0) R.zc.push(R.lastP[0] + (simT - R.lastP[0]) * (-R.lastP[1]) / (p - R.lastP[1]));
+  R.lastP = [simT, p];
+  R.pAmp = Math.max(R.pAmp, Math.abs(p));
+  // growth: the time from three times to thirty times the starting disturbance
+  const ang = rotAngle(q), T10 = 0.1 * P.T;
+  if (simT <= T10) { R.A0 = Math.max(R.A0, ang); return; }
+  if (!R.a1) { R.a1 = 3 * R.A0; R.a2 = Math.min(30 * R.A0, 45 * D2R); }
+  if (R.A0 > 0 && R.a2 / R.a1 >= 3) {
+    if (R.t1 === null && ang >= R.a1) R.t1 = simT;
+    if (R.t1 !== null && R.t2 === null && ang >= R.a2) { R.t2 = simT; R.grow = Math.log(R.a2 / R.a1) / (R.t2 - R.t1); }
+  }
+}
+
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HQ = { roll: [], pitch: [], yaw: [], ang: [], off: [], tq: [], H: [], HD: [], plin: [] };
+Object.keys(HQ).forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) {
+    Ht[j] = Ht[i];
+    Object.values(HQ).forEach((arr) => { for (let r = 0; r < 3; r++) arr[r][j] = arr[r][i]; });
+  }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const q = qOf(r), e = eulerCont(r, q), g = ggTorque(S.runs[r].I, nadirB(q), P.wc), H = Hof(r);
+    HQ.roll[r][i] = e[0] * R2D; HQ.pitch[r][i] = e[1] * R2D; HQ.yaw[r][i] = e[2] * R2D;
+    HQ.ang[r][i] = rotAngle(q) * R2D; HQ.off[r][i] = offVertical(q) * R2D;
+    HQ.tq[r][i] = norm(g);
+    HQ.H[r][i] = (H - Heq(r)) * 1e6; HQ.HD[r][i] = (H + Ys[r][7] - Heq(r)) * 1e6;
+    HQ.plin[r][i] = pitchLin(r, simT) * R2D;
+    trackRun(r, e);
+  }
+}
+/* 3D trace rings: the attitude, sampled */
+const TRAIL_MAX = 3000;
+const rings = [0, 1, 2].map(() => ({ buf: new Float32Array(TRAIL_MAX * 4), n: 0, head: 0 }));
+let ringDt = 1, ringLast = -Infinity;
+function ringPush() {
+  if (simT - ringLast < ringDt - 1e-9) return;
+  ringLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const rg = rings[r], j = rg.head * 4, Y = Ys[r];
+    rg.buf[j] = Y[0]; rg.buf[j + 1] = Y[1]; rg.buf[j + 2] = Y[2]; rg.buf[j + 3] = Y[3];
+    rg.head = (rg.head + 1) % TRAIL_MAX; if (rg.n < TRAIL_MAX) rg.n++;
+  }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(200000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    for (let r = 0; r < 3; r++) rk4(r, h);
+    simT += h;
+    histPush(false); ringPush();
+  }
+}
+
+/* =========================================================
+   3D scene: three satellites in the orbit frame, or around the whole orbit
+   ========================================================= */
+/* display frame for the orbit-frame view: x along the flight direction, z up (zenith), so the Earth is below */
+const DQ = qaa(1, 0, 0, Math.PI);
+const disp = (v) => [v[0], -v[1], -v[2]];
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.7, RO = 1.9, OSC = 0.2, OFFS = [0, -26, -52].map((d) => d * D2R);
+const exK = [1, 1, 1];
+/* the box with the same principal moments, scaled to fit a lane */
+function boxDims(I) {
+  const a = [Math.sqrt(Math.max(1e-9, I[1] + I[2] - I[0])), Math.sqrt(Math.max(1e-9, I[0] + I[2] - I[1])), Math.sqrt(Math.max(1e-9, I[0] + I[1] - I[2]))];
+  const m = Math.max(...a);
+  return a.map((v) => Math.max(0.07, 0.85 * v / m));
+}
+
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 14, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 22, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  function lineObj(mat, parent, n) {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const l = new THREE.Line(geo, mat); l.frustumCulled = false; parent.add(l); return l;
+  }
+  const M = {
+    side: new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    top: new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    face: new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    edge: new THREE.LineBasicMaterial(),
+    pax: new THREE.MeshBasicMaterial(), frame: new THREE.MeshBasicMaterial(),
+    torque: new THREE.MeshPhongMaterial({ shininess: 40 }), tidal: new THREE.MeshPhongMaterial({ shininess: 40 }),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+    orbit: new THREE.LineBasicMaterial(), nadir: new THREE.LineDashedMaterial({ dashSize: 0.05, gapSize: 0.04 }),
+    trace: [0, 1, 2].map(() => new THREE.LineBasicMaterial()),
+  };
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+  // box faces: +x, -x, +y, -y, +z, -z; +z (body p3, Earth-facing at equilibrium) in amber
+  const boxMats = [M.side, M.side, M.side, M.side, M.face, M.top];
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  function earthGrid(parent) {
+    const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) {
+      const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R;
+      pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a));
+    }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) {
+      const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R;
+      pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c));
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    const ls = new THREE.LineSegments(geo, M.grid); parent.add(ls); return ls;
+  }
+  function makeSat(parent) {
+    const veh = new THREE.Group(); parent.add(veh);
+    const box = new THREE.Mesh(boxGeo, boxMats), edges = new THREE.LineSegments(edgeGeo, M.edge);
+    veh.add(box, edges);
+    const pAxes = [0, 1, 2].map(() => makeArrow(M.pax, veh));
+    return { veh, box, edges, pAxes };
+  }
+  /* -- orbit-frame view: three lanes along the flight direction, the Earth far below -- */
+  const lanesRoot = new THREE.Group(); scene.add(lanesRoot);
+  const ground = new THREE.Group(); lanesRoot.add(ground);
+  const gEarth = new THREE.Mesh(sphereGeo, M.earth); ground.add(gEarth); earthGrid(ground);
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); lanesRoot.add(lane);
+    const sat = makeSat(lane);
+    const frame = [0, 1, 2].map(() => makeArrow(M.frame, lane));
+    const tq = makeArrow(M.torque, lane);
+    const tidal = [0, 1, 2, 3, 4, 5].map(() => makeArrow(M.tidal, lane));
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((TRAIL_MAX + 1) * 3), 3));
+    const trace = new THREE.Line(geo, M.trace[r]); trace.frustumCulled = false; lane.add(trace);
+    return Object.assign({ lane, frame, tq, tidal, trace }, sat);
+  });
+  /* -- whole-orbit view: the Earth, the orbit, the satellites spaced along it -- */
+  const orbitRoot = new THREE.Group(); scene.add(orbitRoot);
+  orbitRoot.add(new THREE.Mesh(sphereGeo, M.earth)); earthGrid(orbitRoot);
+  const orbitLine = lineObj(M.orbit, orbitRoot, 181);
+  { const a = orbitLine.geometry.attributes.position.array; for (let i = 0; i <= 180; i++) { const u = TAU * i / 180; a[3 * i] = RO * Math.cos(u); a[3 * i + 1] = RO * Math.sin(u); a[3 * i + 2] = 0; } }
+  const osats = [0, 1, 2].map(() => {
+    const g = new THREE.Group(); orbitRoot.add(g);
+    const inner = new THREE.Group(); inner.scale.setScalar(OSC); g.add(inner);
+    const sat = makeSat(inner);
+    const frame = [0, 1, 2].map(() => makeArrow(M.frame, inner));
+    const nad = lineObj(M.nadir, orbitRoot, 2);
+    return Object.assign({ g, inner, frame, nad }, sat);
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanesRoot, lanes, orbitRoot, osats, makeArrow };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec3, shaftR, headR, headL) {
+  const len = vec3.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec3).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec3); Ar.head.scale.set(headR, hl, headR);
+}
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+const DIMS = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
+function setStatic3D() {
+  if (!G) return;
+  for (let r = 0; r < 3; r++) {
+    const a = boxDims(S.runs[r].I); DIMS[r] = a;
+    [G.lanes[r], G.osats[r]].forEach((s) => {
+      s.box.scale.set(2 * a[0], 2 * a[1], 2 * a[2]); s.edges.scale.set(2 * a[0], 2 * a[1], 2 * a[2]);
+      for (let i = 0; i < 3; i++) { const o = [0, 0, 0], v = [0, 0, 0]; o[i] = a[i]; v[i] = 0.28; setArrow(s.pAxes[i], V3(o), V3(v), 0.008, 0.024, 0.07); }
+    });
+    // the orbit-frame triad: flight direction, o2, nadir (display x, -y, -z)
+    const L = G.lanes[r], fr = [[1, 0, 0], [0, -1, 0], [0, 0, -1]], len = [1.25, 1.0, 1.55];
+    L.frame.forEach((A, i) => setArrow(A, V3([0, 0, 0]), V3(fr[i]).multiplyScalar(len[i]), 0.006, 0.022, 0.07));
+    G.osats[r].frame.forEach((A, i) => setArrow(A, V3([0, 0, 0]), V3(fr[i]).multiplyScalar(len[i]), 0.012, 0.045, 0.14));
+  }
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+/* magnify a tilt: k times up to 30 degrees, then straight on to 180 so a tumble still reads */
+function magnify(phi, k) {
+  if (k === 1) return phi;
+  const p1 = 30 * D2R / k;
+  if (phi <= p1) return k * phi;
+  return 30 * D2R + (phi - p1) * (Math.PI - 30 * D2R) / (Math.PI - p1);
+}
+function renderQuat(q, k) {
+  if (k === 1) return q;
+  const s = q[0] < 0 ? -1 : 1, w = s * q[0], v = [s * q[1], s * q[2], s * q[3]], sn = norm(v);
+  if (sn < 1e-15) return q;
+  const phi = 2 * Math.atan2(sn, w), pd = magnify(phi, k);
+  return [Math.cos(pd / 2), v[0] / sn * Math.sin(pd / 2), v[1] / sn * Math.sin(pd / 2), v[2] / sn * Math.sin(pd / 2)];
+}
+/* one magnification for every run whose disturbance is under 20 degrees, so their tilts compare directly */
+function niceK(a) {
+  if (S.exag === '1' || !(a > 0)) return 1;
+  const cands = [1, 2, 5, 10, 20, 50, 100, 200];
+  let k = 1; for (const c of cands) if (c * a <= 20 * D2R) k = c;
+  return k;
+}
+/* how big each run's disturbance is: its starting tilt, or the swing its starting rate would give */
+function startSize(r) {
+  const R = S.runs[r], L = P.L[r], q0 = qFromEuler(R.e0.map((v) => v * D2R));
+  const wmin = Math.min(...L.all.map((z) => Math.abs(z.im)).filter((w) => w > 0), P.wc);
+  return Math.max(rotAngle(q0), norm(R.w0) * D2R / wmin);
+}
+function setExag() {
+  const a = [0, 1, 2].map(startSize), small = a.filter((v, r) => S.shown[r] && v <= 20 * D2R && v > 0);
+  const k = niceK(small.length ? Math.max(...small) : 0);
+  for (let r = 0; r < 3; r++) exK[r] = a[r] <= 20 * D2R ? k : 1;
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic() {
+  const lanesOn = S.scene === 'lanes';
+  G.lanesRoot.visible = lanesOn; G.orbitRoot.visible = !lanesOn;
+  const { off } = laneOffsets();
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r], q = qOf(r), qd = renderQuat(q, exK[r]), a = DIMS[r];
+    laneGeo[r].on = on;
+    if (lanesOn) {
+      const L = G.lanes[r];
+      L.lane.visible = on; if (!on) continue;
+      L.lane.position.set(off[r], 0, 0);
+      const qv = qmul(DQ, qd);
+      L.veh.quaternion.set(qv[1], qv[2], qv[3], qv[0]);
+      L.frame.forEach((A) => { A.g.visible = S.show.frame; });
+      // torque, drawn in the orbit frame at the magnified attitude
+      const I = S.runs[r].I, g = ggTorque(I, nadirB(q), P.wc), gmax = 1.5 * P.wc * P.wc * Math.max(Math.abs(I[0] - I[1]), Math.abs(I[1] - I[2]), Math.abs(I[0] - I[2]), 1e-12), gn = norm(g);
+      if (S.show.torque && gn > 1e-3 * gmax) {
+        const d = disp(qrot(qd, [g[0] / gn, g[1] / gn, g[2] / gn])), len = 0.3 + 0.75 * Math.min(1, gn / gmax);
+        setArrow(L.tq, V3([0, 0, 0]), V3(d).multiplyScalar(len), 0.02, 0.06, 0.15);
+        laneGeo[r].tq = [off[r] + d[0] * len * 1.12, d[1] * len * 1.12, d[2] * len * 1.12];
+      } else { L.tq.g.visible = false; laneGeo[r].tq = null; }
+      // tidal forces at the six face centers: wc^2 (3 rho3 e3 - rho) in the orbit frame
+      for (let i = 0; i < 6; i++) {
+        const A = L.tidal[i], ax = i >> 1, sg = i & 1 ? -1 : 1;
+        if (!S.show.tidal || a[ax] < 0.15) { A.g.visible = false; continue; }
+        const rb = [0, 0, 0]; rb[ax] = sg * a[ax];
+        const ro = qrot(qd, rb), f = [-ro[0], -ro[1], 2 * ro[2]];
+        setArrow(A, V3(disp(ro)), V3(disp(f)).multiplyScalar(0.32), 0.012, 0.035, 0.08);
+      }
+      // trace of the Earth-facing end
+      const rg = rings[r], pos = L.trace.geometry.attributes.position.array;
+      let o = 0;
+      if (S.show.trace) for (let kk = rg.n; kk >= 1; kk--) {
+        const j = ((rg.head - kk + TRAIL_MAX) % TRAIL_MAX) * 4, qq = renderQuat([rg.buf[j], rg.buf[j + 1], rg.buf[j + 2], rg.buf[j + 3]], exK[r]);
+        const p = disp(qrot(qq, [0, 0, a[2] * 1.02]));
+        pos[o++] = p[0]; pos[o++] = p[1]; pos[o++] = p[2];
+      }
+      L.trace.geometry.attributes.position.needsUpdate = true;
+      L.trace.geometry.setDrawRange(0, o / 3);
+      L.trace.visible = S.show.trace && o > 3;
+      laneGeo[r].off = off[r];
+    } else {
+      const O = G.osats[r];
+      O.g.visible = on; O.nad.visible = on; if (!on) continue;
+      const u = P.wc * simT + OFFS[r], o1 = [-Math.sin(u), Math.cos(u), 0], o2 = [0, 0, -1], o3 = [-Math.cos(u), -Math.sin(u), 0];
+      O.g.position.set(RO * Math.cos(u), RO * Math.sin(u), 0);
+      const qOA = qFromCols(o1, o2, o3), qv = qmul(qOA, qd);
+      O.veh.quaternion.set(qv[1], qv[2], qv[3], qv[0]);
+      O.inner.quaternion.set(0, 0, 0, 1);
+      // the orbit-frame triad of this satellite, in inertial axes
+      const L3 = [o1, o2, o3], len = [1.25, 1.0, 1.55];
+      O.frame.forEach((A, i) => { A.g.visible = S.show.frame; setArrow(A, V3([0, 0, 0]), V3(L3[i]).multiplyScalar(len[i]), 0.012, 0.045, 0.14); });
+      const pa = O.nad.geometry.attributes.position.array;
+      pa[0] = RO * Math.cos(u); pa[1] = RO * Math.sin(u); pa[2] = 0; pa[3] = 0; pa[4] = 0; pa[5] = 0;
+      O.nad.geometry.attributes.position.needsUpdate = true; O.nad.computeLineDistances();
+      laneGeo[r].opos = [RO * 1.16 * Math.cos(u), RO * 1.16 * Math.sin(u), 0.22];
+    }
+  }
+}
+
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')),
+  orb: [0, 1, 2].map((r) => mkLabel(String(r + 1), `var(--run${r})`, 'small')),
+  o: [mkLabel(SYM('ô') + '<sub class="n">1</sub> flight', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">2</sub>', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">3</sub> to Earth', 'var(--frame)', 'small')],
+  tq: mkLabel(SYM('g̅') + ' torque', 'var(--torque)', 'small'),
+  earth: mkLabel('Earth', 'var(--muted)', 'small'),
+};
+const laneLabelKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  const lanesOn = S.scene === 'lanes', showL = S.show.labels;
+  let first = -1, tqDone = false;
+  for (let r = 0; r < 3; r++) {
+    const g = laneGeo[r], on = S.shown[r] && showL;
+    const html = `${runHTML(r)}<span class="ex">${exK[r] === 1 ? 'true scale' : 'tilt ×' + exK[r]}</span>`;
+    if (html !== laneLabelKey[r]) { LB.lane[r].innerHTML = html; laneLabelKey[r] = html; }
+    if (on && lanesOn) { placeLabel(LB.lane[r], [g.off, 0, 1.3]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+    if (on && !lanesOn && g.opos) placeLabel(LB.orb[r], g.opos); else LB.orb[r].hidden = true;
+    if (on && lanesOn && S.show.torque && g.tq && !tqDone) { placeLabel(LB.tq, g.tq, 0, -10); tqDone = true; }
+  }
+  if (!tqDone) LB.tq.hidden = true;
+  const fOn = showL && lanesOn && S.show.frame && first >= 0;
+  const tips = [[1.38, 0, 0], [0, -1.12, 0], [0, 0, -1.7]];
+  LB.o.forEach((lab, i) => { if (fOn) { const t = tips[i]; placeLabel(lab, [laneGeo[first].off + t[0], t[1], t[2]], i === 2 ? 34 : 0, 0); } else lab.hidden = true; });
+  if (showL && !lanesOn) placeLabel(LB.earth, [0, 0, -1.15]); else LB.earth.hidden = true;
+}
+
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'paxis', 'frame', 'torque', 'tidal', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  mapCache.key = '';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.side.color = Cc('hull'); M.top.color = Cc('hull-top'); M.face.color = Cc('face'); M.edge.color = Cc('edge');
+    M.pax.color = Cc('paxis'); M.frame.color = Cc('frame');
+    M.torque.color = Cc('torque'); M.torque.emissive = Cc('torque').multiplyScalar(0.25);
+    M.tidal.color = Cc('tidal'); M.tidal.emissive = Cc('tidal').multiplyScalar(0.25);
+    M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line');
+    M.orbit.color = Cc('muted'); M.nadir.color = Cc('muted');
+    M.trace.forEach((m, r) => { m.color = Cc('run' + r); });
+  }
+  drawPlot(); drawPane();
+}
+
+/* camera */
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_L = HAS3D ? new THREE.Vector3(0.42, -1, 0.38).normalize() : null;
+const ISO_O = HAS3D ? new THREE.Vector3(0.7, -0.9, 0.75).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  const lanesOn = S.scene === 'lanes';
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = (lanesOn ? ISO_L : ISO_O).clone();
+  const n = laneOffsets().n, rho = lanesOn ? 1.45 + 0.5 * LANE * (n - 1) : RO + 0.45;
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2);
+  const c = new THREE.Vector3(0, 0, lanesOn ? -0.15 : 0);
+  G.controls.target.copy(c);
+  G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  // lanes: side looks along the orbit normal (pitch in the picture plane), top looks down from zenith
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return S.scene === 'lanes' ? new THREE.Vector3(0.0001, -1, 0.0001).normalize() : new THREE.Vector3(0.0001, -1, 0.02).normalize();
+  return (S.scene === 'lanes' ? ISO_L : ISO_O).clone();
+}
+
+/* =========================================================
+   Second pane: the stability map, or the torque charts
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H, dpr };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function drawPane() { if (S.pane === 'map') drawMap(); else drawTorque(); }
+
+/* the region picture, cached by size and theme */
+const mapCache = { key: '', cv: null };
+const MAPA = { lag: 0.30, dd: 0.55, axi: 0.3, pitch: 0.07, ry: 0.13, both: 0.2, none: 0 };
+function regionImage(n) {
+  const key = n + '|' + COL.view + COL.good;
+  if (mapCache.key === key) return mapCache.cv;
+  const cv = mapCache.cv || document.createElement('canvas'); cv.width = n; cv.height = n;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n), bg = hexRGB(COL.view);
+  const colOf = { lag: hexRGB(COL.good), dd: hexRGB(COL.warn), axi: hexRGB(COL.warn), pitch: hexRGB(COL.bad), ry: hexRGB(COL.bad), both: hexRGB(COL.bad), none: hexRGB(COL.view) };
+  for (let j = 0; j < n; j++) {
+    const k3 = 1 - 2 * (j + 0.5) / n;
+    for (let i = 0; i < n; i++) {
+      const k1 = -1 + 2 * (i + 0.5) / n, reg = classify(k1, k3), c = colOf[reg], a = MAPA[reg], o = 4 * (j * n + i);
+      img.data[o] = bg[0] + (c[0] - bg[0]) * a; img.data[o + 1] = bg[1] + (c[1] - bg[1]) * a; img.data[o + 2] = bg[2] + (c[2] - bg[2]) * a; img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  mapCache.key = key; mapCache.cv = cv;
+  return cv;
+}
+const MAP = { geom: null, hover: null, drag: -1, moved: false };
+function drawMap() {
+  const ctx = pctx2, { W, H, dpr } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const m = { l: 56, r: 18, t: 62, b: capH + 40 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, s = Math.floor(Math.min(pw, ph));
+  if (s < 90) { MAP.geom = null; return; }
+  const ox = Math.round(m.l + (pw - s) / 2), oy = Math.round(m.t + (ph - s) / 2);
+  const X = (k) => ox + (k + 1) / 2 * s, Y = (k) => oy + (1 - k) / 2 * s;
+  MAP.geom = { ox, oy, s };
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(regionImage(Math.round(s * dpr)), ox, oy, s, s);
+  ctx.imageSmoothingEnabled = true;
+  // grid and the boundary lines
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.beginPath();
+  [-0.5, 0.5].forEach((v) => { ctx.moveTo(Math.round(X(v)) + 0.5, oy); ctx.lineTo(Math.round(X(v)) + 0.5, oy + s); ctx.moveTo(ox, Math.round(Y(v)) + 0.5); ctx.lineTo(ox + s, Math.round(Y(v)) + 0.5); });
+  ctx.stroke(); ctx.strokeRect(ox + 0.5, oy + 0.5, s - 1, s - 1);
+  ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(Math.round(X(0)) + 0.5, oy); ctx.lineTo(Math.round(X(0)) + 0.5, oy + s);
+  ctx.moveTo(ox, Math.round(Y(0)) + 0.5); ctx.lineTo(ox + s, Math.round(Y(0)) + 0.5);
+  ctx.stroke();
+  ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(X(-1), Y(-1)); ctx.lineTo(X(1), Y(1)); ctx.stroke(); ctx.setLineDash([]);
+  // ticks
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center'; [-1, -0.5, 0, 0.5, 1].forEach((v) => ctx.fillText(fx(v, 1), X(v), oy + s + 12));
+  ctx.textAlign = 'right'; [-1, -0.5, 0, 0.5, 1].forEach((v) => ctx.fillText(fx(v, 1), ox - 6, Y(v)));
+  ctx.textAlign = 'center'; ctx.fillText('k₁ = (Ip − Iy)/Ir', ox + s / 2, oy + s + 28);
+  ctx.textAlign = 'left'; ctx.fillText('k₃ = (Ip − Ir)/Iy', ox - 40, oy - 12);
+  // region names
+  const big = s > 300;
+  ctx.font = UIF(700, big ? 13 : 11.5);
+  const tag = (txt, x, y, col, al) => { ctx.fillStyle = col; ctx.textAlign = al || 'center'; ctx.fillText(txt, x, y); };
+  tag('Ip > Ir > Iy: stable', X(0.56), Y(0.2), COL.good);
+  if (big) { ctx.font = UIF(500, 12); tag('K > 0, survives damping', X(0.56), Y(0.2) + 15, COL.good); ctx.font = UIF(700, 13); }
+  tag('pitch unstable (Iy > Ir)', X(-0.45), Y(0.55), COL.bad);
+  tag('yaw unstable (Ir > Ip)', X(0.5), Y(-0.55), COL.bad);
+  tag('roll/yaw unstable', X(-0.62), Y(-0.9), COL.bad);
+  // the gyroscopic-only sliver, with a leader
+  ctx.strokeStyle = COL.warn; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(-0.05), Y(-0.45)); ctx.lineTo(X(-0.3), Y(-0.3)); ctx.stroke();
+  tag('gyroscopic only', X(-0.31), Y(-0.27), COL.warn, 'right');
+  if (big) { ctx.font = UIF(500, 12); tag('lost with damping', X(-0.31), Y(-0.27) + 14, COL.warn, 'right'); }
+  ctx.font = MONO; ctx.fillStyle = COL.muted;
+  ctx.save(); ctx.translate(X(0.62), Y(0.62)); ctx.rotate(-Math.PI / 4); ctx.textAlign = 'center'; ctx.fillText('Ir = Iy', 0, -8); ctx.restore();
+  ctx.textAlign = 'left'; ctx.fillText('Ip = Ir', X(0.72), Y(0) + 10);
+  ctx.save(); ctx.translate(X(0) - 9, Y(0.8)); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('Ip = Iy', 0, 0); ctx.restore();
+  // the runs; runs on the same point share one label
+  const labs = {};
+  for (let r = 0; r < 3; r++) {
+    if (!S.shown[r]) continue;
+    const L = P.L[r], x = X(clamp(L.k1, -1, 1)), y = Y(clamp(L.k3, -1, 1)), key = Math.round(x) + ',' + Math.round(y);
+    ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r === S.edit ? 7.5 : 6, 0, TAU); ctx.fill(); ctx.stroke();
+    if (S.runs[r].damp) { ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.stroke(); }
+    ctx.lineWidth = 1;
+    (labs[key] = labs[key] || { x, y, rs: [] }).rs.push(r);
+  }
+  ctx.font = UIF(700, 13); ctx.textAlign = 'left';
+  Object.values(labs).forEach(({ x, y, rs }) => { let dx = 13; rs.forEach((r, i) => { const t = String(r + 1) + (i < rs.length - 1 ? ',' : ''); ctx.fillStyle = COL['run' + r]; ctx.fillText(t, x + dx, y - 10); dx += ctx.measureText(t).width + 2; }); });
+  // hover readout
+  if (MAP.hover && MAP.drag < 0) {
+    const { k1, k3 } = MAP.hover, Ip = S.runs[S.edit].I[1], I = inertiaFromK(k1, k3, Ip), A = linAnalysis(I, 0, P.wc);
+    const lines = [`k₁ ${fs(k1, 3)}  k₃ ${fs(k3, 3)}`, REGION[A.reg].long, `Ir ${fn(I[0])}  Ip ${fn(I[1])}  Iy ${fn(I[2])}`, periodsText(A)];
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((t) => ctx.measureText(t).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = X(k1) + 14, by = Y(k3) + 10; if (bx + bw > W - 4) bx = X(k1) - 14 - bw; if (by + bh > oy + s) by = Y(k3) - 10 - bh;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.95; ctx.fillRect(bx, by, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((t, j) => { ctx.fillStyle = j === 1 ? COL[REGION[A.reg].s === 'ok' ? 'good' : REGION[A.reg].s === 'warn' ? 'warn' : 'bad'] : COL.ink; ctx.fillText(t, bx + 8, by + 12 + j * 15); });
+  }
+}
+const minOf = (w) => TAU / w / 60;
+function periodsText(A) {
+  if (A.status === 'grows') return `grows ×e every ${fg(1 / A.maxRe / 60, 3)} min`;
+  const ps = [A.pitchW, ...A.ryW].filter((w) => w > 0).map(minOf).sort((a, b) => a - b);
+  return `periods ${ps.map((p) => fg(p, 3)).join(', ')} min${A.hasZero ? ', + a neutral one' : ''}`;
+}
+function mapPick(e) {
+  if (!MAP.geom) return null;
+  const { ox, oy, s } = MAP.geom, k1 = -1 + 2 * (e.offsetX - ox) / s, k3 = 1 - 2 * (e.offsetY - oy) / s;
+  if (k1 < -1 || k1 > 1 || k3 < -1 || k3 > 1) return null;
+  return { k1, k3 };
+}
+function nearestDot(e) {
+  if (!MAP.geom) return -1;
+  const { ox, oy, s } = MAP.geom; let best = -1, bd = 14;
+  for (let r = 0; r < 3; r++) {
+    if (!S.shown[r]) continue;
+    const L = P.L[r], x = ox + (clamp(L.k1, -1, 1) + 1) / 2 * s, y = oy + (1 - clamp(L.k3, -1, 1)) / 2 * s, d = Math.hypot(e.offsetX - x, e.offsetY - y);
+    if (d < bd) { bd = d; best = r; }
+  }
+  return best;
+}
+function moveRunTo(r, k1, k3) {
+  k1 = clamp(k1, -0.98, 0.98); k3 = clamp(k3, -0.98, 0.98);
+  const I = inertiaFromK(k1, k3, S.runs[r].I[1]).map((v) => +v.toPrecision(3));
+  S.runs[r].I = I; S.runs[r].name = ''; currentPreset = 'custom';
+  rebuild();
+}
+ppCv.addEventListener('pointermove', (e) => {
+  if (S.pane !== 'map') return;
+  const k = mapPick(e);
+  MAP.hover = k;
+  if (MAP.drag >= 0 && k) { MAP.moved = true; moveRunTo(MAP.drag, k.k1, k.k3); }
+  ppCv.style.cursor = MAP.drag >= 0 || nearestDot(e) >= 0 ? 'grab' : k ? 'crosshair' : 'default';
+});
+ppCv.addEventListener('pointerleave', () => { MAP.hover = null; });
+ppCv.addEventListener('pointerdown', (e) => {
+  if (S.pane !== 'map') return;
+  const r = nearestDot(e);
+  MAP.moved = false;
+  if (r >= 0) { MAP.drag = r; setEdit(r); ppCv.setPointerCapture(e.pointerId); }
+  else { const k = mapPick(e); if (k) { MAP.drag = S.edit; moveRunTo(S.edit, k.k1, k.k3); ppCv.setPointerCapture(e.pointerId); } }
+});
+ppCv.addEventListener('pointerup', () => { MAP.drag = -1; });
+
+/* Lesson 28's numbers: torque against tilt, and the largest torque against altitude */
+function torqueCalc() {
+  const I = S.calc.I, th = S.calc.tilt * D2R, ax = S.calc.ax;
+  // a tilt about p1 puts the nadir at [0, sin, cos]; about p2 at [-sin, 0, cos]
+  const c = ax === 0 ? [0, Math.sin(th), Math.cos(th)] : [-Math.sin(th), 0, Math.cos(th)];
+  const g = ggTorque(I, c, P.wc), dI = ax === 0 ? I[1] - I[2] : I[0] - I[2];
+  const gmax = 1.5 * P.wc * P.wc * Math.abs(dI), og = orbitOf(ALT_GEO);
+  return { c, g, gn: norm(g), gmax, dI, geoRatio: (P.wc * P.wc) / (og.wc * og.wc), impulse: norm(g) * P.T, gPM: pointMassTorque(I, c, P.R) };
+}
+function drawTorque() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const T = torqueCalc(), I = S.calc.I;
+  const m = { l: 62, r: 18, t: 92, b: capH + 30 }, gap = 58, pw = W - m.l - m.r, tot = H - m.t - m.b - gap, ph1 = Math.floor(tot * 0.55), ph2 = tot - ph1;
+  if (pw < 80 || ph1 < 50 || ph2 < 40) return;
+  // top: torque against tilt for a tilt about p1 (I2 - I3) and about p2 (I1 - I3)
+  const curves = [[Math.abs(I[1] - I[2]), 'about p̂₁: 3ωc²|I₂ − I₃| sin θ cos θ', COL.torque], [Math.abs(I[0] - I[2]), 'about p̂₂: 3ωc²|I₁ − I₃| sin θ cos θ', COL.muted]];
+  const gm = Math.max(...curves.map((c) => 1.5 * P.wc * P.wc * c[0]), 1e-30), e = Math.floor(Math.log10(gm)), sc = Math.pow(10, e), ymax = gm / sc * 1.15;
+  const t0 = m.t, X = (d) => m.l + d / 90 * pw, Y1 = (v) => t0 + (1 - v / sc / ymax) * ph1;
+  const yt = ticksOf(0, ymax, ph1 / 28);
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.beginPath();
+  [0, 15, 30, 45, 60, 75, 90].forEach((d) => { const x = Math.round(X(d)) + 0.5; ctx.moveTo(x, t0); ctx.lineTo(x, t0 + ph1); });
+  yt.v.forEach((v) => { const y = Math.round(t0 + (1 - v / ymax) * ph1) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); });
+  ctx.stroke(); ctx.strokeRect(m.l + 0.5, t0 + 0.5, pw - 1, ph1 - 1);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center'; [0, 15, 30, 45, 60, 75, 90].forEach((d) => ctx.fillText(String(d), X(d), t0 + ph1 + 12));
+  ctx.fillText('tilt of p̂₃ from the vertical, deg', m.l + pw / 2, t0 + ph1 + 27);
+  ctx.textAlign = 'right'; yt.v.forEach((v) => ctx.fillText(fx(v, yt.d), m.l - 6, t0 + (1 - v / ymax) * ph1));
+  ctx.textAlign = 'left'; ctx.fillText(`|g|, × ${pow10(e)} N·m`, 6, t0 - 12);
+  curves.forEach(([dI, , col], j) => {
+    ctx.strokeStyle = col; ctx.lineWidth = j === S.calc.ax ? 2.4 : 1.4; ctx.setLineDash(j === S.calc.ax ? [] : [5, 4]); ctx.beginPath();
+    for (let i = 0; i <= 90; i++) { const th = i * D2R, v = 3 * P.wc * P.wc * dI * Math.sin(th) * Math.cos(th); if (i) ctx.lineTo(X(i), Y1(v)); else ctx.moveTo(X(i), Y1(v)); }
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+  ctx.lineWidth = 1;
+  const xm = X(S.calc.tilt), ym = Y1(T.gn);
+  ctx.fillStyle = COL.torque; ctx.beginPath(); ctx.arc(xm, ym, 5, 0, TAU); ctx.fill();
+  ctx.font = MONO; ctx.textAlign = xm > m.l + pw * 0.7 ? 'right' : 'left'; ctx.fillStyle = COL.ink;
+  ctx.fillText(`${sci(T.gn, 2)} N·m at ${fn(S.calc.tilt)}°`, xm + (ctx.textAlign === 'right' ? -9 : 9), ym - 12);
+  ctx.font = UIF(600, 12.5); ctx.textAlign = 'left';
+  curves.forEach(([, txt, col], j) => { ctx.fillStyle = col; ctx.fillText((j === S.calc.ax ? '— ' : '- - ') + txt, 10, 44 + j * 16); });
+  // bottom: the largest torque (3/2) wc^2 |dI| against altitude, log-log
+  const t2 = t0 + ph1 + gap, a0 = 2.2, a1 = 4.7, f = (alt) => { const o = orbitOf(alt); return 1.5 * o.wc * o.wc * Math.abs(T.dI); };
+  const vals = [f(Math.pow(10, a0)), f(Math.pow(10, a1))], l1 = Math.ceil(Math.log10(Math.max(vals[0], 1e-30))), l0 = Math.floor(Math.log10(Math.max(vals[1], 1e-30)));
+  const X2 = (alt) => m.l + (Math.log10(alt) - a0) / (a1 - a0) * pw, Y2 = (v) => t2 + (l1 - Math.log10(Math.max(v, 1e-40))) / Math.max(1, l1 - l0) * ph2;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  [200, 500, 1000, 2000, 5000, 10000, 20000, 50000].forEach((a) => { if (Math.log10(a) > a1) return; const x = Math.round(X2(a)) + 0.5; ctx.moveTo(x, t2); ctx.lineTo(x, t2 + ph2); });
+  for (let k = l0; k <= l1; k++) { const y = Math.round(Y2(Math.pow(10, k))) + 0.5; ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); }
+  ctx.stroke(); ctx.strokeRect(m.l + 0.5, t2 + 0.5, pw - 1, ph2 - 1);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  [200, 500, 1000, 2000, 5000, 10000, 20000, 50000].forEach((a) => { if (Math.log10(a) <= a1 && (pw > 360 || [200, 1000, 10000].includes(a))) ctx.fillText(a >= 1000 ? `${a / 1000}k` : String(a), X2(a), t2 + ph2 + 12); });
+  ctx.textAlign = 'right'; for (let k = l0; k <= l1; k++) ctx.fillText(pow10(k), m.l - 6, Y2(Math.pow(10, k)));
+  ctx.textAlign = 'left'; ctx.fillText('largest |g| over tilt, N·m, against altitude (km)', 6, t2 - 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, t2, pw, ph2); ctx.clip();
+  ctx.strokeStyle = COL.torque; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 100; i++) { const a = Math.pow(10, a0 + (a1 - a0) * i / 100), x = X2(a), y = Y2(f(a)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.lineWidth = 1;
+  const mark = (alt, txt, col) => { const x = X2(alt), y = Y2(f(alt)); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill(); ctx.font = MONO; ctx.textAlign = x > m.l + pw * 0.6 ? 'right' : 'left'; ctx.fillText(txt, x + (ctx.textAlign === 'right' ? -9 : 9), y - 11); };
+  mark(S.alt, `${fn(S.alt)} km: ${sci(f(S.alt), 1)}`, COL.ink);
+  mark(ALT_GEO, `GEO: ${sci(f(ALT_GEO), 1)}`, COL.muted);
+  ctx.restore();
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'pitch', hoverX: null, m: { l: 62, r: 16, t: 20, b: 24 } };
+const QINFO = {
+  roll: { unit: 'roll, deg', series: [['roll', []]], log: false },
+  pitch: { unit: 'pitch, deg (dashed: linear theory)', series: [['pitch', []], ['plin', [5, 4]]], log: false },
+  yaw: { unit: 'yaw, deg', series: [['yaw', []]], log: false },
+  ang: { unit: 'total angle from the orbit frame, deg', series: [['ang', []]], log: true },
+  off: { unit: 'Earth-facing axis off the vertical, deg', series: [['off', []]], log: true },
+  tq: { unit: 'gravity-gradient torque |g|, N·m', series: [['tq', []]], log: true, sci: true },
+  H: { unit: 'H − H at rest, µJ (dashed: H + energy the damper took)', series: [['H', []], ['HD', [5, 4]]], log: false },
+};
+const logOn = () => S.logY && QINFO[PL.q].log;
+function setLegend() {
+  const info = QINFO[PL.q];
+  let html = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+  if (PL.q === 'pitch') html += '<span class="hleg"><span class="ln dash" style="--c:var(--muted)"></span>linear</span>';
+  el('hlegs').innerHTML = html;
+  el('logBtn').hidden = !info.log;
+  el('logBtn').setAttribute('aria-pressed', String(S.logY));
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], logy = logOn(), To = P.T;
+  const x0 = 0, x1 = Math.max(simT, P.tEnd, 1e-3) / To;
+  let mn = Infinity, mx = -Infinity, mnPos = Infinity;
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k]) continue;
+    info.series.forEach(([key]) => { const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (key === 'plin' && Math.abs(v) > 200) continue; if (v < mn) mn = v; if (v > mx) mx = v; if (v > 0 && v < mnPos) mnPos = v; } });
+  }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let y0, y1;
+  if (logy) {
+    if (!isFinite(mnPos)) mnPos = 1e-3;
+    y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(mx, mnPos * 10)) + 1e-9));
+    y0 = Math.max(Math.pow(10, Math.floor(Math.log10(mnPos))), y1 * 1e-6);
+  } else {
+    let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
+    y0 = mn - 0.08 * span; y1 = mx + 0.08 * span;
+    if (mn >= 0 && mn < 0.3 * span) y0 = 0;
+    if (mx <= 0 && -mx < 0.3 * span) y1 = 0;
+  }
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw;
+  const L0 = Math.log10(y0), L1 = Math.log10(y1);
+  const Yp = logy ? (v) => t + (L1 - Math.log10(Math.max(v, y0 * 1e-3))) / (L1 - L0) * ph : (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  let yv, yd = 0, ysc = 1;
+  if (logy) { yv = []; for (let e = Math.ceil(L0 - 1e-9); e <= Math.floor(L1 + 1e-9); e++) yv.push(Math.pow(10, e)); }
+  else {
+    if (info.sci) { const e = Math.floor(Math.log10(Math.max(Math.abs(y0), Math.abs(y1), 1e-30))); ysc = Math.pow(10, e); }
+    const yt = ticksOf(y0 / ysc, y1 / ysc, ph / 30); yv = yt.v.map((v) => v * ysc); yd = yt.d;
+  }
+  const xt = ticksOf(x0, x1, pw / 70);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yv.forEach((v) => ctx.fillText(logy ? (v >= 0.01 && v < 1e4 ? String(+v.toPrecision(1)) : pow10(Math.round(Math.log10(v)))) : fx(v / ysc, yd), l - 6, Yp(v)));
+  if (!logy && y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(info.unit + (!logy && ysc !== 1 ? `, × ${pow10(Math.round(Math.log10(ysc)))}` : ''), 6, 9); ctx.fillText('orbits', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k] || hN < 2) continue;
+    info.series.forEach(([key, dash], si) => {
+      const a = HQ[key][k];
+      ctx.strokeStyle = COL['run' + k]; ctx.lineWidth = si ? 1.3 : 1.8; ctx.setLineDash(dash); ctx.globalAlpha = si ? 0.7 : 1; ctx.beginPath();
+      if (hN <= pw * 2) {
+        let on = false;
+        for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) { on = false; continue; } const x = X(Ht[i] / To), y = Yp(v); if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; }
+      } else {
+        let px = null, lo = 0, hi = 0, ly = 0;
+        for (let i = 0; i < hN; i++) {
+          const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) continue;
+          const x = Math.floor(X(Ht[i] / To)), y = Yp(v);
+          if (x !== px) { if (px === null) ctx.moveTo(x, y); else { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); } px = x; lo = hi = y; }
+          else { if (y < lo) lo = y; if (y > hi) hi = y; }
+          ly = y;
+        }
+        if (px !== null) { ctx.lineTo(px, lo); ctx.lineTo(px, hi); ctx.lineTo(px, ly); }
+      }
+      ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    });
+  }
+  const xc = Math.round(X(simT / To)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = (x0 + (PL.hoverX - l) / pw * (x1 - x0)) * To;
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i] / To), key = info.series[0][0];
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`${fx(Ht[i] / To, 3)} orbits · ${fx(Ht[i] / 60, 1)} min`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`run ${k + 1}  ${fg(HQ[key][k][i], 4)}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const autoName = (r) => S.runs[r].I.map(fn).join('/');
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = (r) => runName(r) + (S.runs[r].damp ? ' + damper' : '');
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const deg = (rad, d) => `${fg(rad * R2D, d || 3)}°`;
+/* what a run is doing, in words */
+function statusOf(r) {
+  const L = P.L[r];
+  if (L.status === 'grows') return { s: 'bad', t: `grows ×e every ${fg(1 / L.maxRe / 60, 3)} min` };
+  if (L.reg === 'none') return { s: 'na', t: 'feels no torque, so it turns steadily relative to the orbit' };
+  if (L.status === 'neutral') return S.runs[r].damp && S.cd > 0 ? { s: 'warn', t: 'the kick dies away, but it stays at its new yaw angle' } : { s: 'warn', t: 'drifts in yaw: nothing pushes it back' };
+  if (L.status === 'settles') return { s: 'ok', t: `settles, time constant ${fg(-1 / L.maxRe / 60, 3)} min` };
+  return { s: 'ok', t: 'librates, never settles' };
+}
+function stabTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  const L = P.L;
+  let h = '';
+  ['r', 'p', 'y'].forEach((a, i) => { h += row(`${SYM('I<sub>' + a + '</sub>')} ${['roll', 'pitch', 'yaw'][i]} <span class="u">kg·m²</span>`, (r) => cell(r, fn(S.runs[r].I[i]))); });
+  h += row(`${SYM('k')}<sub class="n">1</sub>`, (r) => cell(r, fs(L[r].k1, 3)));
+  h += row(`${SYM('k')}<sub class="n">3</sub>`, (r) => cell(r, fs(L[r].k3, 3)));
+  h += row('Region', (r) => cell(r, ST(REGION[L[r].reg].s, REGION[L[r].reg].t)));
+  h += row('Pitch libration period <span class="u">min</span>', (r) => cell(r, L[r].k2 > 0 ? fg(TAU / L[r].wl / 60, 3) : '—', L[r].k2 > 0 ? '' : 'bad'), true);
+  h += row('Roll/yaw periods <span class="u">min</span>', (r) => { const w = P.L0[r].ryW; return cell(r, w.length ? w.map((x) => fg(minOf(x), 3)).join(', ') : '—'); });
+  h += row('Fastest growth, ×e every <span class="u">min</span>', (r) => { const A = P.L0[r]; return cell(r, A.status === 'grows' ? fg(1 / A.maxRe / 60, 3) : '—', A.status === 'grows' ? 'bad' : ''); });
+  h += row('With its damper', (r) => cell(r, S.runs[r].damp ? ST(statusOf(r).s, L[r].status === 'grows' ? 'grows' : L[r].status === 'settles' ? 'settles' : L[r].status === 'neutral' ? 'yaw drifts' : 'librates') : '—'), true);
+  h += row('…×e every <span class="u">min</span> (− decays)', (r) => cell(r, S.runs[r].damp && L[r].maxRe !== 0 ? fs(1 / L[r].maxRe / 60, 3) : '—'));
+  h += row('Off vertical now <span class="u">°</span>', (r) => cell(r, fg(offVertical(qOf(r)) * R2D, 3)), true);
+  h += row('Largest so far <span class="u">°</span>', (r) => cell(r, fg(REC[r].offMax * R2D, 3)));
+  h += row('Measured pitch period <span class="u">min</span>', (r) => { const z = REC[r].zc; return cell(r, z.length >= 2 ? fg((z[z.length - 1] - z[0]) / (z.length - 1) / 60, 4) : '—'); });
+  h += row('Measured growth, ×e every <span class="u">min</span>', (r) => cell(r, isFinite(REC[r].grow) ? fg(1 / REC[r].grow / 60, 3) : '—'));
+  el('stabBody').innerHTML = h;
+  el('stabNote').innerHTML = `Periods and growth from the linearized equations of Lesson 29${S.cd > 0 ? `; "with its damper" adds ${SYM('c<sub>d</sub>')} = ${fn(S.cd)} N·m·s on the runs that have one` : ''}. Measured values come from the full simulation.`;
+}
+function torqueKv() {
+  const T = torqueCalc(), I = S.calc.I, axn = S.calc.ax === 0 ? '1' : '2';
+  const mg = T.gn / 9.80665 * 1e6;
+  const rows = [
+    [`Orbit rate ${SYM('ω<sub>c</sub>')} = √(μ/${SYM('R')}³)`, `${sci(P.wc, 3)}<span class="u">rad/s</span>`],
+    ['Orbit period', `${fg(P.T / 60, 4)}<span class="u">min</span>`],
+    [`Nadir in body axes, ${SYM('c')}`, vec(T.c, 3)],
+    [`Torque ${SYM('g')}`, `[${T.g.map((v) => (Math.abs(v) < 1e-15 ? '0' : sci(v, 2))).join(', ')}]<span class="u">N·m</span>`],
+    [`Size |${SYM('g')}|`, `${sci(T.gn, 2)}<span class="u">N·m</span>`],
+    ['…the weight of this on a 1 m arm', `${fg(mg, 3)}<span class="u">mg</span>`],
+    [`Largest, at 45°: (3/2)${SYM('ω<sub>c</sub>')}²|Δ${SYM('I')}|`, `${sci(T.gmax, 2)}<span class="u">N·m</span>`],
+    ['Angular impulse over one orbit', `${fg(T.impulse, 3)}<span class="u">N·m·s</span>`],
+    ['Weaker at GEO by a factor of', `${fg(T.geoRatio, 3)}`],
+  ];
+  el('tqKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  void I; void axn;
+}
+function wKv() {
+  const r = S.edit, R = ratesOf(r), wc = P.wc, sc = (v) => v.map((x) => x / wc);
+  el('wHead').textContent = `run ${r + 1}, × ωc`;
+  const rows = [
+    [`${SYM('ω')}<sub class="n">B/A</sub>, inertial`, vec(sc(R.wBA), 3)],
+    [`${SYM('ω')}<sub class="n">B/O</sub>, relative to the orbit`, vec(sc(R.wBO), 3)],
+    [`${SYM('C')}<sub class="n">B/O</sub>${SYM('ω')}<sub class="n">O/A</sub>, the orbit's own turning`, vec(sc(R.wOA), 3)],
+  ];
+  el('wKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+/* the plain-language card */
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), L = P.L, L0 = P.L0, Tm = P.T / 60;
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const now = (r) => { const e = prevE[r] || eulerOf(qOf(r)); return `<span class="now">now off vertical ${fg(offVertical(qOf(r)) * R2D, 3)}° · roll ${fs(e[0] * R2D, 1)}° pitch ${fs(e[1] * R2D, 1)}° yaw ${fs(e[2] * R2D, 1)}°</span></span>`; };
+  const per = (w) => fg(minOf(w), 3);
+  let t, s, runs, watch;
+  const sc = currentPreset;
+  if (sc === 'eq') {
+    const A = L[1], E = 0.5 * Math.pow(S.runs[1].w0[1] * D2R, 2), amp = A.k2 > 0 ? Math.asin(Math.min(1, Math.sqrt(E / (1.5 * P.wc * P.wc * A.k2)))) : NaN;
+    t = 'To keep facing the Earth, a satellite must turn once per orbit';
+    s = `The local vertical swings around once every ${fg(Tm, 3)} min, so a satellite that keeps its boom on it turns at ${SYM('ω<sub>c</sub>')} = ${sci(P.wc, 3)} rad/s in inertial space: ${SYM('ω')}<sub class="n">B/A</sub> = [0, −${SYM('ω<sub>c</sub>')}, 0] while ${SYM('ω')}<sub class="n">B/O</sub> = 0. Run 1 does exactly that, and nothing moves. Run 2 starts in the same attitude but not turning (${SYM('ω')}<sub class="n">B/A</sub> = 0): relative to the orbit it pitches at ${SYM('ω<sub>c</sub>')}, and gravity gradient swings it back, a libration of about ${deg(amp, 2)}. Run 3 has equal moments of inertia, so it feels no torque at all; it keeps its inertial attitude and turns backward once per orbit relative to the Earth.`;
+    runs = vis.map((r) => head(r) + (r === 0 ? 'stays on the vertical, turning with the orbit.' : r === 1 ? `swings about ${deg(amp, 2)} each way and back, every ${fg(pitchExactPeriod(1) / 60, 3)} min (a small swing would take ${per(L[r].pitchW)}).` : 'feels no torque: it keeps pointing the same way in space.') + now(r));
+    watch = 'Switch the 3D view to "Whole orbit": run 1 keeps its amber end on the Earth all the way around, run 3 points the same way in space. The Angular velocity section shows the three rates for the run being edited.';
+  } else if (sc === 'tilt') {
+    const T = torqueCalc();
+    t = 'Gravity gradient pulls a tilted boom back toward the vertical';
+    s = `Tilt the boom 10° and the torque is about ${sci(T.gn, 1)} N·m (the Lesson 28 appendix), directed to swing it back: a restoring torque, like a pendulum's. It is tiny, the weight of ${fg(T.gn / 9.80665 * 1e6, 1)} mg on a 1 m arm, but it never stops. Run 1 is tilted in pitch and librates by itself at ${SYM('√(3k<sub>2</sub>)ω<sub>c</sub>')}, every ${per(L[0].pitchW)} min. Runs 2 and 3 are tilted in roll and in yaw, which the turning of the orbit couples together: each swings as a mix of two motions, every ${L[1].ryW.map(per).join(' and ')} min.`;
+    runs = vis.map((r) => head(r) + (r === 0 ? `librates in pitch alone, period ${fg(pitchExactPeriod(0) / 60, 3)} min (${per(L[r].pitchW)} for a small swing).` : `rolls and yaws together, periods ${L[r].ryW.map(per).join(' and ')} min.`) + now(r));
+    watch = 'The purple torque arrow flips each time a satellite swings through the vertical. In the history, "Pitch" shows run 1 following the dashed linear theory, while "Roll" and "Yaw" show runs 2 and 3 beating between two periods.';
+  } else if (sc === 'ab') {
+    t = 'Which axis goes on the orbit normal decides stability';
+    s = `The same satellite (120, 115, 15 kg·m², boom on the vertical) flown two ways. Option A puts the 120 axis on the orbit normal, so ${SYM('I<sub>p</sub>')} &gt; ${SYM('I<sub>r</sub>')} &gt; ${SYM('I<sub>y</sub>')}: every root is imaginary and it librates, at ${[L0[0].pitchW, ...L0[0].ryW].map(per).sort((a, b) => a - b).join(', ')} min. Option B puts the 115 axis there: pitch is still fine, but the yaw stiffness ${SYM('I<sub>p</sub>')} − ${SYM('I<sub>r</sub>')} is negative, and a ${fn(S.runs[1].e0[0])}° disturbance grows by a factor of e every ${fg(1 / L0[1].maxRe / 60, 2)} min, about ${fg(Math.exp(L0[1].maxRe * P.T), 2)} times per orbit. The boom stays down: option B turns about it, swinging out past 90° of yaw, where it would be flying as option A, and back. Run 3 is option B with the damper: damping slows the growth but cannot fix a negative stiffness. A difference of 5 kg·m², about 4%, separates the two.`;
+    runs = vis.map((r) => head(r) + `${REGION[L0[r].reg].long}; ${statusOf(r).t}.` + now(r));
+    watch = 'The stability map: option A sits in the green region, option B just across the Ip = Ir line. "Total angle" on a log scale turns B\'s growth into a straight line whose slope matches the root, as the Checks show; "Yaw" shows where the growth goes.';
+  } else if (sc === 'gyro') {
+    t = 'Gyroscopic stability does not survive damping';
+    s = `These inertias (${S.runs[0].I.map(fn).join(', ')} kg·m², roughly ${SYM('I<sub>r</sub>')} &gt; ${SYM('I<sub>y</sub>')} &gt; ${SYM('I<sub>p</sub>')}) leave the stiffness matrix ${SYM('K')} with a negative entry, yet the coupling from the orbit's turning holds roll and yaw: run 1 librates. Add a damper (run 2) and the same satellite slowly tumbles, growing by e every ${fg(1 / L[1].maxRe / 60, 3)} min. Run 3, an option-A satellite with the same damper, settles. Energy loss of any kind, flexing booms, sloshing fuel, a damper, does the same: the Kelvin–Tait–Chetaev theorem. That is why designs aim for the green region, where Lesson 30's damper only helps.`;
+    runs = vis.map((r) => head(r) + `${REGION[L[r].reg].long}; ${statusOf(r).t}.` + now(r));
+    watch = 'The stability map: runs 1 and 2 sit in the thin amber sliver, run 3 in green. "Energy" shows the dashed H + dissipated staying flat while each damper drains H; for run 2 draining H drives it away from the vertical.';
+  } else if (sc === 'axi') {
+    t = 'A boom that is symmetric about its axis has no yaw stiffness';
+    s = `With ${SYM('I<sub>p</sub>')} = ${SYM('I<sub>r</sub>')} the yaw spring term ${SYM('ω<sub>c</sub>')}²(${SYM('I<sub>p</sub>')} − ${SYM('I<sub>r</sub>')}) is zero, so nothing pushes a yaw error back: after a small yaw kick, run 1 keeps turning slowly about its boom. Run 2 has a 5 kg·m² margin (option A) and swings back, on a long ${per(L0[1].ryW[0])} min period because the stiffness is small. Run 3 is symmetric with the damper: the kick dies away, but the satellite stays at whatever yaw angle it reached. For a boom that is round about its axis that turn changes nothing that matters, but there is no stiffness to resist a yaw disturbance torque.`;
+    runs = vis.map((r) => head(r) + `${statusOf(r).t}.` + now(r));
+    watch = 'The "Yaw" history: run 1 climbs steadily, run 2 swings back, run 3 levels off at a new angle.';
+  } else if (sc === 'wrong') {
+    t = 'Every principal axis on the vertical is an equilibrium, but only one arrangement is stable';
+    s = 'All three start almost exactly on an equilibrium: a principal axis on the local vertical makes the torque zero (Lesson 28). Run 1 lies with its boom along the flight direction, so the axis on the vertical is not the minor one and pitch is unstable (Iy > Ir). Run 2 lies with its boom on the orbit normal, unstable in pitch and in roll/yaw. Run 3 is option A for comparison. Lesson 29\'s rule: minor axis on the vertical, major axis on the orbit normal.';
+    runs = vis.map((r) => head(r) + `${REGION[L0[r].reg].long}; ${statusOf(r).t}.` + now(r));
+    watch = 'The 3D view: the unstable runs swing their long axis toward the vertical and keep swinging. "Off vertical" counts the minor-axis box face (amber), so run 3 stays near 0° while the others leave it.';
+  } else if (sc === 'large') {
+    t = 'At large angles the motion is no longer the textbook libration';
+    const Tex = pitchExactPeriod(0);
+    s = `Option A, tilted 40° about each axis in turn. Pitch alone stays a single swing, but a slower one than small-angle theory gives: ${fg(Tex / 60, 3)} min against ${per(L[0].pitchW)} min, the pendulum's period lengthening (Lesson 30). Tilted in roll or yaw, the full equations couple all three axes, and the motion wanders well away from the linear predictions. The satellite still never leaves its well: no libration passes 90°.`;
+    runs = vis.map((r) => head(r) + `largest tilt so far ${deg(REC[r].offMax, 3)}.` + now(r));
+    watch = 'The "Pitch" history: run 1 slips behind the dashed linear curve a little every swing.';
+  } else if (sc === 'kick') {
+    const wl = L[0].wl * R2D;
+    t = 'A large pitch rate tumbles the boom end over end';
+    s = `A pitch rate relative to the orbit faster than ${SYM('ω<sub>l</sub>')} = ${SYM('√(3k<sub>2</sub>)ω<sub>c</sub>')} = ${fg(wl, 3)}°/s carries the boom over the horizontal, where gravity gradient starts to push it on instead of back. Run 1 starts at 0.9${SYM('ω<sub>l</sub>')} and swings wide, but turns back before 90°. Run 2 starts at 1.3${SYM('ω<sub>l</sub>')} and tumbles for good. Run 3 starts the same way with the damper, loses energy on every turn and is captured into a libration, possibly upside down: the subject of Lesson 30.`;
+    runs = vis.map((r) => { const off = offVertical(qOf(r)), done = simT >= P.tEnd - 1e-6 && S.runs[r].damp; return head(r) + `largest tilt so far ${deg(REC[r].offMax, 3)}${done ? (off > 90 * D2R ? '; captured upside down, boom pointing away from the Earth' : '; captured the right way up') : ''}.` + now(r); });
+    watch = 'The "Off vertical" history: run 1 stays below 90°, run 2 sweeps through 180° every revolution, run 3 sweeps a few times and then settles near 0° or 180°.';
+  } else {
+    const bad = vis.filter((r) => L[r].status === 'grows'), dd = vis.filter((r) => L[r].reg === 'dd');
+    t = bad.length ? `${bad.length === 1 ? 'Run ' + (bad[0] + 1) + ' is' : 'Runs ' + bad.map((r) => r + 1).join(' and ') + ' are'} unstable here` : 'These satellites librate about the orbit frame';
+    s = `Lesson 29's rule: for the attitude to stay put relative to the orbit, the major axis goes on the orbit normal (${SYM('I<sub>p</sub>')} largest) and the minor axis on the local vertical (${SYM('I<sub>y</sub>')} smallest): the green region of the map, where the stiffness matrix ${SYM('K')} is positive definite.${dd.length ? ' The amber sliver is stable only through gyroscopic coupling and is lost to any damping.' : ''} Every stable case is only marginally stable: without a damper the satellite librates forever.`;
+    runs = vis.map((r) => head(r) + `${REGION[L0[r].reg].long}; ${statusOf(r).t}.` + now(r));
+    watch = 'Drag a dot on the stability map to change that run\'s inertias; hover anywhere to read the periods there.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  const orb = simT / P.T;
+  el('tOut').textContent = `${fx(orb, 2)} orbits · ${fx(simT / 60, simT < 6000 ? 1 : 0)} min`;
+  el('phaseChip').textContent = `Orbit ${Math.min(Math.floor(orb + 1e-9) + 1, Math.ceil(S.orbits - 1e-9) || 1)} of ${fn(S.orbits)}`;
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  stabTable(); torqueKv(); wKv(); checks();
+}
+function checks() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), items = [];
+  // the binomial step of Lesson 28 against exact inverse-square gravity on six point masses
+  const T = torqueCalc(), dg = norm([T.g[0] - T.gPM[0], T.g[1] - T.gPM[1], T.g[2] - T.gPM[2]]) / Math.max(T.gn, 1e-30);
+  if (T.gn > 0) items.push({ s: dg < 1e-3 ? 'ok' : 'bad', t: 'g = 3ωc² c×Ic matches exact point-mass gravity', sub: `six masses 10 m out: differ by ${sci(dg, 1)} of |g|, about d/R = ${sci(10 / P.R, 1)}` });
+  if (simT > 0) {
+    const e = Math.max(...vis.map((r) => REC[r].errH));
+    items.push({ s: e < 1e-6 ? 'ok' : e < 1e-4 ? 'warn' : 'bad', t: 'Energy balance: H + damper losses stays at its start', sub: `largest drift ${sci(e, 1)} of each run's disturbance energy` });
+  }
+  vis.forEach((r) => {
+    const z = REC[r].zc, L = P.L[r];
+    if (z.length < 2 || !pitchOnly(r) || !(L.k2 > 0)) return;
+    const meas = (z[z.length - 1] - z[0]) / (z.length - 1);
+    if (S.runs[r].damp && S.cd > 0) {
+      const want = TAU / L.pitchW;
+      items.push({ s: Math.abs(meas / want - 1) < 0.01 ? 'ok' : 'warn', t: `Run ${r + 1}: damped pitch period`, sub: `measured ${fg(meas / 60, 4)} min vs 2π/ωd = ${fg(want / 60, 4)} min` });
+    } else {
+      const ex = pitchExactPeriod(r), lin = TAU / L.wl;
+      items.push({ s: Math.abs(meas / ex - 1) < 2e-3 ? 'ok' : 'bad', t: `Run ${r + 1}: pitch libration period`, sub: `measured ${fg(meas / 60, 5)} min vs exact ${fg(ex / 60, 5)} min (√(3k₂)ωc gives ${fg(lin / 60, 4)})` });
+    }
+  });
+  vis.forEach((r) => {
+    const R = REC[r], L = P.L[r];
+    if (L.status !== 'grows' || !isFinite(R.grow)) return;
+    const err = R.grow / L.maxRe - 1;
+    items.push({ s: Math.abs(err) < 0.1 ? 'ok' : 'warn', t: `Run ${r + 1}: growth matches the linear roots`, sub: `×e every ${fg(1 / R.grow / 60, 3)} min measured vs ${fg(1 / L.maxRe / 60, 3)} min from the roots` });
+  });
+  const dd = vis.filter((r) => P.L0[r].reg === 'dd');
+  if (dd.length) {
+    const und = dd.filter((r) => !S.runs[r].damp), dmp = dd.filter((r) => S.runs[r].damp && S.cd > 0);
+    if (und.length && dmp.length && simT > P.T) {
+      const a = Math.max(...und.map((r) => REC[r].offMax)), b = Math.max(...dmp.map((r) => offVertical(qOf(r))));
+      items.push({ s: b > 2 * a ? 'ok' : 'na', t: 'Damping destroys gyroscopic-only stability', sub: `undamped stays within ${fg(a * R2D, 3)}°; damped is now ${fg(b * R2D, 3)}° off vertical` });
+    }
+  }
+  if (!items.length) items.push({ s: 'na', t: 'Press Play to run the checks', sub: '' });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function derive() {
+  const o = orbitOf(S.alt);
+  P = { R: o.R, wc: o.wc, T: o.T, tEnd: S.orbits * o.T };
+  P.L0 = S.runs.map((R) => linAnalysis(R.I, 0, o.wc));
+  P.L = S.runs.map((R, r) => (R.damp && S.cd > 0 ? Object.assign(linAnalysis(R.I, S.cd, o.wc), { cd: S.cd }) : Object.assign({}, P.L0[r], { cd: 0 })));
+}
+function resetRuns() {
+  derive();
+  for (let r = 0; r < 3; r++) {
+    const R = S.runs[r], Y = Ys[r], q = qFromEuler(R.e0.map((v) => v * D2R)), o2 = qrot(qconj(q), [0, 1, 0]);
+    Y[0] = q[0]; Y[1] = q[1]; Y[2] = q[2]; Y[3] = q[3];
+    for (let i = 0; i < 3; i++) Y[4 + i] = R.w0[i] * D2R - P.wc * o2[i];
+    Y[7] = 0;
+    prevE[r] = R.e0.map((v) => v * D2R);
+  }
+  simT = 0;
+  let wmax = 2 * P.wc;
+  S.runs.forEach((R) => { wmax = Math.max(wmax, norm(R.w0) * D2R + 2 * P.wc); });
+  hStep = Math.min(P.T / 2000, 0.05 / wmax);
+  hN = 0; hLast = -Infinity; hDt = P.tEnd / 3000;
+  rings.forEach((rg) => { rg.n = 0; rg.head = 0; }); ringLast = -Infinity; ringDt = P.tEnd / 2400;
+  resetRecords();
+  setExag();
+  histPush(true); ringPush();
+}
+function rebuild() {
+  pastEnd = false;
+  resetRuns();
+  if (G) setStatic3D();
+  syncInputs(); setLegend();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+/* range, number box, setter, getter, minimum, log mapping for the range */
+const PAIRS = [
+  ['altR', 'altN', (v) => { S.alt = v; }, () => S.alt, 150, true],
+  ['cdR', 'cdN', (v) => { S.cd = v; }, () => S.cd, 0, false],
+  ['orbR', 'orbN', (v) => { S.orbits = v; }, () => S.orbits, 0.1, false],
+  ['tiltR', 'tiltN', (v) => { S.calc.tilt = Math.min(90, v); }, () => S.calc.tilt, 0, false],
+];
+const toRange = (v, log) => (log ? Math.log10(v) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+/* do not overwrite a box the user is typing in */
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  el('altNote').textContent = `ωc = ${sci(P.wc, 3)} rad/s · period ${fg(P.T / 60, 4)} min`;
+  const R = S.runs[S.edit];
+  for (let i = 0; i < 3; i++) { setBox('I' + i, fmt(R.I[i])); setBox('e' + i, fmt(R.e0[i])); setBox('w' + i, fmt(R.w0[i])); setBox('cI' + i, fmt(S.calc.I[i])); }
+  el('chkDamp').checked = R.damp;
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  const A = P.L0[S.edit];
+  el('runNote').innerHTML = `${ST(REGION[A.reg].s, REGION[A.reg].t)} ${periodsText(A)}. ${SYM('ω<sub>l</sub>')} = ${A.k2 > 0 ? fg(A.wl * R2D, 3) + '°/s' : '—'}.`;
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  $$('#tiltAx [data-ax]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.ax === S.calc.ax)));
+  el('chkTorque').checked = S.show.torque; el('chkTidal').checked = S.show.tidal; el('chkFrame').checked = S.show.frame;
+  el('chkTrace').checked = S.show.trace; el('chkLabels').checked = S.show.labels;
+  $$('#exSeg [data-ex]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ex === S.exag)));
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#sceneSeg [data-scene]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scene === S.scene)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  el('viewTitle').textContent = S.scene === 'lanes' ? 'Orbit frame' : 'Not to scale';
+  el('paneTitle').textContent = S.pane === 'map' ? 'Stability map' : 'Torque (Lesson 28)';
+  el('paneCap').innerHTML = S.pane === 'map'
+    ? `Each point is a set of inertia ratios. Green: stable with stiffness, and still stable with damping. Amber sliver: held only by gyroscopic coupling. Red tints: unstable. Drag a dot, or click, to move the run being edited (its ${SYM('I<sub>p</sub>')} is kept); hover to read the periods. A ring marks a run with a damper.`
+    : `${SYM('g')} = 3${SYM('ω<sub>c</sub>')}² ${SYM('c')}×${SYM('Ic')}, from the calculator's moments. Top: the torque against the tilt of ${SYM('p̂')}<sub class="n">3</sub> off the vertical; it is largest at 45°. Bottom: that largest torque against altitude; it falls as 1/${SYM('R')}³.`;
+  const exs = [...new Set([0, 1, 2].filter((r) => S.shown[r]).map((r) => exK[r]))];
+  el('exagLbl').textContent = exs.every((k) => k === 1) ? 'tilts at true scale' : `tilts magnified ×${exs.filter((k) => k > 1).join(', ×')} up to 30°, then less`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return `${fg(s, 2)}× · 1 orbit in ${fg(P.T / s, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+function edited() { currentPreset = 'custom'; }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); if (rid !== 'tiltR') edited(); rebuild(); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(get()); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = toRange(v, log); set(v); if (nid !== 'tiltN') edited(); rebuild();
+  });
+});
+function setEdit(r) { S.edit = r; syncInputs(); wKv(); drawPane(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+function boxInput(id, apply) {
+  el(id).addEventListener('change', (e) => {
+    const v = parseFloat(e.target.value);
+    if (!Number.isFinite(v)) { syncInputs(); return; }
+    apply(v); edited(); rebuild();
+  });
+}
+for (let i = 0; i < 3; i++) {
+  boxInput('I' + i, (v) => { const R = S.runs[S.edit]; R.I[i] = Math.max(0.01, v); R.name = ''; });
+  boxInput('e' + i, (v) => { S.runs[S.edit].e0[i] = clamp(v, -180, 180); });
+  boxInput('w' + i, (v) => { S.runs[S.edit].w0[i] = clamp(v, -5, 5); });
+  el('cI' + i).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) S.calc.I[i] = Math.max(0, v); syncInputs(); torqueKv(); checks(); drawPane(); });
+}
+$$('[data-swap]').forEach((b) => b.addEventListener('click', () => {
+  const [i, j] = b.dataset.swap.split(',').map(Number), R = S.runs[S.edit];
+  [R.I[i], R.I[j]] = [R.I[j], R.I[i]]; R.name = ''; edited(); rebuild();
+}));
+el('chkDamp').addEventListener('change', (e) => { S.runs[S.edit].damp = e.target.checked; edited(); rebuild(); });
+$$('#tiltAx [data-ax]').forEach((b) => b.addEventListener('click', () => { S.calc.ax = +b.dataset.ax; syncInputs(); torqueKv(); checks(); drawPane(); }));
+el('chkTorque').addEventListener('change', (e) => { S.show.torque = e.target.checked; });
+el('chkTidal').addEventListener('change', (e) => { S.show.tidal = e.target.checked; });
+el('chkFrame').addEventListener('change', (e) => { S.show.frame = e.target.checked; });
+el('chkTrace').addEventListener('change', (e) => { S.show.trace = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+$$('#exSeg [data-ex]').forEach((b) => b.addEventListener('click', () => { S.exag = b.dataset.ex; setExag(); syncInputs(); }));
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => {
+  const r = +b.dataset.run; S.shown[r] = !S.shown[r];
+  if (!S.shown.some(Boolean)) S.shown[r] = true;
+  setExag(); syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts();
+}));
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setScene(s) { S.scene = s; syncInputs(); if (G) { updateDynamic(); fit(viewDir('iso')); } }
+$$('#sceneSeg [data-scene]').forEach((b) => b.addEventListener('click', () => setScene(b.dataset.scene)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+el('logBtn').addEventListener('click', () => { S.logY = !S.logY; setLegend(); drawPlot(); });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* the boom satellite of the appendices: 120, 115, 15 kg m^2 in a 500 km orbit */
+const A_ = [115, 120, 15], B_ = [120, 115, 15];
+const PRESETS = {
+  eq: { orbits: 2, tab: 'pitch', runs: [[A_, [0, 0, 0], [0, 0, 0], false, 'held in the orbit frame'], [A_, [0, 0, 0], ['wc', 0], false, 'not turning'], [[100, 100, 100], [0, 0, 0], ['wc', 0], false, 'equal inertias']] },
+  tilt: { orbits: 3, tab: 'pitch', calc: { I: [120, 115, 15], tilt: 10, ax: 0 }, pane: 'tq', runs: [[A_, [0, 10, 0], null, false, 'A, 10° pitch'], [A_, [10, 0, 0], null, false, 'A, 10° roll'], [A_, [0, 0, 10], null, false, 'A, 10° yaw']] },
+  ab: { orbits: 2, tab: 'ang', logY: true, runs: [[A_, [0.5, 0, 0], null, false, 'option A'], [B_, [0.5, 0, 0], null, false, 'option B'], [B_, [0.5, 0, 0], null, true, 'option B']] },
+  gyro: { orbits: 5, tab: 'ang', logY: true, runs: [[[100, 60, 65], [2, 0, 0], null, false, 'gyroscopic'], [[100, 60, 65], [2, 0, 0], null, true, 'gyroscopic'], [A_, [2, 0, 0], null, true, 'option A']] },
+  axi: { orbits: 3, tab: 'yaw', runs: [[[115, 115, 15], [0, 0, 0], [0, 0, 0.003], false, 'symmetric'], [A_, [0, 0, 0], [0, 0, 0.003], false, 'option A'], [[115, 115, 15], [0, 0, 0], [0, 0, 0.003], true, 'symmetric']] },
+  wrong: { orbits: 2, tab: 'off', logY: true, runs: [[[15, 120, 115], [0.5, 0.5, 0], null, false, 'boom along flight'], [[115, 15, 120], [0.5, 0.5, 0], null, false, 'boom on normal'], [A_, [0.5, 0.5, 0], null, false, 'option A']] },
+  large: { orbits: 3, tab: 'pitch', runs: [[A_, [0, 40, 0], null, false, 'A, 40° pitch'], [A_, [40, 0, 0], null, false, 'A, 40° roll'], [A_, [0, 0, 40], null, false, 'A, 40° yaw']] },
+  kick: { orbits: 4, tab: 'off', runs: [[A_, [0, 0, 0], [0, 'wl', 0.9], false, '0.9 ωl kick'], [A_, [0, 0, 0], [0, 'wl', 1.3], false, '1.3 ωl kick'], [A_, [0, 0, 0], [0, 'wl', 1.3], true, '1.3 ωl kick']] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  S.alt = 500; S.cd = 0.042; S.orbits = p.orbits; S.logY = !!p.logY; S.pane = p.pane || 'map';
+  S.calc = p.calc ? { I: p.calc.I.slice(), tilt: p.calc.tilt, ax: p.calc.ax } : { I: [120, 115, 15], tilt: 10, ax: 0 };
+  const o = orbitOf(S.alt);
+  S.runs = p.runs.map(([I, e0, w0, damp, nm]) => {
+    let w = [0, 0, 0];
+    if (w0 && w0[0] === 'wc') w = [0, o.wc * R2D, 0];
+    else if (w0 && w0[1] === 'wl') { const k2 = (I[0] - I[2]) / I[1]; w = [0, w0[2] * Math.sqrt(3 * k2) * o.wc * R2D, 0]; }
+    else if (w0) w = w0.slice();
+    return mkRun(I, e0, w.map((v) => +v.toPrecision(4)), damp, nm);
+  });
+  S.shown = [true, true, true];
+  S.speed = +(o.T / 12).toPrecision(2);
+  PL.q = p.tab;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= P.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(S.pane === 'map' ? 'tq' : 'map');
+  else if (k === 'v') setScene(S.scene === 'lanes' ? 'orbit' : 'lanes');
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The stability map, the torque charts, the plots and the analysis still work.';
+  vp.appendChild(d);
+  el('exagLbl').hidden = true;
+  $$('.viewport .viewbar, #runChips').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('ab');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_L.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= P.tEnd) { dt = Math.max(0, P.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (G) {
+    updateDynamic();
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__gg = { updateReadouts, S, P: () => P, Ys, REC, advance, rebuild, applyPreset, linAnalysis, classify, inertiaFromK, ggTorque, pointMassTorque, torqueCalc, eulerOf, qFromEuler, offVertical, Hof, pitchExactPeriod, t: () => simT, hist: () => ({ hN, Ht, HQ }), exK, setPlaying, setScene, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
