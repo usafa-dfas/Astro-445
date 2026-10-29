@@ -417,15 +417,21 @@ kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule);
           <label>yaw<input type="number" id="e2" step="any" aria-label="Starting yaw angle, deg"></label>
         </div>
         <div class="trio">
-          <div class="lab">Start rate<span class="u">°/s vs orbit</span></div>
+          <div class="lab">Start rate<span class="u" id="wLab">°/s vs orbit</span></div>
           <label>roll<input type="number" id="w0" step="any" aria-label="Starting roll rate relative to the orbit frame, deg/s"></label>
           <label>pitch<input type="number" id="w1" step="any" aria-label="Starting pitch rate relative to the orbit frame, deg/s"></label>
           <label>yaw<input type="number" id="w2" step="any" aria-label="Starting yaw rate relative to the orbit frame, deg/s"></label>
         </div>
+        <div class="row swaps"><span class="lbl">rates vs</span>
+          <div class="seg" role="group" aria-label="Frame the start rates are given in" id="wInSeg">
+            <button class="btn" type="button" data-win="orbit">orbit frame</button>
+            <button class="btn" type="button" data-win="inertial">inertial</button>
+          </div>
+        </div>
         <label class="check"><input type="checkbox" id="chkDamp"> Libration damper on this run</label>
         <p class="note" id="runNote"></p>
       </div>
-      <p class="note">Body axes 1, 2, 3 start on the orbit frame: roll along the flight direction <span class="sym">ô</span><sub class="n">1</sub>, pitch on the orbit normal <span class="sym">ô</span><sub class="n">2</sub>, yaw on the local vertical <span class="sym">ô</span><sub class="n">3</sub> (toward the Earth). Rates are relative to the orbit frame, <span class="sym">ω</span><sub class="n">B/O</sub>.</p>
+      <p class="note">Body axes 1, 2, 3 start on the orbit frame: roll along the flight direction <span class="sym">ô</span><sub class="n">1</sub>, pitch on the orbit normal <span class="sym">ô</span><sub class="n">2</sub>, yaw on the local vertical <span class="sym">ô</span><sub class="n">3</sub> (toward the Earth). Start rates are body-axis components of <span class="sym">ω</span><sub class="n">B/O</sub>, relative to the orbit frame, or of <span class="sym">ω</span><sub class="n">B/A</sub>, inertial. Zero relative to the orbit means the run turns with the orbit, once per orbit in space; zero inertial means it holds still in space.</p>
     </section>
 
     <section class="group">
@@ -906,9 +912,17 @@ function eulerCont(r, q) {
 const rotAngle = (q) => 2 * Math.acos(clamp(Math.abs(q[0]), 0, 1));
 const offVertical = (q) => Math.acos(clamp(nadirB(q)[2], -1, 1));
 
+/* a run's start rate relative to the orbit frame, deg/s in body axes, whichever frame it was entered in:
+   omega_B/O = omega_B/A - C_B/O omega_O/A, and C_B/O omega_O/A = -wc o2 in body axes */
+function relRate(r) {
+  const R = S.runs[r];
+  if (R.wIn !== 'inertial') return R.w0.slice();
+  const o2 = qrot(qconj(qFromEuler(R.e0.map((v) => v * D2R))), [0, 1, 0]);
+  return R.w0.map((v, i) => v + P.wc * o2[i] * R2D);
+}
 /* the notes' linear pitch response, as a dashed reference */
 function pitchLin(r, t) {
-  const R = S.runs[r], L = P.L[r], th0 = R.e0[1] * D2R, w0 = R.w0[1] * D2R, [a, b] = L.pitch;
+  const R = S.runs[r], L = P.L[r], th0 = R.e0[1] * D2R, w0 = relRate(r)[1] * D2R, [a, b] = L.pitch;
   if (Math.abs(a.im) > 0) {
     const sg = a.re, wd = Math.abs(a.im);
     return Math.exp(sg * t) * (th0 * Math.cos(wd * t) + (w0 - sg * th0) / wd * Math.sin(wd * t));
@@ -922,17 +936,17 @@ function pitchLin(r, t) {
 function pitchExactPeriod(r) {
   const R = S.runs[r], L = P.L[r];
   if (!(L.k2 > 0)) return NaN;
-  const wl = L.wl, th0 = R.e0[1] * D2R, w0 = R.w0[1] * D2R;
+  const wl = L.wl, th0 = R.e0[1] * D2R, w0 = relRate(r)[1] * D2R;
   const s2 = Math.sin(th0) ** 2 + (w0 * w0) / (wl * wl);
   if (s2 >= 1) return NaN;
   return 4 * ellipK(Math.sqrt(s2)) / wl;
 }
-const pitchOnly = (r) => { const R = S.runs[r]; return R.e0[0] === 0 && R.e0[2] === 0 && R.w0[0] === 0 && R.w0[2] === 0; };
+const pitchOnly = (r) => { const R = S.runs[r], w = relRate(r); return R.e0[0] === 0 && R.e0[2] === 0 && Math.abs(w[0]) < 1e-12 && Math.abs(w[2]) < 1e-12; };
 
 /* =========================================================
    State
    ========================================================= */
-const mkRun = (I, e0, w0, damp, name) => ({ I: I.slice(), e0: (e0 || [0, 0, 0]).slice(), w0: (w0 || [0, 0, 0]).slice(), damp: !!damp, name: name || '' });
+const mkRun = (I, e0, w0, damp, name, wIn) => ({ I: I.slice(), e0: (e0 || [0, 0, 0]).slice(), w0: (w0 || [0, 0, 0]).slice(), damp: !!damp, name: name || '', wIn: wIn || 'orbit' });
 const S = {
   alt: 500, cd: 0.042, orbits: 3,
   runs: [mkRun([115, 120, 15]), mkRun([115, 120, 15]), mkRun([115, 120, 15])],
@@ -1191,7 +1205,7 @@ function niceK(a) {
 function startSize(r) {
   const R = S.runs[r], L = P.L[r], q0 = qFromEuler(R.e0.map((v) => v * D2R));
   const wmin = Math.min(...L.all.map((z) => Math.abs(z.im)).filter((w) => w > 0), P.wc);
-  return Math.max(rotAngle(q0), norm(R.w0) * D2R / wmin);
+  return Math.max(rotAngle(q0), norm(relRate(r)) * D2R / wmin);
 }
 function setExag() {
   const a = [0, 1, 2].map(startSize), small = a.filter((v, r) => S.shown[r] && v <= 20 * D2R && v > 0);
@@ -1773,11 +1787,11 @@ function card() {
   let t, s, runs, watch;
   const sc = currentPreset;
   if (sc === 'eq') {
-    const A = L[1], E = 0.5 * Math.pow(S.runs[1].w0[1] * D2R, 2), amp = A.k2 > 0 ? Math.asin(Math.min(1, Math.sqrt(E / (1.5 * P.wc * P.wc * A.k2)))) : NaN;
+    const A = L[1], E = 0.5 * Math.pow(relRate(1)[1] * D2R, 2), amp = A.k2 > 0 ? Math.asin(Math.min(1, Math.sqrt(E / (1.5 * P.wc * P.wc * A.k2)))) : NaN;
     t = 'To keep facing the Earth, a satellite must turn once per orbit';
     s = `The local vertical swings around once every ${fg(Tm, 3)} min, so a satellite that keeps its boom on it turns at ${SYM('ω<sub>c</sub>')} = ${sci(P.wc, 3)} rad/s in inertial space: ${SYM('ω')}<sub class="n">B/A</sub> = [0, −${SYM('ω<sub>c</sub>')}, 0] while ${SYM('ω')}<sub class="n">B/O</sub> = 0. Run 1 does exactly that, and nothing moves. Run 2 starts in the same attitude but not turning (${SYM('ω')}<sub class="n">B/A</sub> = 0): relative to the orbit it pitches at ${SYM('ω<sub>c</sub>')}, and gravity gradient swings it back, a libration of about ${deg(amp, 2)}. Run 3 has equal moments of inertia, so it feels no torque at all; it keeps its inertial attitude and turns backward once per orbit relative to the Earth.`;
     runs = vis.map((r) => head(r) + (r === 0 ? 'stays on the vertical, turning with the orbit.' : r === 1 ? `swings about ${deg(amp, 2)} each way and back, every ${fg(pitchExactPeriod(1) / 60, 3)} min (a small swing would take ${per(L[r].pitchW)}).` : 'feels no torque: it keeps pointing the same way in space.') + now(r));
-    watch = 'Switch the 3D view to "Whole orbit": run 1 keeps its amber end on the Earth all the way around, run 3 points the same way in space. The Angular velocity section shows the three rates for the run being edited.';
+    watch = 'Switch the 3D view to "Whole orbit": run 1 keeps its amber end on the Earth all the way around, run 3 points the same way in space. In the run editor, run 1 starts with zero rates relative to the orbit frame, runs 2 and 3 with zero inertial rates; the Angular velocity section shows all three rates for the run being edited.';
   } else if (sc === 'tilt') {
     const T = torqueCalc();
     t = 'Gravity gradient pulls a tilted boom back toward the vertical';
@@ -1892,13 +1906,14 @@ function resetRuns() {
   for (let r = 0; r < 3; r++) {
     const R = S.runs[r], Y = Ys[r], q = qFromEuler(R.e0.map((v) => v * D2R)), o2 = qrot(qconj(q), [0, 1, 0]);
     Y[0] = q[0]; Y[1] = q[1]; Y[2] = q[2]; Y[3] = q[3];
-    for (let i = 0; i < 3; i++) Y[4 + i] = R.w0[i] * D2R - P.wc * o2[i];
+    const wr = relRate(r);
+    for (let i = 0; i < 3; i++) Y[4 + i] = wr[i] * D2R - P.wc * o2[i];
     Y[7] = 0;
     prevE[r] = R.e0.map((v) => v * D2R);
   }
   simT = 0;
   let wmax = 2 * P.wc;
-  S.runs.forEach((R) => { wmax = Math.max(wmax, norm(R.w0) * D2R + 2 * P.wc); });
+  S.runs.forEach((R, r) => { wmax = Math.max(wmax, norm(relRate(r)) * D2R + 2 * P.wc); });
   hStep = Math.min(P.T / 2000, 0.05 / wmax);
   hN = 0; hLast = -Infinity; hDt = P.tEnd / 3000;
   rings.forEach((rg) => { rg.n = 0; rg.head = 0; }); ringLast = -Infinity; ringDt = P.tEnd / 2400;
@@ -1936,6 +1951,9 @@ function syncInputs() {
   const R = S.runs[S.edit];
   for (let i = 0; i < 3; i++) { setBox('I' + i, fmt(R.I[i])); setBox('e' + i, fmt(R.e0[i])); setBox('w' + i, fmt(R.w0[i])); setBox('cI' + i, fmt(S.calc.I[i])); }
   el('chkDamp').checked = R.damp;
+  $$('#wInSeg [data-win]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.win === R.wIn)));
+  el('wLab').textContent = R.wIn === 'inertial' ? '°/s inertial' : '°/s vs orbit';
+  ['w0', 'w1', 'w2'].forEach((id, i) => el(id).setAttribute('aria-label', `Starting ${['roll', 'pitch', 'yaw'][i]} rate, ${R.wIn === 'inertial' ? 'inertial, body axes' : 'relative to the orbit frame'}, deg/s`));
   el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
   const A = P.L0[S.edit];
   el('runNote').innerHTML = `${ST(REGION[A.reg].s, REGION[A.reg].t)} ${periodsText(A)}. ${SYM('ω<sub>l</sub>')} = ${A.k2 > 0 ? fg(A.wl * R2D, 3) + '°/s' : '—'}.`;
@@ -1990,6 +2008,15 @@ $$('[data-swap]').forEach((b) => b.addEventListener('click', () => {
   [R.I[i], R.I[j]] = [R.I[j], R.I[i]]; R.name = ''; edited(); rebuild();
 }));
 el('chkDamp').addEventListener('change', (e) => { S.runs[S.edit].damp = e.target.checked; edited(); rebuild(); });
+/* switch the frame the edited run's start rates are shown in, keeping the motion the same */
+$$('#wInSeg [data-win]').forEach((b) => b.addEventListener('click', () => {
+  const R = S.runs[S.edit], to = b.dataset.win;
+  if (R.wIn === to) return;
+  const rel = relRate(S.edit), o2 = qrot(qconj(qFromEuler(R.e0.map((v) => v * D2R))), [0, 1, 0]);
+  const w = to === 'inertial' ? rel.map((v, i) => v - P.wc * o2[i] * R2D) : rel;
+  R.w0 = w.map((v) => (Math.abs(v) < 1e-12 ? 0 : v)); R.wIn = to;
+  rebuild();
+}));
 $$('#tiltAx [data-ax]').forEach((b) => b.addEventListener('click', () => { S.calc.ax = +b.dataset.ax; syncInputs(); torqueKv(); checks(); drawPane(); }));
 el('chkTorque').addEventListener('change', (e) => { S.show.torque = e.target.checked; });
 el('chkTidal').addEventListener('change', (e) => { S.show.tidal = e.target.checked; });
@@ -2014,7 +2041,7 @@ el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speed
 /* the boom satellite of the appendices: 120, 115, 15 kg m^2 in a 500 km orbit */
 const A_ = [115, 120, 15], B_ = [120, 115, 15];
 const PRESETS = {
-  eq: { orbits: 2, tab: 'pitch', runs: [[A_, [0, 0, 0], [0, 0, 0], false, 'held in the orbit frame'], [A_, [0, 0, 0], ['wc', 0], false, 'not turning'], [[100, 100, 100], [0, 0, 0], ['wc', 0], false, 'equal inertias']] },
+  eq: { orbits: 2, tab: 'pitch', runs: [[A_, [0, 0, 0], [0, 0, 0], false, 'held in the orbit frame'], [A_, [0, 0, 0], [0, 0, 0], false, 'not turning', 'inertial'], [[100, 100, 100], [0, 0, 0], [0, 0, 0], false, 'equal inertias', 'inertial']] },
   tilt: { orbits: 3, tab: 'pitch', calc: { I: [120, 115, 15], tilt: 10, ax: 0 }, pane: 'tq', runs: [[A_, [0, 10, 0], null, false, 'A, 10° pitch'], [A_, [10, 0, 0], null, false, 'A, 10° roll'], [A_, [0, 0, 10], null, false, 'A, 10° yaw']] },
   ab: { orbits: 2, tab: 'ang', logY: true, runs: [[A_, [0.5, 0, 0], null, false, 'option A'], [B_, [0.5, 0, 0], null, false, 'option B'], [B_, [0.5, 0, 0], null, true, 'option B']] },
   gyro: { orbits: 5, tab: 'ang', logY: true, runs: [[[100, 60, 65], [2, 0, 0], null, false, 'gyroscopic'], [[100, 60, 65], [2, 0, 0], null, true, 'gyroscopic'], [A_, [2, 0, 0], null, true, 'option A']] },
@@ -2029,12 +2056,11 @@ function applyPreset(name) {
   S.alt = 500; S.cd = 0.042; S.orbits = p.orbits; S.logY = !!p.logY; S.pane = p.pane || 'map';
   S.calc = p.calc ? { I: p.calc.I.slice(), tilt: p.calc.tilt, ax: p.calc.ax } : { I: [120, 115, 15], tilt: 10, ax: 0 };
   const o = orbitOf(S.alt);
-  S.runs = p.runs.map(([I, e0, w0, damp, nm]) => {
+  S.runs = p.runs.map(([I, e0, w0, damp, nm, wIn]) => {
     let w = [0, 0, 0];
-    if (w0 && w0[0] === 'wc') w = [0, o.wc * R2D, 0];
-    else if (w0 && w0[1] === 'wl') { const k2 = (I[0] - I[2]) / I[1]; w = [0, w0[2] * Math.sqrt(3 * k2) * o.wc * R2D, 0]; }
+    if (w0 && w0[1] === 'wl') { const k2 = (I[0] - I[2]) / I[1]; w = [0, w0[2] * Math.sqrt(3 * k2) * o.wc * R2D, 0]; }
     else if (w0) w = w0.slice();
-    return mkRun(I, e0, w.map((v) => +v.toPrecision(4)), damp, nm);
+    return mkRun(I, e0, w.map((v) => +v.toPrecision(4)), damp, nm, wIn);
   });
   S.shown = [true, true, true];
   S.speed = +(o.T / 12).toPrecision(2);
@@ -2124,7 +2150,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.__gg = { updateReadouts, S, P: () => P, Ys, REC, advance, rebuild, applyPreset, linAnalysis, classify, inertiaFromK, ggTorque, pointMassTorque, torqueCalc, eulerOf, qFromEuler, offVertical, Hof, pitchExactPeriod, t: () => simT, hist: () => ({ hN, Ht, HQ }), exK, setPlaying, setScene, setPane, setTab, setEdit, G: () => G };
+window.__gg = { updateReadouts, relRate, S, P: () => P, Ys, REC, advance, rebuild, applyPreset, linAnalysis, classify, inertiaFromK, ggTorque, pointMassTorque, torqueCalc, eulerOf, qFromEuler, offVertical, Hof, pitchExactPeriod, t: () => simT, hist: () => ({ hN, Ht, HQ }), exK, setPlaying, setScene, setPane, setTab, setEdit, G: () => G };
 })();
 </script>
 </body>
