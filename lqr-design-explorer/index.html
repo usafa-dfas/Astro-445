@@ -1,0 +1,1532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LQR Design Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 34 apps). Control rail | three satellites beside a poles, Riccati or cost pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --hw: #c97a00;
+  --pos: #08808f;
+  --neg: #a3366f;
+  --cmd: #7340c2;
+  --ggt: #08808f;
+  --gyro: #e07a14;
+  --dist: #a3366f;
+  --ax1: #cc2b26;
+  --ax2: #1b8655;
+  --ax3: #2257c2;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.seg.wrap { flex-wrap: wrap; row-gap: 4px; }
+.runedit .seg .btn { padding: 3px 8px; font-size: 13px; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+table.lanes td.wrap { white-space: normal; line-height: 1.25; }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+table.modes col.k { width: 46%; }
+table.modes td { white-space: normal; }
+.runedit-in { display: grid; gap: 9px; }
+.runedit-in[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 35 · Linear quadratic regulator (2)</div>
+      <h1>LQR Design Explorer</h1>
+    </div>
+    <p class="lede">The linear quadratic regulator picks the feedback gain <span class="sym">K</span> in <span class="sym">u</span> = −<span class="sym">Kx</span> by minimizing <span class="sym">J</span> = ∫(<span class="sym">x</span>ᵀ<span class="sym">Qx</span> + <span class="sym">u</span>ᵀ<span class="sym">Ru</span>) d<span class="sym">t</span>. <b>What do Q and R do to the gain, the poles and the response?</b> Design three pitch controllers side by side, by Bryson's rule or by hand, and watch where the cost goes.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>P</kbd></dt><dd>Next pane</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit design 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="app">Appendix A<small>three designs</small></button>
+        <button class="btn" type="button" data-preset="ratio">Only the ratio<small>Q, R × 10</small></button>
+        <button class="btn" type="button" data-preset="units">Why Bryson<small>Q = I, rad vs deg</small></button>
+        <button class="btn" type="button" data-preset="rate">Rate weight<small>damping vs speed</small></button>
+        <button class="btn" type="button" data-preset="gg">Gravity gradient<small>barely matters</small></button>
+        <button class="btn" type="button" data-preset="robust">Robustness<small>gain ×½ to ×5</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Plant: pitch axis</h2>
+      <div class="slider">
+        <label for="IpR" title="Pitch moment of inertia"><span class="sym">I</span><sub class="n">p</sub><span class="u">kg·m²</span></label>
+        <input type="range" id="IpR" min="0" max="3" step="0.01" aria-label="Pitch inertia slider, logarithmic">
+        <input type="number" id="IpN" min="0.01" step="any" aria-label="Pitch inertia, kg m²">
+      </div>
+      <div class="slider">
+        <label for="th0R" title="Starting pitch error, to be driven to zero">θ₀<span class="u">deg</span></label>
+        <input type="range" id="th0R" min="0.5" max="45" step="0.1" aria-label="Starting error slider">
+        <input type="number" id="th0N" min="0.01" step="any" aria-label="Starting error, deg">
+      </div>
+      <div class="slider">
+        <label for="durR" title="How long each run lasts">run<span class="u">s</span></label>
+        <input type="range" id="durR" min="60" max="900" step="10" aria-label="Run length slider">
+        <input type="number" id="durN" min="10" step="any" aria-label="Run length, s">
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkGG"> Include the gravity-gradient spring</label>
+        <label class="check"><input type="checkbox" id="chkLim"> Wheel torque limit, 0.02 N·m</label>
+      </div>
+      <p class="note">The Appendix A plant: <span class="sym">θ̈</span> = <span class="sym">u</span>/<span class="sym">I<sub>p</sub></span>, state <span class="sym">x</span> = [<span class="sym">θ</span>, <span class="sym">θ̇</span>], one input, the wheel torque. Over a few minutes gravity gradient is tiny; the switch adds its spring, <span class="sym">k</span><sub class="n">gg</sub> = 3<span class="sym">ω<sub>c</sub></span>²(<span class="sym">I<sub>r</sub></span> − <span class="sym">I<sub>y</sub></span>), to the design and the simulation. The torque limit is off so the cost check holds; LQR knows nothing about limits.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three designs</h2>
+      <div class="seg" role="group" aria-label="Design to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Design 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Design 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Design 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="row"><span class="lbl">weights</span>
+          <div class="seg" role="group" aria-label="How the weights are set" id="modeSeg">
+            <button class="btn" type="button" data-mode="bryson">Bryson's rule</button>
+            <button class="btn" type="button" data-mode="raw">by hand</button>
+          </div>
+        </div>
+        <div id="brysonBox" class="runedit-in">
+          <div class="slider"><label for="tmR" title="Largest attitude error you will accept">θ<sub class="n">max</sub><span class="u">rad</span></label><input type="range" id="tmR" min="-2.5" max="0.5" step="0.01" aria-label="Attitude limit slider, logarithmic"><input type="number" id="tmN" min="1e-4" step="any" aria-label="Attitude limit, rad"></div>
+          <div class="slider"><label for="wmR" title="Largest rate you will accept; at the far right, no rate weight">ω<sub class="n">max</sub><span class="u">rad/s</span></label><input type="range" id="wmR" min="-3.5" max="0" step="0.01" aria-label="Rate limit slider, logarithmic; far right means no rate weight"><input type="number" id="wmN" min="0" step="any" aria-label="Rate limit, rad/s; empty or 0 means no rate weight"></div>
+          <div class="slider"><label for="umR" title="Largest torque you will accept"><span class="sym">u</span><sub class="n">max</sub><span class="u">N·m</span></label><input type="range" id="umR" min="-4" max="-0.5" step="0.01" aria-label="Torque limit slider, logarithmic"><input type="number" id="umN" min="1e-6" step="any" aria-label="Torque limit, N·m"></div>
+          <p class="subnote" id="brysonNote"></p>
+        </div>
+        <div id="rawBox" class="runedit-in">
+          <div class="trio">
+            <div class="lab">Weights<span class="u" id="rawUnits">rad units</span></div>
+            <label><span class="sym">Q</span><sub class="n">11</sub><input type="number" id="q11" min="0" step="any" aria-label="Q11, weight on the angle"></label>
+            <label><span class="sym">Q</span><sub class="n">22</sub><input type="number" id="q22" min="0" step="any" aria-label="Q22, weight on the rate"></label>
+            <label><span class="sym">R</span><input type="number" id="rr" min="1e-12" step="any" aria-label="R, weight on the torque"></label>
+          </div>
+          <div class="row"><span class="lbl">state in</span>
+            <div class="seg" role="group" aria-label="Units the weights are written in" id="unitSeg">
+              <button class="btn" type="button" data-unit="rad">rad, rad/s</button>
+              <button class="btn" type="button" data-unit="deg">deg, deg/s</button>
+            </div>
+          </div>
+        </div>
+        <div class="slider"><label for="gfR" title="The torque the wheel actually gives, as a multiple of what the controller asks for">gain<span class="u">actual ×</span></label><input type="range" id="gfR" min="-1" max="1" step="0.01" aria-label="Actual torque gain slider, logarithmic"><input type="number" id="gfN" min="0.01" step="any" aria-label="Actual torque gain"></div>
+        <p class="note" id="runNote"></p>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkLocus"> Root locus as Q/R sweeps</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <p class="note">Each satellite pitches from θ₀ back to the orbit frame; the disc is its pitch wheel, spinning as it absorbs momentum.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Orbit frame, pitch only</div>
+        <div class="overlay legend" role="group" aria-label="Designs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl">true scale</div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Poles, Riccati solution or cost"></canvas>
+        <div class="overlay vtitle" id="paneTitle">s-plane</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="s">Poles</button>
+            <button class="btn" type="button" data-pane="ric">Riccati</button>
+            <button class="btn" type="button" data-pane="cost">Cost</button>
+          </div>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="2" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Regulating</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="th">Angle θ</button>
+          <button class="btn" type="button" data-q="u">Torque u</button>
+          <button class="btn" type="button" data-q="w">Rate θ̇</button>
+          <button class="btn" type="button" data-q="J">Cost J(t)</button>
+        </div>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>What do Q and R do to the gain, the poles and the response?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>State feedback</dt>
+          <dd>The controller measures every state, here the angle and the rate, and sets the torque to a fixed combination of them, u = −Kx.</dd>
+          <dt>Cost J</dt>
+          <dd>A score for the whole response: the integral of the weighted squared error plus the weighted squared torque. LQR finds the K with the smallest score.</dd>
+          <dt>Q and R</dt>
+          <dd>How much you care about each state error and about effort. Raise Q to tighten a state; raise R to calm the actuator. Only their ratio matters.</dd>
+          <dt>Bryson's rule</dt>
+          <dd>Weight each variable by one over the square of the largest value you will accept, so every term is dimensionless and equals 1 at its limit.</dd>
+          <dt>Riccati equation</dt>
+          <dd>AᵀP + PA − PBR⁻¹BᵀP + Q = 0. Its solution P gives the gain K = R⁻¹BᵀP and the minimum cost xᵀPx.</dd>
+          <dt>Poles</dt>
+          <dd>The eigenvalues of A − BK: how fast and how oscillatory the closed loop is. Settling takes about 4 divided by the slowest decay rate.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Three designs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Design</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="runBody"></tbody>
+      </table>
+      <p class="note" id="runTabNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Plant and controller</div>
+          <div><i>A</i> = [0 1; −<i>k</i><sub>gg</sub>/<i>I</i><sub>p</sub> 0], &nbsp;<i>B</i> = [0; 1/<i>I</i><sub>p</sub>], &nbsp;<i>u</i> = −<i>Kx</i>, &nbsp;<i>x</i> = [<i>θ</i>, <i>θ̇</i>]</div>
+        </div>
+        <div class="box">
+          <div class="lab">LQR</div>
+          <div><i>J</i> = ∫<sub>0</sub><sup>∞</sup>(<i>x</i><sup>T</sup><i>Qx</i> + <i>u</i><sup>T</sup><i>Ru</i>) d<i>t</i>, &nbsp;<i>A</i><sup>T</sup><i>P</i> + <i>PA</i> − <i>PBR</i><sup>−1</sup><i>B</i><sup>T</sup><i>P</i> + <i>Q</i> = 0</div>
+          <div><i>K</i> = <i>R</i><sup>−1</sup><i>B</i><sup>T</sup><i>P</i>, &nbsp;<i>J</i>* = <i>x</i><sub>0</sub><sup>T</sup><i>Px</i><sub>0</sub>, &nbsp;poles = eig(<i>A</i> − <i>BK</i>)</div>
+        </div>
+        <div>
+          <div class="lab">By hand, no gravity gradient (Appendix A)</div>
+          <div><i>k</i><sub>1</sub> = √(<i>Q</i><sub>11</sub>/<i>R</i>), &nbsp;<i>k</i><sub>2</sub> = √(2<i>I</i><sub>p</sub><i>k</i><sub>1</sub> + <i>Q</i><sub>22</sub>/<i>R</i>), &nbsp;ω<sub>n</sub> = √(<i>k</i><sub>1</sub>/<i>I</i><sub>p</sub>), &nbsp;ζ = <i>k</i><sub>2</sub>/(2√(<i>k</i><sub>1</sub><i>I</i><sub>p</sub>))</div>
+          <div>angle weight only: ζ = 1/√2 = 0.707 whatever the numbers</div>
+        </div>
+        <div>
+          <div class="lab">Bryson's rule</div>
+          <div><i>Q</i><sub>ii</sub> = 1/<i>x</i><sub>i,max</sub><sup>2</sup>, &nbsp;<i>R</i><sub>jj</sub> = 1/<i>u</i><sub>j,max</sub><sup>2</sup></div>
+        </div>
+        <p class="note">The Riccati equation is solved numerically, by the matrix sign function of the Hamiltonian [<i>A</i>, −<i>BR</i><sup>−1</sup><i>B</i><sup>T</sup>; −<i>Q</i>, −<i>A</i><sup>T</sup>], the same answer MATLAB's lqr gives. Each response is integrated with fixed-step RK4, along with the running cost. Weights given in degrees are converted to radians before solving, so the gains shown are always in N·m/rad and N·m·s/rad. Settling time is the notes' 4 divided by the slowest pole's decay rate. I<sub>r</sub> = 18, I<sub>y</sub> = 8 kg·m² and a 600 km orbit set k<sub>gg</sub>.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+/* a vector with each part as a number to 2 significant figures, or 0 */
+const vsci = (v, tiny) => `[${v.map((x) => (Math.abs(x) < (tiny || 1e-15) ? '0' : sci(x, 2))).join(', ')}]`;
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (...vs) => [0, 1, 2].map((i) => vs.reduce((s, v) => s + v[i], 0));
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+/* qrot(q, v_body) = v_orbit; the notes' Q_P/O is the transpose of this rotation */
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function qFromCols(a, b, c) {
+  const m00 = a[0], m11 = b[1], m22 = c[2], tr = m00 + m11 + m22;
+  let q;
+  if (tr > 0) { const s = 2 * Math.sqrt(tr + 1); q = [0.25 * s, (b[2] - c[1]) / s, (c[0] - a[2]) / s, (a[1] - b[0]) / s]; }
+  else if (m00 > m11 && m00 > m22) { const s = 2 * Math.sqrt(1 + m00 - m11 - m22); q = [(b[2] - c[1]) / s, 0.25 * s, (b[0] + a[1]) / s, (c[0] + a[2]) / s]; }
+  else if (m11 > m22) { const s = 2 * Math.sqrt(1 + m11 - m00 - m22); q = [(c[0] - a[2]) / s, (b[0] + a[1]) / s, 0.25 * s, (c[1] + b[2]) / s]; }
+  else { const s = 2 * Math.sqrt(1 + m22 - m00 - m11); q = [(a[1] - b[0]) / s, (c[0] + a[2]) / s, (c[1] + b[2]) / s, 0.25 * s]; }
+  return q;
+}
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+/* small dense matrices, as arrays of rows */
+const zeros = (n, m) => Array.from({ length: n }, () => new Array(m === undefined ? n : m).fill(0));
+const eye = (n) => { const I = zeros(n); for (let i = 0; i < n; i++) I[i][i] = 1; return I; };
+const mT = (A) => A[0].map((_, j) => A.map((r) => r[j]));
+function mmul(A, B) {
+  const n = A.length, m = B[0].length, k = B.length, C = zeros(n, m);
+  for (let i = 0; i < n; i++) for (let l = 0; l < k; l++) { const a = A[i][l]; if (a === 0) continue; for (let j = 0; j < m; j++) C[i][j] += a * B[l][j]; }
+  return C;
+}
+const madd = (A, B, s = 1) => A.map((r, i) => r.map((v, j) => v + s * B[i][j]));
+const mscale = (A, s) => A.map((r) => r.map((v) => v * s));
+const mcopy = (A) => A.map((r) => r.slice());
+const mnorm = (A) => Math.sqrt(A.reduce((s, r) => s + r.reduce((t, v) => t + v * v, 0), 0));
+/* inverse and log|det| by Gauss-Jordan with partial pivoting */
+function minvdet(A) {
+  const n = A.length, M = A.map((r, i) => r.concat(eye(n)[i]));
+  let logdet = 0;
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (M[p][c] === 0) throw new Error('singular');
+    if (p !== c) { const t = M[p]; M[p] = M[c]; M[c] = t; }
+    const d = M[c][c]; logdet += Math.log(Math.abs(d));
+    for (let j = 0; j < 2 * n; j++) M[c][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[c][j]; }
+  }
+  return { inv: M.map((r) => r.slice(n)), logdet };
+}
+const minv = (A) => minvdet(A).inv;
+/* least squares A X = B for tall A, by the normal equations */
+const lstsq = (A, B) => { const At = mT(A); return mmul(minv(mmul(At, A)), mmul(At, B)); };
+/* ---------- eigenvalues: balance, reduce to Hessenberg form, then the Francis double-shift QR (after Numerical Recipes balanc, elmhes, hqr) ---------- */
+function eig(A0) {
+  const n = A0.length, a = [null].concat(A0.map((r) => [0].concat(r)));   // 1-indexed copy
+  const SIGN = (x, y) => (y >= 0 ? Math.abs(x) : -Math.abs(x));
+  // balance: scale rows and columns by powers of 2 so their norms match
+  for (let last = 0; !last;) {
+    last = 1;
+    for (let i = 1; i <= n; i++) {
+      let r = 0, c = 0;
+      for (let j = 1; j <= n; j++) if (j !== i) { c += Math.abs(a[j][i]); r += Math.abs(a[i][j]); }
+      if (c && r) {
+        let g = r / 2, f = 1; const s = c + r;
+        while (c < g) { f *= 2; c *= 4; }
+        g = r * 2;
+        while (c > g) { f /= 2; c /= 4; }
+        if ((c + r) / f < 0.95 * s) { last = 0; g = 1 / f; for (let j = 1; j <= n; j++) a[i][j] *= g; for (let j = 1; j <= n; j++) a[j][i] *= f; }
+      }
+    }
+  }
+  // Hessenberg form by elimination with pivoting
+  for (let m = 2; m < n; m++) {
+    let x = 0, i = m;
+    for (let j = m; j <= n; j++) if (Math.abs(a[j][m - 1]) > Math.abs(x)) { x = a[j][m - 1]; i = j; }
+    if (i !== m) { for (let j = m - 1; j <= n; j++) { const t = a[i][j]; a[i][j] = a[m][j]; a[m][j] = t; } for (let j = 1; j <= n; j++) { const t = a[j][i]; a[j][i] = a[j][m]; a[j][m] = t; } }
+    if (x) for (i = m + 1; i <= n; i++) { let y = a[i][m - 1]; if (y) { y /= x; a[i][m - 1] = y; for (let j = m; j <= n; j++) a[i][j] -= y * a[m][j]; for (let j = 1; j <= n; j++) a[j][m] += y * a[j][i]; } }
+  }
+  for (let i = 3; i <= n; i++) for (let j = 1; j < i - 1; j++) a[i][j] = 0;
+  // QR iterations
+  const wr = new Array(n + 1).fill(0), wi = new Array(n + 1).fill(0);
+  let anorm = 0; for (let i = 1; i <= n; i++) for (let j = Math.max(i - 1, 1); j <= n; j++) anorm += Math.abs(a[i][j]);
+  let nn = n, t = 0;
+  while (nn >= 1) {
+    let its = 0, l;
+    do {
+      for (l = nn; l >= 2; l--) { let s = Math.abs(a[l - 1][l - 1]) + Math.abs(a[l][l]); if (s === 0) s = anorm; if (Math.abs(a[l][l - 1]) + s === s) { a[l][l - 1] = 0; break; } }
+      let x = a[nn][nn];
+      if (l === nn) { wr[nn] = x + t; wi[nn--] = 0; }
+      else {
+        let y = a[nn - 1][nn - 1], w = a[nn][nn - 1] * a[nn - 1][nn];
+        if (l === nn - 1) {
+          const p = 0.5 * (y - x), q = p * p + w; let z = Math.sqrt(Math.abs(q)); x += t;
+          if (q >= 0) { z = p + SIGN(z, p); wr[nn - 1] = wr[nn] = x + z; if (z) wr[nn] = x - w / z; wi[nn - 1] = wi[nn] = 0; }
+          else { wr[nn - 1] = wr[nn] = x + p; wi[nn - 1] = -(wi[nn] = z); }
+          nn -= 2;
+        } else {
+          if (its === 60) throw new Error('eig: no convergence');
+          if (its === 10 || its === 20) { t += x; for (let i = 1; i <= nn; i++) a[i][i] -= x; const s = Math.abs(a[nn][nn - 1]) + Math.abs(a[nn - 1][nn - 2]); y = x = 0.75 * s; w = -0.4375 * s * s; }
+          ++its;
+          let m, p, q, r, z, s;
+          for (m = nn - 2; m >= l; m--) {
+            z = a[m][m]; r = x - z; s = y - z;
+            p = (r * s - w) / a[m + 1][m] + a[m][m + 1]; q = a[m + 1][m + 1] - z - r - s; r = a[m + 2][m + 1];
+            s = Math.abs(p) + Math.abs(q) + Math.abs(r); p /= s; q /= s; r /= s;
+            if (m === l) break;
+            const u = Math.abs(a[m][m - 1]) * (Math.abs(q) + Math.abs(r)), v = Math.abs(p) * (Math.abs(a[m - 1][m - 1]) + Math.abs(z) + Math.abs(a[m + 1][m + 1]));
+            if (u + v === v) break;
+          }
+          for (let i = m + 2; i <= nn; i++) { a[i][i - 2] = 0; if (i !== m + 2) a[i][i - 3] = 0; }
+          for (let k = m; k <= nn - 1; k++) {
+            if (k !== m) {
+              p = a[k][k - 1]; q = a[k + 1][k - 1]; r = 0;
+              if (k !== nn - 1) r = a[k + 2][k - 1];
+              if ((x = Math.abs(p) + Math.abs(q) + Math.abs(r)) !== 0) { p /= x; q /= x; r /= x; }
+            }
+            if ((s = SIGN(Math.sqrt(p * p + q * q + r * r), p)) !== 0) {
+              if (k === m) { if (l !== m) a[k][k - 1] = -a[k][k - 1]; }
+              else a[k][k - 1] = -s * x;
+              p += s; x = p / s; y = q / s; z = r / s; q /= p; r /= p;
+              for (let j = k; j <= nn; j++) { p = a[k][j] + q * a[k + 1][j]; if (k !== nn - 1) { p += r * a[k + 2][j]; a[k + 2][j] -= p * z; } a[k + 1][j] -= p * y; a[k][j] -= p * x; }
+              const mmin = nn < k + 3 ? nn : k + 3;
+              for (let i = l; i <= mmin; i++) { p = x * a[i][k] + y * a[i][k + 1]; if (k !== nn - 1) { p += z * a[i][k + 2]; a[i][k + 2] -= p * r; } a[i][k + 1] -= p * q; a[i][k] -= p; }
+            }
+          }
+        }
+      }
+    } while (l < nn - 1);
+  }
+  const out = []; for (let i = 1; i <= n; i++) out.push({ re: wr[i], im: wi[i] });
+  return out.sort((u, v) => u.re - v.re || u.im - v.im);
+}
+/* ---------- the algebraic Riccati equation A'P + PA - P B R^-1 B' P + Q = 0, by the matrix sign function ---------- */
+function care(A, B, Q, R) {
+  const n = A.length, Ri = minv(R), S = mmul(mmul(B, Ri), mT(B));
+  // Hamiltonian H = [A, -S; -Q, -A']
+  let Z = zeros(2 * n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { Z[i][j] = A[i][j]; Z[i][j + n] = -S[i][j]; Z[i + n][j] = -Q[i][j]; Z[i + n][j + n] = -A[j][i]; }
+  let it = 0;
+  for (; it < 100; it++) {
+    const { inv, logdet } = minvdet(Z), c = Math.exp(-logdet / (2 * n));
+    const Zn = Z.map((r, i) => r.map((v, j) => 0.5 * (c * v + inv[i][j] / c)));
+    const d = mnorm(madd(Zn, Z, -1)) / mnorm(Zn); Z = Zn;
+    if (d < 1e-13) break;
+  }
+  // the stable subspace [I; P] satisfies (sign(H) + I)[I; P] = 0
+  const M = zeros(2 * n, n), N = zeros(2 * n, n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    M[i][j] = Z[i][j + n]; M[i + n][j] = Z[i + n][j + n] + (i === j ? 1 : 0);
+    N[i][j] = -(Z[i][j] + (i === j ? 1 : 0)); N[i + n][j] = -Z[i + n][j];
+  }
+  let P = lstsq(M, N);
+  P = P.map((r, i) => r.map((v, j) => 0.5 * (v + P[j][i])));
+  const K = mmul(mmul(Ri, mT(B)), P);
+  const res = mnorm(madd(madd(madd(mmul(mT(A), P), mmul(P, A)), mmul(mmul(P, S), P), -1), Q));
+  return { P, K, res, it };
+}
+function lqr(A, B, Q, R) { const s = care(A, B, Q, R); s.e = eig(madd(A, mmul(B, s.K), -1)); return s; }
+
+/* =========================================================
+   Physics: the one-axis pitch plant and its LQR designs
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378.137e3, WC = Math.sqrt(MU / Math.pow(RE + 600e3, 3)), KGG = 3 * WC * WC * (18 - 8), ULIM = 0.02;
+let P = {};
+const plantA = () => [[0, 1], [S.gg ? -KGG / S.Ip : 0, 0]];
+const plantB = () => [[0], [1 / S.Ip]];
+/* a design's weights in radians, from Bryson's rule or as typed */
+function weights(r) {
+  const D = S.runs[r];
+  if (D.mode === 'bryson') return { Q: [[1 / D.tm ** 2, 0], [0, D.wm > 0 ? 1 / D.wm ** 2 : 0]], R: 1 / D.um ** 2 };
+  const s = D.unit === 'deg' ? R2D * R2D : 1;   // a weight per deg^2 is (180/pi)^2 per rad^2
+  return { Q: [[D.q11 * s, 0], [0, D.q22 * s]], R: D.r };
+}
+function solve(r) {
+  const { Q, R } = weights(r), A = plantA(), B = plantB(), L = lqr(A, B, Q, [[R]]), K = L.K[0];
+  const Ag = madd(A, mmul(B, [[S.runs[r].gf * K[0], S.runs[r].gf * K[1]]]), -1), eg = eig(Ag);
+  const slow = Math.max(...L.e.map((z) => z.re));
+  const k1h = Math.sqrt(Q[0][0] / R), k2h = Math.sqrt(2 * S.Ip * k1h + Q[1][1] / R);
+  // the same weights on the plant without its gravity-gradient spring, to show how little the spring moves the gain
+  const K0 = S.gg ? lqr([[0, 1], [0, 0]], B, Q, [[R]]).K[0] : K;
+  return { K0, Q, R, K, P: L.P, res: L.res, e: L.e, eg, ts: -4 / slow, wn: Math.sqrt((K[0] + (S.gg ? KGG : 0)) / S.Ip), zeta: K[1] / (2 * Math.sqrt((K[0] + (S.gg ? KGG : 0)) * S.Ip)), k1h, k2h, Jstar: P_quad(L.P, [S.th0 * D2R, 0]) };
+}
+const P_quad = (Pm, x) => x[0] * (Pm[0][0] * x[0] + Pm[0][1] * x[1]) + x[1] * (Pm[1][0] * x[0] + Pm[1][1] * x[1]);
+/* the root locus of one design: its poles as both Q entries are scaled from 1/100 to 100 times */
+function locus(r) {
+  const { Q, R } = weights(r), A = plantA(), B = plantB(), out = [];
+  for (let i = 0; i <= 80; i++) { const s = Math.pow(10, -2 + 4 * i / 80); try { out.push(lqr(A, B, mscale(Q, s), [[R]]).e); } catch (e) { /* skip */ } }
+  return out;
+}
+
+/* ---------- three runs ----------
+   y = [theta, theta_dot, J_state, J_effort, h_wheel] */
+const NY = 5;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 0.05;
+function uOf(r, y) {
+  const K = P.L[r].K;
+  let u = -(K[0] * y[0] + K[1] * y[1]) * S.runs[r].gf;
+  if (S.lim) u = clamp(u, -ULIM, ULIM);
+  return u;
+}
+function deriv(r, y, out) {
+  const L = P.L[r], u = uOf(r, y), uc = u / S.runs[r].gf;   // the cost uses what the controller asked for
+  out[0] = y[1];
+  out[1] = (u - (S.gg ? KGG * Math.sin(y[0]) * Math.cos(y[0]) : 0)) / S.Ip;
+  out[2] = L.Q[0][0] * y[0] * y[0] + L.Q[1][1] * y[1] * y[1];
+  out[3] = L.R * uc * uc;
+  out[4] = -u;
+}
+function rk4(r, h) {
+  const Y = Ys[r];
+  deriv(r, Y, K1); for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, K2); for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, K3); for (let i = 0; i < NY; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, K4); for (let i = 0; i < NY; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (o) => Object.assign({ mode: 'bryson', tm: 0.1, wm: 0, um: 0.02, q11: 100, q22: 0, r: 2500, unit: 'rad', gf: 1, name: '' }, o);
+const S = {
+  Ip: 20, th0: 0.1 * R2D, dur: 300, gg: false, lim: false,
+  runs: [mkRun({}), mkRun({}), mkRun({})],
+  edit: 0, shown: [true, true, true],
+  speed: 15, playing: !reduceMotion,
+  pane: 's', locus: true,
+  show: { labels: true },
+};
+let currentPreset = 'app';
+const REC = [0, 1, 2].map(() => ({}));
+function resetRecords() { for (let r = 0; r < 3; r++) REC[r] = { ov: 0, uPk: Math.abs(uOf(r, Ys[r])), tIn: 0, tSet: null }; }
+function trackRun(r) {
+  const R = REC[r], Y = Ys[r], th0 = S.th0 * D2R;
+  R.ov = Math.max(R.ov, -Math.sign(th0) * Y[0]);
+  R.uPk = Math.max(R.uPk, Math.abs(uOf(r, Y)));
+  if (Math.abs(Y[0]) > 0.02 * Math.abs(th0)) R.tIn = simT;   // last time outside 2% of the start
+}
+
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HK = ['th', 'u', 'w', 'J'];
+const HQ = {}; HK.forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 0.1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) { Ht[j] = Ht[i]; HK.forEach((k) => { for (let r = 0; r < 3; r++) HQ[k][r][j] = HQ[k][r][i]; }); }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) { const Y = Ys[r]; HQ.th[r][i] = Y[0] * R2D; HQ.u[r][i] = uOf(r, Y); HQ.w[r][i] = Y[1] * R2D; HQ.J[r][i] = Y[2] + Y[3]; }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(200000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) { for (let r = 0; r < 3; r++) rk4(r, h); simT += h; for (let r = 0; r < 3; r++) trackRun(r); histPush(false); }
+}
+
+/* =========================================================
+   3D scene: three satellites pitching back to the orbit frame
+   ========================================================= */
+const DQ = qaa(1, 0, 0, Math.PI);
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.6, BUS = 0.42;
+const wheelAng = [0, 0, 0];
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 35 }), face: new THREE.MeshPhongMaterial({ shininess: 35 }), edge: new THREE.LineBasicMaterial(),
+    wheelA: new THREE.MeshPhongMaterial({ shininess: 60 }), wheelB: new THREE.MeshPhongMaterial({ shininess: 60 }),
+    vert: new THREE.LineDashedMaterial({ dashSize: 0.06, gapSize: 0.05 }), start: [0, 1, 2].map(() => new THREE.LineDashedMaterial({ dashSize: 0.05, gapSize: 0.05 })),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+  };
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo), sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  const ground = new THREE.Group(); scene.add(ground);
+  ground.add(new THREE.Mesh(sphereGeo, M.earth));
+  { const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) { const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a)); }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) { const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c)); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    ground.add(new THREE.LineSegments(geo, M.grid)); }
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const halfA = new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32, 1, false, 0, Math.PI), halfB = new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32, 1, false, Math.PI, Math.PI);
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    const box = new THREE.Mesh(boxGeo, [M.hull, M.hull, M.hull, M.hull, M.face, M.hull]), edges = new THREE.LineSegments(edgeGeo, M.edge);
+    box.scale.set(2 * BUS, 2 * BUS, 2.6 * BUS); edges.scale.copy(box.scale); veh.add(box, edges);
+    // the pitch wheel on the body's pitch axis (body y), outside the bus
+    const spin = new THREE.Group(); spin.add(new THREE.Mesh(halfA, M.wheelA), new THREE.Mesh(halfB, M.wheelB)); spin.position.set(0, BUS + 0.05, 0); veh.add(spin);
+    const vert = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 1.1), new THREE.Vector3(0, 0, -1.25)]), M.vert); vert.computeLineDistances(); lane.add(vert);
+    const st = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1.2)]), M.start[r]); st.computeLineDistances(); lane.add(st);
+    return { lane, veh, spin, st };
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanes };
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic(dtReal) {
+  const { off } = laneOffsets(), th0 = S.th0 * D2R;
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.shown[r];
+    L.lane.visible = on; if (!on) continue;
+    L.lane.position.set(off[r], 0, 0);
+    const q = qmul(DQ, qaa(0, 1, 0, Ys[r][0]));
+    L.veh.quaternion.set(q[1], q[2], q[3], q[0]);
+    // the starting attitude, as a dashed line along where the Earth-facing end began
+    const qs = qmul(DQ, qaa(0, 1, 0, th0)); L.st.quaternion.set(qs[1], qs[2], qs[3], qs[0]);
+    if (S.playing && !reduceMotion) wheelAng[r] += 40 * Ys[r][4] * dtReal;
+    L.spin.rotation.y = wheelAng[r];
+    laneGeo[r].off = off[r];
+  }
+}
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) { const d = document.createElement('div'); d.className = 'vlabel' + (cls ? ' ' + cls : ''); if (color) d.style.setProperty('--c', color); d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d; }
+const LB = { lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')), down: mkLabel('to Earth ↓', 'var(--muted)', 'small') };
+const laneKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  let first = -1;
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r] && S.show.labels, html = `${runHTML(r)}<span class="ex">θ ${fs(Ys[r][0] * R2D, 2)}°</span>`;
+    if (html !== laneKey[r]) { LB.lane[r].innerHTML = html; laneKey[r] = html; }
+    if (on) { placeLabel(LB.lane[r], [laneGeo[r].off, 0, 1.45]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+  }
+  if (S.show.labels && first >= 0) placeLabel(LB.down, [laneGeo[first].off, 0, -1.4], 34, 0); else LB.down.hidden = true;
+}
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'frame', 'hw', 'cmd', 'ggt', 'dist', 'ax2', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = Cc('hull'); M.face.color = Cc('face'); M.edge.color = Cc('edge');
+    M.wheelA.color = Cc('ax2'); M.wheelB.color = Cc('hull-top'); M.vert.color = Cc('muted');
+    M.start.forEach((m, r) => { m.color = Cc('run' + r); });
+    M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line');
+  }
+  drawPlot(); drawPane();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false); G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_L = HAS3D ? new THREE.Vector3(0.3, -1, 0.3).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = ISO_L.clone();
+  const n = laneOffsets().n, rho = 1.35 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2), c = new THREE.Vector3(0, 0, -0.1);
+  G.controls.target.copy(c); G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix(); G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(0.0001, -1, 0.0001).normalize();
+  return ISO_L.clone();
+}
+
+/* =========================================================
+   Second pane: poles, the Riccati solution, or the cost
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) { const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function ticksOf(a, b, n) { const s = niceStep(b - a, n), out = []; for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v); return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) }; }
+function drawPane() { if (S.pane === 's') drawS(); else if (S.pane === 'ric') drawRic(); else drawCost(); }
+function drawS() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const m = { l: 62, r: 16, t: 46, b: capH + 40 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 100 || ph < 100) return;
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), pts = [];
+  vis.forEach((r) => { P.L[r].e.forEach((z) => pts.push(z)); if (S.runs[r].gf !== 1) P.L[r].eg.forEach((z) => pts.push(z)); });
+  // scaled to the designs' own poles; the loci run on past the edges
+  const ext = Math.max(...pts.map((z) => Math.max(Math.abs(z.re), Math.abs(z.im))), 1e-3) * 1.6;
+  // square scale: left half plane, imaginary axis centered
+  const sc = Math.min(pw / (1.15 * ext), ph / (2 * ext)), X = (re) => m.l + pw - 0.15 * ext * sc + re * sc, Y = (im) => m.t + ph / 2 - im * sc;
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.fillStyle = COL.muted;
+  const t = ticksOf(0, ext, 4);
+  t.v.forEach((v) => { if (v === 0) return; ctx.beginPath(); ctx.moveTo(X(-v) + 0.5, m.t); ctx.lineTo(X(-v) + 0.5, m.t + ph); ctx.stroke(); ctx.textAlign = 'center'; ctx.fillText(fx(-v, t.d), X(-v), m.t + ph + 12); [v, -v].forEach((w) => { const y = Y(w); if (y < m.t || y > m.t + ph) return; ctx.beginPath(); ctx.moveTo(m.l, y + 0.5); ctx.lineTo(m.l + pw, y + 0.5); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(fx(w, t.d), m.l - 6, y); }); });
+  ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(m.l, Y(0) + 0.5); ctx.lineTo(m.l + pw, Y(0) + 0.5); ctx.moveTo(X(0) + 0.5, m.t); ctx.lineTo(X(0) + 0.5, m.t + ph); ctx.stroke();
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; ctx.fillText('real part, 1/s', m.l + pw / 2, m.t + ph + 28); ctx.textAlign = 'left'; ctx.fillText('imaginary part, rad/s', 6, m.t - 14);
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  // the zeta = 0.707 rays
+  ctx.strokeStyle = COL.good; ctx.setLineDash([5, 4]); ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(-2 * ext), Y(2 * ext)); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(-2 * ext), Y(-2 * ext)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  ctx.font = UIF(600, 12); ctx.fillStyle = COL.good; ctx.textAlign = 'left'; ctx.fillText('ζ = 0.707', X(-0.62 * ext) + 4, Y(0.62 * ext) - 8);
+  if (S.locus) vis.forEach((r) => {
+    ctx.strokeStyle = COL['run' + r]; ctx.globalAlpha = 0.4; ctx.lineWidth = 1.5;
+    for (const b of [0, 1]) { ctx.beginPath(); P.loc[r].forEach((es, i) => { const z = es.slice().sort((a, c) => (b ? a.im - c.im || a.re - c.re : c.im - a.im || c.re - a.re))[0]; if (i) ctx.lineTo(X(z.re), Y(z.im)); else ctx.moveTo(X(z.re), Y(z.im)); }); ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.lineWidth = 1;
+  });
+  vis.forEach((r) => {
+    P.L[r].e.forEach((z) => { ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(z.re), Y(z.im), 6, 0, TAU); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1; });
+    if (S.runs[r].gf !== 1) P.L[r].eg.forEach((z) => { ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 2; const x = X(z.re), y = Y(z.im); ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); ctx.stroke(); ctx.lineWidth = 1; });
+  });
+  ctx.restore();
+}
+function drawRic() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const r = S.edit, L = P.L[r], x = 16, col = COL['run' + r];
+  let y = 64;
+  const line = (txt, font, c, dy) => { ctx.font = font; ctx.fillStyle = c || COL.ink; ctx.textAlign = 'left'; ctx.fillText(txt, x, y, W - 2 * x); y += dy || 20; };
+  const mat = (lab, M, cy) => {
+    ctx.font = UIF(700, 14); ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.fillText(lab, x, cy + 20);
+    ctx.font = '13px "IBM Plex Mono", monospace'; ctx.fillStyle = COL.ink;
+    const cw = 110, x0 = x + 40;
+    M.forEach((row, i) => row.forEach((v, j) => { ctx.textAlign = 'right'; ctx.fillText(fg(v, 5), x0 + (j + 1) * cw, cy + 12 + 18 * i); }));
+    ctx.strokeStyle = COL.ink; ctx.beginPath(); const yb = cy - 2, yh = 18 * M.length + 6, xr = x0 + M[0].length * cw + 10;
+    ctx.moveTo(x0 + 10, yb); ctx.lineTo(x0 + 4, yb); ctx.lineTo(x0 + 4, yb + yh); ctx.lineTo(x0 + 10, yb + yh); ctx.moveTo(xr - 6, yb); ctx.lineTo(xr, yb); ctx.lineTo(xr, yb + yh); ctx.lineTo(xr - 6, yb + yh); ctx.stroke();
+  };
+  ctx.textBaseline = 'middle';
+  line(`Design ${r + 1}: ${runName(r)}`, UIF(700, 15), col, 26);
+  mat('Q', L.Q, y); y += 52;
+  ctx.font = UIF(700, 14); ctx.fillStyle = COL.muted; ctx.fillText('R', x, y + 8); ctx.font = '13px "IBM Plex Mono", monospace'; ctx.fillStyle = COL.ink; ctx.textAlign = 'right'; ctx.fillText(fg(L.R, 5), x + 150, y + 8); y += 34;
+  mat('P', L.P, y); y += 52;
+  mat('K', [L.K], y); y += 36;
+  line(`Riccati residual |AᵀP + PA − PBR⁻¹BᵀP + Q| = ${sci(L.res, 1)}`, MONO, COL.muted, 26);
+  if (!S.gg) {
+    line(`By hand: k₁ = √(Q₁₁/R) = ${fg(L.k1h, 5)}   k₂ = √(2I_p k₁ + Q₂₂/R) = ${fg(L.k2h, 5)}`, MONO, COL.ink, 20);
+  } else line('By hand: the closed forms assume no gravity gradient; with it, only the numbers move, slightly.', MONO, COL.muted, 20);
+  line(`ωn = ${fg(L.wn, 4)} rad/s   ζ = ${fg(L.zeta, 4)}   settling ≈ 4/σ = ${fg(L.ts, 3)} s`, MONO, COL.ink, 20);
+  line(`J* = x₀ᵀPx₀ = ${fg(L.Jstar, 5)} for θ₀ = ${fn(S.th0)}°`, MONO, COL.ink, 20);
+  line(`Initial torque k₁θ₀ = ${sci(L.K[0] * S.th0 * D2R, 3)} N·m`, MONO, COL.ink, 20);
+}
+function drawCost() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const m = { l: 60, r: 18, t: 74, b: capH + 40 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 100 || ph < 80) return;
+  const vals = vis.map((r) => ({ r, xs: Ys[r][2], us: Ys[r][3], J: P.L[r].Jstar }));
+  const ymax = Math.max(...vals.map((v) => Math.max(v.xs + v.us, v.J)), 1e-9) * 1.15;
+  const Y = (v) => m.t + ph - v / ymax * ph, yt = ticksOf(0, ymax, ph / 32);
+  ctx.strokeStyle = COL.rule; ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.fillStyle = COL.muted; ctx.textAlign = 'right';
+  yt.v.forEach((v) => { const y = Math.round(Y(v)) + 0.5; ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke(); ctx.fillText(fx(v, yt.d), m.l - 6, y); });
+  ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.textAlign = 'left'; ctx.fillText('cost so far (dimensionless with Bryson weights)', 6, m.t - 14);
+  const bw = Math.min(70, pw / (vals.length * 2));
+  vals.forEach((v, k) => {
+    const cx = m.l + (k + 0.5) * pw / vals.length, x = cx - bw / 2;
+    ctx.fillStyle = COL['run' + v.r]; ctx.globalAlpha = 0.9; ctx.fillRect(x, Y(v.xs), bw, Y(0) - Y(v.xs));
+    ctx.globalAlpha = 0.45; ctx.fillRect(x, Y(v.xs + v.us), bw, Y(v.xs) - Y(v.xs + v.us)); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.ink; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(x - 8, Y(v.J) + 0.5); ctx.lineTo(x + bw + 8, Y(v.J) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = UIF(700, 13); ctx.fillStyle = COL['run' + v.r]; ctx.textAlign = 'center'; ctx.fillText(`Design ${v.r + 1}`, cx, m.t + ph + 14);
+    ctx.font = MONO; ctx.fillStyle = COL.ink; ctx.fillText(`${fg(v.xs + v.us, 3)} / ${fg(v.J, 3)}`, cx, m.t + ph + 30);
+    const sh = v.xs + v.us > 0 ? v.xs / (v.xs + v.us) : 0; ctx.fillStyle = COL.muted; ctx.fillText(`${fx(100 * sh, 0)}% error`, cx, Y(v.xs + v.us) - 10);
+  });
+  ctx.font = UIF(600, 12.5); ctx.textAlign = 'left'; ctx.fillStyle = COL.ink;
+  ctx.fillText('solid: ∫xᵀQx (state error)   pale: ∫uᵀRu (effort)   dashes: J* = x₀ᵀPx₀', 10, 44, W - 20);
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'th', hoverX: null, m: { l: 66, r: 16, t: 20, b: 24 } };
+const QINFO = {
+  th: { unit: 'pitch error θ, deg', key: 'th' },
+  u: { unit: 'commanded torque u, N·m', key: 'u', lim: true },
+  w: { unit: 'pitch rate θ̇, deg/s', key: 'w' },
+  J: { unit: 'running cost J(t) (dashed: J* = x₀ᵀPx₀)', key: 'J', jstar: true },
+};
+function setLegend() {
+  el('hlegs').innerHTML = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], key = info.key, x0 = 0, x1 = Math.max(simT, S.dur, 1e-3);
+  let mn = Infinity, mx = -Infinity;
+  for (let k = 0; k < 3; k++) { if (!S.shown[k]) continue; const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; } if (info.jstar) mx = Math.max(mx, P.L[k].Jstar); }
+  if (info.lim && S.lim) { mx = Math.max(mx, ULIM); mn = Math.min(mn, -ULIM); }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
+  let y0 = mn - 0.08 * span, y1 = mx + 0.08 * span; if (mn >= 0 && mn < 0.3 * span) y0 = 0;
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw, Yp = (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const e = Math.floor(Math.log10(Math.max(Math.abs(y0), Math.abs(y1), 1e-30))), ysc = e < -2 ? Math.pow(10, e) : 1, yt = ticksOf(y0 / ysc, y1 / ysc, ph / 30), yv = yt.v.map((v) => v * ysc), xt = ticksOf(x0, x1, pw / 70);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yv.forEach((v) => ctx.fillText(fx(v / ysc, yt.d), l - 6, Yp(v)));
+  if (y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.fillText(info.unit + (ysc !== 1 ? `, × ${pow10(Math.round(Math.log10(ysc)))}` : ''), 6, 9); ctx.fillText('t, s', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  const hl = (v, c) => { const y = Math.round(Yp(v)) + 0.5; ctx.strokeStyle = c; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; };
+  if (info.lim && S.lim) { hl(ULIM, COL.bad); hl(-ULIM, COL.bad); }
+  if (PL.q === 'th') { const b2 = 0.02 * S.th0; ctx.fillStyle = COL.good; ctx.globalAlpha = 0.08; ctx.fillRect(l, Yp(b2), pw, Yp(-b2) - Yp(b2)); ctx.globalAlpha = 1; }
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k] || hN < 2) continue;
+    if (info.jstar) hl(P.L[k].Jstar, COL['run' + k]);
+    const a = HQ[key][k]; ctx.strokeStyle = COL['run' + k]; ctx.lineWidth = 1.8; ctx.beginPath();
+    for (let i = 0; i < hN; i++) { const x = X(Ht[i]), y = Yp(a[i]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
+  const xc = Math.round(X(simT)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = x0 + (PL.hoverX - l) / pw * (x1 - x0);
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`t ${fx(Ht[i], 1)} s`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`design ${k + 1}  ${fg(HQ[key][k][i], 4)}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function autoName(r) {
+  const D = S.runs[r];
+  if (D.mode === 'bryson') return `θmax ${fn(D.tm)}, ${D.wm > 0 ? 'ωmax ' + fn(D.wm) + ', ' : ''}umax ${fn(D.um)}`;
+  return `Q = diag(${fn(D.q11)}, ${fn(D.q22)}), R = ${fn(D.r)}${D.unit === 'deg' ? ' (deg)' : ''}`;
+}
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = (r) => runName(r) + (S.runs[r].gf !== 1 ? ` · gain ×${fn(S.runs[r].gf)}` : '');
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const pole = (z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 3)} ± ${fg(Math.abs(z.im), 3)}j` : fs(z.re, 3));
+function runTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  const L = P.L;
+  let h = '';
+  h += row(`${SYM('Q')}<sub class="n">11</sub> <span class="u">1/rad²</span>`, (r) => cell(r, fg(L[r].Q[0][0], 3)));
+  h += row(`${SYM('Q')}<sub class="n">22</sub> <span class="u">s²/rad²</span>`, (r) => cell(r, fg(L[r].Q[1][1], 3)));
+  h += row(`${SYM('R')} <span class="u">1/(N·m)²</span>`, (r) => cell(r, fg(L[r].R, 3)));
+  h += row(`${SYM('k')}<sub class="n">1</sub> <span class="u">N·m/rad</span>`, (r) => cell(r, fg(L[r].K[0], 4)), true);
+  h += row(`${SYM('k')}<sub class="n">2</sub> <span class="u">N·m·s/rad</span>`, (r) => cell(r, fg(L[r].K[1], 4)));
+  if (S.gg) h += row(`…${SYM('k')}<sub class="n">1</sub>, ${SYM('k')}<sub class="n">2</sub> without the spring`, (r) => cell(r, `${fg(L[r].K0[0], 4)}, ${fg(L[r].K0[1], 4)}`));
+  const ps = L.map((x) => x.e.filter((z) => z.im >= -1e-12));
+  h += row('Poles <span class="u">1/s</span>', (r) => cell(r, ps[r].map((z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 3)}<br>±${fg(Math.abs(z.im), 3)}j` : fs(z.re, 3))).join('<br>'), 'wrap'), true);
+  h += row(`${SYM('ω<sub>n</sub>')} <span class="u">rad/s</span>`, (r) => cell(r, fg(L[r].wn, 3)));
+  h += row(`${SYM('ζ')}`, (r) => cell(r, fg(L[r].zeta, 3)));
+  h += row('Settling ≈ 4/σ <span class="u">s</span>', (r) => cell(r, fg(L[r].ts, 3)));
+  h += row(`${SYM('J')}* = ${SYM('x')}₀ᵀ${SYM('Px')}₀`, (r) => cell(r, fg(L[r].Jstar, 4)), true);
+  h += row('Cost so far', (r) => cell(r, fg(Ys[r][2] + Ys[r][3], 4)));
+  h += row('Peak torque <span class="u">N·m</span>', (r) => cell(r, fg(REC[r].uPk, 3), REC[r].uPk > ULIM * 1.001 ? 'bad' : ''), true);
+  h += row('Overshoot <span class="u">°</span>', (r) => cell(r, fg(REC[r].ov * R2D, 3)));
+  h += row('Inside 2% after <span class="u">s</span>', (r) => cell(r, Math.abs(Ys[r][0]) <= 0.02 * S.th0 * D2R ? fg(REC[r].tIn, 3) : '—'));
+  el('runBody').innerHTML = h;
+  el('runTabNote').innerHTML = `Gains in N·m/rad and N·m·s/rad whatever units the weights were typed in. Peak torque in red exceeds the 0.02 N·m wheel.`;
+}
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), L = P.L;
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const now = (r) => `<span class="now">K = [${fg(L[r].K[0], 3)}, ${fg(L[r].K[1], 3)}] · θ ${fs(Ys[r][0] * R2D, 3)}° · u ${sci(uOf(r, Ys[r]), 2)} N·m</span></span>`;
+  let t, s, runs = vis.map((r) => head(r) + `ωn ${fg(L[r].wn, 3)} rad/s, ζ ${fg(L[r].zeta, 3)}, settles in about ${fg(L[r].ts, 2)} s.` + now(r)), watch;
+  const sc = currentPreset;
+  if (sc === 'app') {
+    t = 'LQR on one axis is a PD controller, and the weights set its speed';
+    s = `Lesson 35's appendix: θ̈ = u/I<sub>p</sub> with I<sub>p</sub> = 20 kg·m². Bryson's rule with θ<sub>max</sub> = 0.1 rad and u<sub>max</sub> = 0.02 N·m gives Q = diag(100, 0), R = 2500 and K = [0.20, 2.83]: u = −0.20θ − 2.83θ̇, a PD controller with ζ = 0.707 exactly, the value any angle-only weighting gives a double integrator. Bryson makes the limits meet: a 0.1 rad error asks for k₁θ<sub>max</sub> = 0.02 N·m, exactly u<sub>max</sub>. Design 2 quadruples R (u<sub>max</sub> = 0.01): half the angle gain, but only √2 slower, because ω<sub>n</sub> goes as (Q₁₁/R)<sup>¼</sup>. Design 3 adds a rate weight: no overshoot, but a slow real pole sets a longer settling time.`;
+    watch = 'The poles pane: designs 1 and 2 sit on the dashed ζ = 0.707 rays, design 3 on the real axis. Settling 57, 80 and 77 s in the table.';
+  } else if (sc === 'ratio') {
+    t = 'Only the ratio of Q to R matters';
+    s = 'Three designs: Bryson\'s base design, and the same weights multiplied by 10 and by 0.1. Multiplying Q and R by the same number multiplies the cost by that number but leaves the best gain, the poles and the response unchanged. The three responses lie on top of each other; only the cost scale differs.';
+    watch = 'The table: identical K and poles. The Cost pane: the bars differ by factors of ten.';
+  } else if (sc === 'units') {
+    t = 'Q = I gives gains that depend on your units: Bryson\'s rule does not';
+    s = 'Designs 1 and 2 both use the textbook starting point Q = I, R = 1, but design 1 writes the state in radians and design 2 in degrees. The "same" weights are 3283 times apart, so the gains and the responses are entirely different, and neither has anything to do with the wheel\'s 0.02 N·m. Design 3 uses Bryson\'s rule: each term weighted by the largest value you will accept, dimensionless, and the torque comes out at the wheel\'s limit.';
+    watch = 'Peak torque in the table: design 2 asks for far more than any wheel can give.';
+  } else if (sc === 'rate') {
+    t = 'A rate weight adds damping, at the cost of speed';
+    s = 'The same angle and torque limits with ω<sub>max</sub> = no limit, 0.01 and 0.005 rad/s. Weighting the rate raises k₂ = √(2I<sub>p</sub>k₁ + Q₂₂/R) and leaves k₁ alone: the poles move off the ζ = 0.707 line toward the real axis and the overshoot disappears. A moderate rate weight (design 2) settles sooner because it no longer overshoots; a heavy one (design 3) splits the poles onto the real axis, and the slow one makes the last few percent take longer.';
+    watch = 'The poles pane with the locus: as the weights scale, design 1 runs along the 45° rays, design 3 along the real axis.';
+  } else if (sc === 'gg') {
+    t = 'Gravity gradient hardly changes the design';
+    s = `The pitch plant really has a spring, k<sub>gg</sub> = 3ω<sub>c</sub>²(I<sub>r</sub> − I<sub>y</sub>) = ${sci(KGG, 2)} N·m/rad, about 6000 times smaller than the base design's k₁ = 0.2. The table shows each gain solved with the spring and without it: for the base design they agree to four figures. Designs 2 and 3 are deliberately slower (θ<sub>max</sub> = 1 and 10 rad), so their k₁ comes down toward k<sub>gg</sub> and the spring starts to show. For any design fast enough to be useful, the double integrator is all the plant you need.`;
+    watch = 'The table rows "with" and "without the spring": the gap grows as the design slows.';
+  } else if (sc === 'robust') {
+    t = 'LQR gains tolerate large errors in the actuator';
+    s = 'The base design three times, but the wheel actually delivers ½, 1 and 5 times the torque the controller asks for. With full-state feedback, LQR guarantees stability for any increase in loop gain and a decrease down to one half, plus at least 60° of phase margin. Half the gain is slower and more oscillatory, five times is faster and better damped, and all three settle.';
+    watch = 'The poles pane: crosses mark the poles with the wrong gain, circles the design. All stay in the left half plane.';
+  } else {
+    t = 'Your own designs';
+    s = 'Raise a Q entry to tighten that state; raise R to calm the wheel. The gain and the poles follow from the Riccati equation, shown on the "Riccati" pane.';
+    watch = 'Turn on the torque limit to see what LQR does not know about.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  el('tOut').textContent = `${fx(simT, 1)} s`;
+  el('phaseChip').textContent = S.lim ? 'Wheel limited' : 'No torque limit';
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  runTable(); checks();
+  if (S.pane !== 's') drawPane();
+}
+const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.max(Math.abs(b), 1e-300);
+function checks() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), L = P.L, items = [];
+  const res = Math.max(...vis.map((r) => L[r].res / Math.max(1, Math.max(...L[r].Q.flat()))));
+  items.push({ s: res < 1e-8 ? 'ok' : 'bad', t: 'Each P solves the Riccati equation', sub: `largest residual ${sci(res, 1)} of the largest weight` });
+  if (!S.gg) vis.forEach((r) => {
+    const ok = near(L[r].K[0], L[r].k1h, 1e-6) && near(L[r].K[1], L[r].k2h, 1e-6);
+    items.push({ s: ok ? 'ok' : 'bad', t: `Design ${r + 1}: K matches the hand solution`, sub: `k₁ ${fg(L[r].K[0], 6)} vs √(Q₁₁/R) ${fg(L[r].k1h, 6)}; k₂ ${fg(L[r].K[1], 6)} vs ${fg(L[r].k2h, 6)}` });
+  });
+  if (currentPreset === 'app' && S.Ip === 20 && !S.gg) {
+    const want = [[0.2, 2.8284, 57], [0.1, 2.0, 80], [0.2, 4.899, 77]];
+    want.forEach(([k1, k2, ts], r) => { if (!S.shown[r]) return; items.push({ s: near(L[r].K[0], k1, 1e-3) && near(L[r].K[1], k2, 1e-3) && Math.abs(L[r].ts - ts) < 1 ? 'ok' : 'bad', t: `Appendix A design ${r + 1}: K = [${k1}, ${k2}], settling ${ts} s`, sub: `computed [${fg(L[r].K[0], 4)}, ${fg(L[r].K[1], 5)}], ${fg(L[r].ts, 3)} s` }); });
+    if (S.shown[0]) items.push({ s: near(L[0].zeta, Math.SQRT1_2, 1e-6) && near(L[0].K[0] * 0.1, 0.02, 1e-6) ? 'ok' : 'bad', t: 'Angle weight only: ζ = 0.7071, and k₁θ_max = u_max', sub: `ζ ${fg(L[0].zeta, 6)}, k₁θ_max ${fg(L[0].K[0] * 0.1, 4)} N·m` });
+  }
+  if (S.gg) vis.forEach((r) => {
+    const d = Math.abs(L[r].K[0] - L[r].K0[0]) / L[r].K0[0];
+    items.push({ s: 'ok', t: `Design ${r + 1}: the spring changes k₁ by ${fg(100 * d, 2)}%`, sub: `k₁ ${fg(L[r].K[0], 5)} with it, ${fg(L[r].K0[0], 5)} without; k_gg/k₁ = ${fg(KGG / L[r].K0[0], 2)}` });
+  });
+  if (currentPreset === 'ratio') { const k = vis.map((r) => L[r].K); const d = Math.max(...k.map((K) => Math.abs(K[0] - k[0][0]) + Math.abs(K[1] - k[0][1]))); items.push({ s: d < 1e-8 ? 'ok' : 'bad', t: 'Scaling Q and R together leaves K unchanged', sub: `largest difference ${sci(d, 1)} N·m/rad` }); }
+  vis.forEach((r) => {
+    const stable = L[r].eg.every((z) => z.re < 0);
+    if (S.runs[r].gf !== 1) items.push({ s: stable ? 'ok' : 'bad', t: `Design ${r + 1}: stable with ${fn(S.runs[r].gf)}× the torque`, sub: `poles ${L[r].eg.filter((z) => z.im >= -1e-12).map(pole).join(', ')}` });
+  });
+  if (simT >= 0.98 * S.dur && !S.lim) vis.filter((r) => S.runs[r].gf === 1 && !S.gg).forEach((r) => {
+    const J = Ys[r][2] + Ys[r][3];
+    items.push({ s: near(J, L[r].Jstar, 5e-3) ? 'ok' : 'warn', t: `Design ${r + 1}: the response costs exactly J* = x₀ᵀPx₀`, sub: `integrated ${fg(J, 6)} vs ${fg(L[r].Jstar, 6)}` });
+  });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function resetRuns() {
+  P = { L: [0, 1, 2].map(solve) };
+  P.loc = [0, 1, 2].map(locus);
+  for (let r = 0; r < 3; r++) { const Y = Ys[r]; Y.fill(0); Y[0] = S.th0 * D2R; wheelAng[r] = 0; }
+  simT = 0;
+  const fast = Math.max(...P.L.map((L) => Math.max(...L.e.concat(L.eg).map((z) => Math.hypot(z.re, z.im)))), 0.01);
+  hStep = Math.min(0.1, 0.05 / fast);
+  hN = 0; hLast = -Infinity; hDt = S.dur / 3000;
+  resetRecords(); histPush(true);
+}
+function rebuild() { pastEnd = false; resetRuns(); syncInputs(); setLegend(); lastV = ''; updateReadouts(); drawPane(); drawPlot(); }
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+const PAIRS = [
+  ['IpR', 'IpN', (v) => { S.Ip = v; }, () => S.Ip, 0.01, true],
+  ['th0R', 'th0N', (v) => { S.th0 = v; }, () => S.th0, 0.01, false],
+  ['durR', 'durN', (v) => { S.dur = v; }, () => S.dur, 10, false],
+  ['tmR', 'tmN', (v) => { S.runs[S.edit].tm = v; S.runs[S.edit].name = ''; }, () => S.runs[S.edit].tm, 1e-4, true],
+  ['umR', 'umN', (v) => { S.runs[S.edit].um = v; S.runs[S.edit].name = ''; }, () => S.runs[S.edit].um, 1e-6, true],
+  ['gfR', 'gfN', (v) => { S.runs[S.edit].gf = v; }, () => S.runs[S.edit].gf, 0.01, true],
+];
+const toRange = (v, log) => (log ? Math.log10(v) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  const D = S.runs[S.edit];
+  // the rate limit: the far right of the slider means none
+  el('wmR').value = D.wm > 0 ? Math.log10(D.wm) : 0; setBox('wmN', D.wm > 0 ? fmt(D.wm) : '');
+  el('wmN').placeholder = 'none';
+  setBox('q11', fmt(D.q11)); setBox('q22', fmt(D.q22)); setBox('rr', fmt(D.r));
+  el('brysonBox').hidden = D.mode !== 'bryson'; el('rawBox').hidden = D.mode !== 'raw';
+  $$('#modeSeg [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === D.mode)));
+  $$('#unitSeg [data-unit]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.unit === D.unit)));
+  el('rawUnits').textContent = D.unit === 'deg' ? 'per deg², (deg/s)²' : 'per rad², (rad/s)²';
+  const L = P.L[S.edit];
+  el('brysonNote').textContent = `Q = diag(${fg(L.Q[0][0], 3)}, ${fg(L.Q[1][1], 3)}), R = ${fg(L.R, 3)}`;
+  el('runNote').innerHTML = `K = [${fg(L.K[0], 4)}, ${fg(L.K[1], 4)}] · poles ${L.e.filter((z) => z.im >= -1e-12).map(pole).join(', ')}`;
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  el('chkGG').checked = S.gg; el('chkLim').checked = S.lim; el('chkLocus').checked = S.locus; el('chkLabels').checked = S.show.labels;
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  el('paneTitle').textContent = S.pane === 's' ? 's-plane' : S.pane === 'ric' ? `Riccati, design ${S.edit + 1}` : 'Where the cost goes';
+  el('paneCap').innerHTML = S.pane === 's'
+    ? 'Closed-loop poles, eig(A − BK), for each design. The faint curve is each design\'s root locus as both Q entries are scaled from 1/100 to 100 times: only the ratio of Q to R moves the poles. Green dashes: ζ = 0.707. Crosses: poles when the wheel gives a different torque than asked.'
+    : S.pane === 'ric' ? 'The weights, the Riccati solution P, the gain K = R⁻¹BᵀP for the design being edited, and the Appendix A closed forms beside them.'
+      : 'Each design\'s cost so far, split into state error and effort. When the response has settled the total equals J* = x₀ᵀPx₀, the smallest cost any controller could have achieved from this start.';
+  syncSpeed();
+}
+function speedText() { return `${fg(S.speed, 2)}× · ${fn(S.dur)} s in ${fg(S.dur / S.speed, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+function edited() { currentPreset = 'custom'; }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); edited(); rebuild(); });
+  n.addEventListener('change', () => { let v = parseFloat(n.value); if (!Number.isFinite(v)) { n.value = fmt(get()); return; } if (mn != null) v = Math.max(mn, v); n.value = fmt(v); r.value = toRange(v, log); set(v); edited(); rebuild(); });
+});
+el('wmR').addEventListener('input', () => { const x = +el('wmR').value; S.runs[S.edit].wm = x >= -0.02 ? 0 : +Math.pow(10, x).toPrecision(3); S.runs[S.edit].name = ''; edited(); rebuild(); });
+el('wmN').addEventListener('change', () => { const v = parseFloat(el('wmN').value); S.runs[S.edit].wm = Number.isFinite(v) && v > 0 ? v : 0; S.runs[S.edit].name = ''; edited(); rebuild(); });
+[['q11', 'q11'], ['q22', 'q22'], ['rr', 'r']].forEach(([id, k]) => el(id).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) { S.runs[S.edit][k] = Math.max(k === 'r' ? 1e-12 : 0, v); S.runs[S.edit].name = ''; edited(); } rebuild(); }));
+$$('#modeSeg [data-mode]').forEach((b) => b.addEventListener('click', () => { S.runs[S.edit].mode = b.dataset.mode; S.runs[S.edit].name = ''; edited(); rebuild(); }));
+$$('#unitSeg [data-unit]').forEach((b) => b.addEventListener('click', () => { S.runs[S.edit].unit = b.dataset.unit; S.runs[S.edit].name = ''; edited(); rebuild(); }));
+function setEdit(r) { S.edit = r; syncInputs(); drawPane(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+el('chkGG').addEventListener('change', (e) => { S.gg = e.target.checked; edited(); rebuild(); });
+el('chkLim').addEventListener('change', (e) => { S.lim = e.target.checked; edited(); rebuild(); });
+el('chkLocus').addEventListener('change', (e) => { S.locus = e.target.checked; drawPane(); });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => { const r = +b.dataset.run; S.shown[r] = !S.shown[r]; if (!S.shown.some(Boolean)) S.shown[r] = true; syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts(); }));
+const PANES = ['s', 'ric', 'cost'];
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* Lesson 35, Appendix A: pitch, Ip = 20 kg m^2, theta_max = 0.1 rad, u_max = 0.02 N m */
+const PRESETS = {
+  app: { pane: 's', tab: 'th', runs: [{ name: 'base' }, { um: 0.01, name: 'R = 10 000' }, { wm: 0.005, name: 'rate weight' }] },
+  ratio: { pane: 'cost', tab: 'J', runs: [{ name: 'Bryson base' }, { mode: 'raw', q11: 1000, q22: 0, r: 25000, name: 'Q, R × 10' }, { mode: 'raw', q11: 10, q22: 0, r: 250, name: 'Q, R × 0.1' }] },
+  units: { pane: 's', tab: 'u', runs: [{ mode: 'raw', q11: 1, q22: 1, r: 1, name: 'Q = I, radians' }, { mode: 'raw', q11: 1, q22: 1, r: 1, unit: 'deg', name: 'Q = I, degrees' }, { name: 'Bryson' }] },
+  rate: { pane: 's', tab: 'th', runs: [{ name: 'no rate weight' }, { wm: 0.01, name: 'ωmax 0.01' }, { wm: 0.005, name: 'ωmax 0.005' }] },
+  gg: { pane: 's', tab: 'th', gg: true, dur: 900, runs: [{ name: 'θmax 0.1 rad' }, { tm: 1, name: 'θmax 1 rad' }, { tm: 10, name: 'θmax 10 rad' }] },
+  robust: { pane: 's', tab: 'th', runs: [{ gf: 0.5, name: 'wheel gives ½' }, { name: 'as designed' }, { gf: 5, name: 'wheel gives ×5' }] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  Object.assign(S, { Ip: 20, th0: 0.1 * R2D, dur: p.dur || 300, gg: false, lim: false, pane: p.pane });
+  S.runs = p.runs.map((o) => mkRun(JSON.parse(JSON.stringify(o))));
+  S.shown = [true, true, true];
+  S.speed = +(S.dur / 15).toPrecision(2);
+  PL.q = p.tab;
+  if (p.gg) S.gg = true;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= S.dur - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(PANES[(PANES.indexOf(S.pane) + 1) % 3]);
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try { G = initGL(); new ResizeObserver(() => resize()).observe(vp); resize(); el('gl').addEventListener('dblclick', () => fit()); } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The poles, the Riccati solution, the cost, the plots and the analysis still work.';
+  vp.appendChild(d); el('exagLbl').hidden = true;
+  $$('.viewport .viewbar, #runChips').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('app');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_L.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= S.dur) { dt = Math.max(0, S.dur - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (G) { updateDynamic(dtReal); G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target); G.controls.update(); G.renderer.render(G.scene, G.cam); updateLabels(); }
+  drawPlot(); if (S.pane === 's') drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__lqr = { S, P: () => P, Ys, REC, advance, rebuild, applyPreset, updateReadouts, lqr, care, eig, solve, t: () => simT, hist: () => ({ hN, Ht, HQ }), setPlaying, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
