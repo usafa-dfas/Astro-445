@@ -1,0 +1,1665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Linearization Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 33 apps). Control rail | three satellites with their linear models beside an A-matrix or eigenvalue pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --hw: #c97a00;
+  --pos: #08808f;
+  --neg: #a3366f;
+  --cmd: #7340c2;
+  --ggt: #08808f;
+  --gyro: #e07a14;
+  --dist: #a3366f;
+  --ax1: #cc2b26;
+  --ax2: #1b8655;
+  --ax3: #2257c2;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.seg.wrap { flex-wrap: wrap; row-gap: 4px; }
+.runedit .seg .btn { padding: 3px 8px; font-size: 13px; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+table.modes col.k { width: 46%; }
+table.modes td { white-space: normal; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 34 · Linear quadratic control (1)</div>
+      <h1>Linearization Explorer</h1>
+    </div>
+    <p class="lede">Controller design needs a linear model, <span class="sym">ẋ</span> = <span class="sym">Ax</span> + <span class="sym">Bu</span>, but the satellite obeys the nonlinear equations of Lesson 33. <b>How good is the linear model, and what does A tell you before you design anything?</b> Fly three satellites with the full equations, each shadowed by its linear model, and read the modes off A.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>P</kbd></dt><dd>A matrix or eigenvalues</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit run 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="appA">Appendix A<small>2°, −1°, 3°</small></button>
+        <button class="btn" type="button" data-preset="large">Small to large<small>2°, 15°, 45°</small></button>
+        <button class="btn" type="button" data-preset="nut">Wheel nutation<small>3.1 min mode</small></button>
+        <button class="btn" type="button" data-preset="nobias">No bias<small>h₂ = 0</small></button>
+        <button class="btn" type="button" data-preset="rollbias">Roll bias<small>not an equilibrium</small></button>
+        <button class="btn" type="button" data-preset="unstable">Wrong inertias<small>Iy &gt; Ir</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Operating point</h2>
+      <div class="trio">
+        <div class="lab">Inertia<span class="u">kg·m²</span></div>
+        <label><span><span class="sym">I<sub>r</sub></span> roll</span><input type="number" id="I0" min="0.01" step="any" aria-label="Roll moment of inertia"></label>
+        <label><span><span class="sym">I<sub>p</sub></span> pitch</span><input type="number" id="I1" min="0.01" step="any" aria-label="Pitch moment of inertia"></label>
+        <label><span><span class="sym">I<sub>y</sub></span> yaw</span><input type="number" id="I2" min="0.01" step="any" aria-label="Yaw moment of inertia"></label>
+      </div>
+      <div class="trio">
+        <div class="lab"><span class="sym">h</span><sub class="n">nom</sub><span class="u">N·m·s</span></div>
+        <label>roll<input type="number" id="hn0" step="any" aria-label="Nominal roll wheel momentum, N·m·s"></label>
+        <label>pitch<input type="number" id="hn1" step="any" aria-label="Nominal pitch wheel momentum, N·m·s"></label>
+        <label>yaw<input type="number" id="hn2" step="any" aria-label="Nominal yaw wheel momentum, N·m·s"></label>
+      </div>
+      <div class="slider">
+        <label for="altR" title="Height of the circular orbit">alt<span class="u">km</span></label>
+        <input type="range" id="altR" min="2.2" max="4.62" step="0.002" aria-label="Altitude slider, logarithmic">
+        <input type="number" id="altN" min="150" step="any" aria-label="Altitude, km">
+      </div>
+      <p class="subnote" id="altNote"></p>
+      <div class="slider">
+        <label for="orbR" title="How long each run lasts">run<span class="u">orbits</span></label>
+        <input type="range" id="orbR" min="0.25" max="4" step="0.25" aria-label="Run length slider">
+        <input type="number" id="orbN" min="0.05" step="any" aria-label="Run length, orbits">
+      </div>
+      <p class="note">The model is linearized about the LVLH-aligned attitude, <span class="sym">ω</span> = 0, <span class="sym">q</span> = [1, 0, 0, 0], with the wheels at <span class="sym">h</span><sub class="n">nom</sub> and no control torque. That is a true equilibrium only if the bias lies along pitch.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three satellites</h2>
+      <div class="seg" role="group" aria-label="Run to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Run 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Run 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Run 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="trio">
+          <div class="lab">Start tilt<span class="u">deg</span></div>
+          <label>roll<input type="number" id="e0" step="any" aria-label="Starting roll angle, deg"></label>
+          <label>pitch<input type="number" id="e1" step="any" aria-label="Starting pitch angle, deg"></label>
+          <label>yaw<input type="number" id="e2" step="any" aria-label="Starting yaw angle, deg"></label>
+        </div>
+        <div class="trio">
+          <div class="lab">Start rate<span class="u">°/s vs orbit</span></div>
+          <label>roll<input type="number" id="w0" step="any" aria-label="Starting roll rate relative to the orbit, deg/s"></label>
+          <label>pitch<input type="number" id="w1" step="any" aria-label="Starting pitch rate relative to the orbit, deg/s"></label>
+          <label>yaw<input type="number" id="w2" step="any" aria-label="Starting yaw rate relative to the orbit, deg/s"></label>
+        </div>
+        <p class="note" id="runNote"></p>
+      </div>
+      <p class="note">Each run starts both models from the same state. The nonlinear one uses the full quaternion; the linear one keeps <span class="sym">q</span><sub class="n">1</sub>, <span class="sym">q</span><sub class="n">2</sub>, <span class="sym">q</span><sub class="n">3</sub> and assumes <span class="sym">q</span><sub class="n">0</sub> = 1.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkGhost"> Linear model as a ghost</label>
+        <label class="check"><input type="checkbox" id="chkFrame"> Orbit-frame axes</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <div class="row"><span class="lbl">3D tilts</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">magnified</button>
+          <button class="btn" type="button" data-ex="1">true scale</button>
+        </div>
+      </div>
+      <p class="note">The solid satellite follows the nonlinear equations; the see-through one follows the linear model, its attitude rebuilt with <span class="sym">q</span><sub class="n">0</sub> = √(1 − |<span class="sym">q</span>|²). Where they separate, the linear model has stopped being trustworthy.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites and their linear models"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Orbit frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl"></div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="The A matrix or its eigenvalues"></canvas>
+        <div class="overlay vtitle" id="paneTitle">A matrix</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="A">A matrix</button>
+            <button class="btn" type="button" data-pane="eig">Eigenvalues</button>
+          </div>
+          <button class="btn" type="button" id="orderBtn" aria-pressed="false">Pitch | roll–yaw</button>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="4" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Orbit 1</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="q">Quaternion</button>
+          <button class="btn" type="button" data-q="gap">Linear − nonlinear</button>
+          <button class="btn" type="button" data-q="w">Rate ω</button>
+          <button class="btn" type="button" data-q="h">Wheels <span class="sym">h̃</span></button>
+        </div>
+        <div class="seg" role="group" aria-label="Component to plot" id="axTabs">
+          <button class="btn" type="button" data-ax="0">1 roll</button>
+          <button class="btn" type="button" data-ax="1">2 pitch</button>
+          <button class="btn" type="button" data-ax="2">3 yaw</button>
+        </div>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>How good is the linear model, and what does A tell you before you design anything?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Linearize</dt>
+          <dd>Replace the equations near one operating point by their tangent: a matrix that turns a small change in the state into a small change in its rate.</dd>
+          <dt>Operating point, equilibrium</dt>
+          <dd>The state the model is built around. An equilibrium is one where nothing changes, so small departures from it are all that the linear model has to describe.</dd>
+          <dt>Jacobian</dt>
+          <dd>The matrix of partial derivatives ∂f<sub>i</sub>/∂x<sub>j</sub>, here evaluated at the operating point. It is A (for the state) and B (for the input).</dd>
+          <dt>Eigenvalue, mode</dt>
+          <dd>Each eigenvalue of A is a natural motion. An imaginary pair ±jω is an oscillation at ω; a positive real part grows; zero means drift.</dd>
+          <dt>Nutation</dt>
+          <dd>The fast coning of a body carrying stored momentum, here from the pitch-wheel bias, at about |h₂|/√(I<sub>r</sub>I<sub>y</sub>).</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Modes of A <span class="unit">uncontrolled</span></h2>
+      <table class="lanes modes">
+        <colgroup><col class="k"><col><col></colgroup>
+        <thead><tr><th>Mode</th><th>s / ωc</th><th>period</th></tr></thead>
+        <tbody id="modeBody"></tbody>
+      </table>
+      <p class="note" id="modeNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Is it an equilibrium?</h2>
+      <dl class="kv" id="eqKv"></dl>
+    </section>
+
+    <section class="group">
+      <h2>Three runs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Run</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="runBody"></tbody>
+      </table>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Nonlinear (Lesson 33), with g<sub>c</sub> = 0</div>
+          <div>ω̇ = <i>I</i><sub>T</sub><sup>−1</sup>[<i>I</i><sub>T</sub>ω<sup>×</sup><i>Q</i>ω<sub>c</sub> − (ω − ω<sub>c</sub><i>Q</i><sub>2</sub>) × (<i>I</i><sub>T</sub>(ω − ω<sub>c</sub><i>Q</i><sub>2</sub>) + <i>h</i><sub>w</sub>) + 3ω<sub>c</sub><sup>2</sup><i>Q</i><sub>3</sub> × <i>I</i><sub>T</sub><i>Q</i><sub>3</sub>]</div>
+          <div><b>q̇</b> = −½ω<sup>×</sup><b>q</b> + ½<i>q</i><sub>0</sub>ω, &nbsp;<i>ḣ</i><sub>w</sub> = −<i>g</i><sub>c</sub></div>
+        </div>
+        <div class="box">
+          <div class="lab">Linear, about ω = 0, q = [1 0 0 0], h<sub>w</sub> = h<sub>nom</sub></div>
+          <div><i>x</i> = [ω, <b>q</b>, <i>h</i><sub>w</sub> − <i>h</i><sub>nom</sub>], &nbsp;<i>A</i> = [<i>A</i><sub>ωω</sub> <i>A</i><sub>ωq</sub> <i>A</i><sub>ωh</sub>; ½<i>I</i> 0 0; 0 0 0], &nbsp;<i>B</i> = [<i>I</i><sub>T</sub><sup>−1</sup>; 0; −<i>I</i>]</div>
+          <div><i>A</i><sub>ωω</sub> = <i>I</i><sub>T</sub><sup>−1</sup>[<i>h</i><sub>nom</sub> − (<i>I</i><sub>r</sub> − <i>I</i><sub>p</sub> + <i>I</i><sub>y</sub>)ω<sub>c</sub>]<sup>×</sup>, &nbsp;<i>A</i><sub>ωh</sub> = −<i>I</i><sub>T</sub><sup>−1</sup>ω<sub>c</sub><sup>×</sup></div>
+          <div><i>A</i><sub>ωq</sub> = <i>I</i><sub>T</sub><sup>−1</sup>[8ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>y</sub> − <i>I</i><sub>p</sub>) + 2ω<sub>c</sub><i>h</i><sub>2</sub>, 0, 0; −2ω<sub>c</sub><i>h</i><sub>1</sub>, 6ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>y</sub> − <i>I</i><sub>r</sub>), −2ω<sub>c</sub><i>h</i><sub>3</sub>; 0, 0, 2ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>r</sub> − <i>I</i><sub>p</sub>) + 2ω<sub>c</sub><i>h</i><sub>2</sub>]</div>
+        </div>
+        <p class="note">ω is the rate relative to the orbit frame, ω<sub>c</sub> = [0, −ω<sub>c</sub>, 0], <i>Q</i> = <i>Q</i><sub>P/O</sub>(<i>q</i>). Both models are integrated with fixed-step RK4 from the same start. The app also builds A a second way, by differencing the nonlinear equations numerically, and checks that the two agree. The pitch angle about 2<i>q</i><sub>2</sub>, the linear pitch row is Lesson 29's libration, <i>θ̈</i> + 3ω<sub>c</sub><sup>2</sup>(<i>I</i><sub>r</sub> − <i>I</i><sub>y</sub>)<i>θ</i>/<i>I</i><sub>p</sub> = 0.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+/* a vector with each part as a number to 2 significant figures, or 0 */
+const vsci = (v, tiny) => `[${v.map((x) => (Math.abs(x) < (tiny || 1e-15) ? '0' : sci(x, 2))).join(', ')}]`;
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (...vs) => [0, 1, 2].map((i) => vs.reduce((s, v) => s + v[i], 0));
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+/* qrot(q, v_body) = v_orbit; the notes' Q_P/O is the transpose of this rotation */
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function qFromCols(a, b, c) {
+  const m00 = a[0], m11 = b[1], m22 = c[2], tr = m00 + m11 + m22;
+  let q;
+  if (tr > 0) { const s = 2 * Math.sqrt(tr + 1); q = [0.25 * s, (b[2] - c[1]) / s, (c[0] - a[2]) / s, (a[1] - b[0]) / s]; }
+  else if (m00 > m11 && m00 > m22) { const s = 2 * Math.sqrt(1 + m00 - m11 - m22); q = [(b[2] - c[1]) / s, 0.25 * s, (b[0] + a[1]) / s, (c[0] + a[2]) / s]; }
+  else if (m11 > m22) { const s = 2 * Math.sqrt(1 + m11 - m00 - m22); q = [(c[0] - a[2]) / s, (b[0] + a[1]) / s, 0.25 * s, (c[1] + b[2]) / s]; }
+  else { const s = 2 * Math.sqrt(1 + m22 - m00 - m11); q = [(a[1] - b[0]) / s, (c[0] + a[2]) / s, (c[1] + b[2]) / s, 0.25 * s]; }
+  return q;
+}
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+function hexRGB(h) {
+  const s = h.replace('#', ''), f = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)];
+}
+/* small dense matrices, as arrays of rows */
+const zeros = (n, m) => Array.from({ length: n }, () => new Array(m === undefined ? n : m).fill(0));
+const eye = (n) => { const I = zeros(n); for (let i = 0; i < n; i++) I[i][i] = 1; return I; };
+/* ---------- eigenvalues: balance, reduce to Hessenberg form, then the Francis double-shift QR (after Numerical Recipes balanc, elmhes, hqr) ---------- */
+function eig(A0) {
+  const n = A0.length, a = [null].concat(A0.map((r) => [0].concat(r)));   // 1-indexed copy
+  const SIGN = (x, y) => (y >= 0 ? Math.abs(x) : -Math.abs(x));
+  // balance: scale rows and columns by powers of 2 so their norms match
+  for (let last = 0; !last;) {
+    last = 1;
+    for (let i = 1; i <= n; i++) {
+      let r = 0, c = 0;
+      for (let j = 1; j <= n; j++) if (j !== i) { c += Math.abs(a[j][i]); r += Math.abs(a[i][j]); }
+      if (c && r) {
+        let g = r / 2, f = 1; const s = c + r;
+        while (c < g) { f *= 2; c *= 4; }
+        g = r * 2;
+        while (c > g) { f /= 2; c /= 4; }
+        if ((c + r) / f < 0.95 * s) { last = 0; g = 1 / f; for (let j = 1; j <= n; j++) a[i][j] *= g; for (let j = 1; j <= n; j++) a[j][i] *= f; }
+      }
+    }
+  }
+  // Hessenberg form by elimination with pivoting
+  for (let m = 2; m < n; m++) {
+    let x = 0, i = m;
+    for (let j = m; j <= n; j++) if (Math.abs(a[j][m - 1]) > Math.abs(x)) { x = a[j][m - 1]; i = j; }
+    if (i !== m) { for (let j = m - 1; j <= n; j++) { const t = a[i][j]; a[i][j] = a[m][j]; a[m][j] = t; } for (let j = 1; j <= n; j++) { const t = a[j][i]; a[j][i] = a[j][m]; a[j][m] = t; } }
+    if (x) for (i = m + 1; i <= n; i++) { let y = a[i][m - 1]; if (y) { y /= x; a[i][m - 1] = y; for (let j = m; j <= n; j++) a[i][j] -= y * a[m][j]; for (let j = 1; j <= n; j++) a[j][m] += y * a[j][i]; } }
+  }
+  for (let i = 3; i <= n; i++) for (let j = 1; j < i - 1; j++) a[i][j] = 0;
+  // QR iterations
+  const wr = new Array(n + 1).fill(0), wi = new Array(n + 1).fill(0);
+  let anorm = 0; for (let i = 1; i <= n; i++) for (let j = Math.max(i - 1, 1); j <= n; j++) anorm += Math.abs(a[i][j]);
+  let nn = n, t = 0;
+  while (nn >= 1) {
+    let its = 0, l;
+    do {
+      for (l = nn; l >= 2; l--) { let s = Math.abs(a[l - 1][l - 1]) + Math.abs(a[l][l]); if (s === 0) s = anorm; if (Math.abs(a[l][l - 1]) + s === s) { a[l][l - 1] = 0; break; } }
+      let x = a[nn][nn];
+      if (l === nn) { wr[nn] = x + t; wi[nn--] = 0; }
+      else {
+        let y = a[nn - 1][nn - 1], w = a[nn][nn - 1] * a[nn - 1][nn];
+        if (l === nn - 1) {
+          const p = 0.5 * (y - x), q = p * p + w; let z = Math.sqrt(Math.abs(q)); x += t;
+          if (q >= 0) { z = p + SIGN(z, p); wr[nn - 1] = wr[nn] = x + z; if (z) wr[nn] = x - w / z; wi[nn - 1] = wi[nn] = 0; }
+          else { wr[nn - 1] = wr[nn] = x + p; wi[nn - 1] = -(wi[nn] = z); }
+          nn -= 2;
+        } else {
+          if (its === 60) throw new Error('eig: no convergence');
+          if (its === 10 || its === 20) { t += x; for (let i = 1; i <= nn; i++) a[i][i] -= x; const s = Math.abs(a[nn][nn - 1]) + Math.abs(a[nn - 1][nn - 2]); y = x = 0.75 * s; w = -0.4375 * s * s; }
+          ++its;
+          let m, p, q, r, z, s;
+          for (m = nn - 2; m >= l; m--) {
+            z = a[m][m]; r = x - z; s = y - z;
+            p = (r * s - w) / a[m + 1][m] + a[m][m + 1]; q = a[m + 1][m + 1] - z - r - s; r = a[m + 2][m + 1];
+            s = Math.abs(p) + Math.abs(q) + Math.abs(r); p /= s; q /= s; r /= s;
+            if (m === l) break;
+            const u = Math.abs(a[m][m - 1]) * (Math.abs(q) + Math.abs(r)), v = Math.abs(p) * (Math.abs(a[m - 1][m - 1]) + Math.abs(z) + Math.abs(a[m + 1][m + 1]));
+            if (u + v === v) break;
+          }
+          for (let i = m + 2; i <= nn; i++) { a[i][i - 2] = 0; if (i !== m + 2) a[i][i - 3] = 0; }
+          for (let k = m; k <= nn - 1; k++) {
+            if (k !== m) {
+              p = a[k][k - 1]; q = a[k + 1][k - 1]; r = 0;
+              if (k !== nn - 1) r = a[k + 2][k - 1];
+              if ((x = Math.abs(p) + Math.abs(q) + Math.abs(r)) !== 0) { p /= x; q /= x; r /= x; }
+            }
+            if ((s = SIGN(Math.sqrt(p * p + q * q + r * r), p)) !== 0) {
+              if (k === m) { if (l !== m) a[k][k - 1] = -a[k][k - 1]; }
+              else a[k][k - 1] = -s * x;
+              p += s; x = p / s; y = q / s; z = r / s; q /= p; r /= p;
+              for (let j = k; j <= nn; j++) { p = a[k][j] + q * a[k + 1][j]; if (k !== nn - 1) { p += r * a[k + 2][j]; a[k + 2][j] -= p * z; } a[k + 1][j] -= p * y; a[k][j] -= p * x; }
+              const mmin = nn < k + 3 ? nn : k + 3;
+              for (let i = l; i <= mmin; i++) { p = x * a[i][k] + y * a[i][k + 1]; if (k !== nn - 1) { p += z * a[i][k + 2]; a[i][k + 2] -= p * r; } a[i][k + 1] -= p * q; a[i][k] -= p; }
+            }
+          }
+        }
+      }
+    } while (l < nn - 1);
+  }
+  const out = []; for (let i = 1; i <= n; i++) out.push({ re: wr[i], im: wi[i] });
+  return out.sort((u, v) => u.re - v.re || u.im - v.im);
+}
+
+/* =========================================================
+   Physics: the Lesson 33 model and its linearization
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378.137e3;
+const orbitOf = (altKm) => { const R = RE + altKm * 1e3, wc = Math.sqrt(MU / (R * R * R)); return { R, wc, T: TAU / wc }; };
+let P = {};
+function Qof(q) {
+  const [q0, q1, q2, q3] = q;
+  return [
+    [2 * q0 * q0 - 1 + 2 * q1 * q1, 2 * q1 * q2 + 2 * q0 * q3, 2 * q1 * q3 - 2 * q0 * q2],
+    [2 * q1 * q2 - 2 * q0 * q3, 2 * q0 * q0 - 1 + 2 * q2 * q2, 2 * q2 * q3 + 2 * q0 * q1],
+    [2 * q1 * q3 + 2 * q0 * q2, 2 * q2 * q3 - 2 * q0 * q1, 2 * q0 * q0 - 1 + 2 * q3 * q3],
+  ];
+}
+const col = (Q, j) => [Q[0][j], Q[1][j], Q[2][j]];
+/* the Lesson 33 rate equation with no control: w_dot from the rate relative to the orbit, the quaternion and the wheels */
+function wdot(w, q, h) {
+  const I = S.I, wc = P.wc, Q = Qof(q), Q2 = col(Q, 1), Q3 = col(Q, 2);
+  const wx = cross(w, scl(Q2, -wc)), fr = [I[0] * wx[0], I[1] * wx[1], I[2] * wx[2]];
+  const wB = [w[0] - wc * Q2[0], w[1] - wc * Q2[1], w[2] - wc * Q2[2]];
+  const gy = scl(cross(wB, [I[0] * wB[0] + h[0], I[1] * wB[1] + h[1], I[2] * wB[2] + h[2]]), -1);
+  const gg = scl(cross(Q3, [I[0] * Q3[0], I[1] * Q3[1], I[2] * Q3[2]]), 3 * wc * wc);
+  return [0, 1, 2].map((i) => (fr[i] + gy[i] + gg[i]) / I[i]);
+}
+/* nine-state f(x) for the Jacobian: x = [w, q1 q2 q3, h], q0 = sqrt(1 - |q|^2), u = gc */
+function f9(x, u) {
+  const qv = [x[3], x[4], x[5]], q0 = Math.sqrt(Math.max(0, 1 - dot(qv, qv))), w = [x[0], x[1], x[2]];
+  const wd = wdot(w, [q0, ...qv], [x[6], x[7], x[8]]).map((v, i) => v + (u ? u[i] / S.I[i] : 0)), cq = cross(w, qv);
+  return [...wd, ...[0, 1, 2].map((i) => -0.5 * cq[i] + 0.5 * q0 * w[i]), ...(u ? u.map((v) => -v) : [0, 0, 0])];
+}
+/* the notes' A, block by block */
+function analyticA() {
+  const [Ir, Ip, Iy] = S.I, [h1, h2, h3] = S.hn, wc = P.wc, A = zeros(9), c = wc * (Ir - Ip + Iy);
+  // A_ww = I_T^-1 [h_nom - (Ir - Ip + Iy) wc_vec]^x, with wc_vec = [0, -wc, 0]
+  const s = [h1, h2 + c, h3], sx = [[0, -s[2], s[1]], [s[2], 0, -s[0]], [-s[1], s[0], 0]];
+  const Awq = [[8 * wc * wc * (Iy - Ip) + 2 * wc * h2, 0, 0], [-2 * wc * h1, 6 * wc * wc * (Iy - Ir), -2 * wc * h3], [0, 0, 2 * wc * wc * (Ir - Ip) + 2 * wc * h2]];
+  const Awh = [[0, 0, wc], [0, 0, 0], [-wc, 0, 0]];   // -wc_vec^x
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { A[i][j] = sx[i][j] / S.I[i]; A[i][3 + j] = Awq[i][j] / S.I[i]; A[i][6 + j] = Awh[i][j] / S.I[i]; }
+  for (let i = 0; i < 3; i++) A[3 + i][i] = 0.5;
+  return A;
+}
+const analyticB = () => { const B = zeros(9, 3); for (let i = 0; i < 3; i++) { B[i][i] = 1 / S.I[i]; B[6 + i][i] = -1; } return B; };
+/* the same Jacobians by central differences of the nonlinear equations */
+function numericAB() {
+  const x0 = [0, 0, 0, 0, 0, 0, ...S.hn], A = zeros(9), B = zeros(9, 3);
+  for (let j = 0; j < 9; j++) { const e = j < 3 ? 1e-7 : j < 6 ? 1e-6 : 1e-4, xp = x0.slice(), xm = x0.slice(); xp[j] += e; xm[j] -= e; const a = f9(xp), b = f9(xm); for (let i = 0; i < 9; i++) A[i][j] = (a[i] - b[i]) / (2 * e); }
+  for (let j = 0; j < 3; j++) { const up = [0, 0, 0], um = [0, 0, 0]; up[j] = 1e-3; um[j] = -1e-3; const a = f9(x0, up), b = f9(x0, um); for (let i = 0; i < 9; i++) B[i][j] = (a[i] - b[i]) / 2e-3; }
+  return { A, B };
+}
+/* name each eigenvalue by the motion it belongs to */
+function modes() {
+  const ev = eig(P.A), wc = P.wc, [Ir, Ip, Iy] = S.I, k2 = (Ir - Iy) / Ip, out = [];
+  const tiny = 1e-6 * wc, zeros_ = ev.filter((z) => Math.hypot(z.re, z.im) < tiny);
+  const pitchW = k2 > 0 ? Math.sqrt(3 * k2) * wc : NaN, nutW = Math.abs(S.hn[1]) / Math.sqrt(Ir * Iy);
+  const pairs = ev.filter((z) => Math.hypot(z.re, z.im) >= tiny && z.im > tiny), reals = ev.filter((z) => Math.hypot(z.re, z.im) >= tiny && Math.abs(z.im) <= tiny);
+  const used = new Set();
+  // pitch libration: the pair closest to sqrt(3 k2) wc when the bias is on pitch
+  let pi = -1, best = Infinity; pairs.forEach((z, i) => { const d = Math.abs(z.im - pitchW); if (d < best) { best = d; pi = i; } });
+  pairs.forEach((z, i) => {
+    let name;
+    if (i === pi && best < 0.02 * pitchW) name = 'pitch libration';
+    else if (nutW > 3 * wc && z.im === Math.max(...pairs.map((p) => p.im))) name = 'wheel nutation (roll–yaw)';
+    else name = 'roll–yaw, near the orbit rate';
+    used.add(i);
+    out.push({ name, z, kind: z.re > 1e-9 * wc ? 'bad' : 'ok' });
+  });
+  reals.forEach((z) => out.push({ name: z.re > 0 ? 'grows: unstable' : 'decays', z, kind: z.re > 0 ? 'bad' : 'ok' }));
+  if (zeros_.length) out.push({ name: `drift ×${zeros_.length} (wheel momentum${zeros_.length > 3 ? ' and more' : ''})`, z: { re: 0, im: 0 }, kind: 'na', count: zeros_.length });
+  return { ev, list: out.sort((a, b) => b.z.im - a.z.im), pitchW, nutW };
+}
+
+/* ---------- three runs: the nonlinear model and its linear shadow ----------
+   Y = [w1 w2 w3, q0 q1 q2 q3, h1 h2 h3] (nonlinear), X = [w1 w2 w3, q1 q2 q3, h1 h2 h3 - h_nom] (linear) */
+const NY = 10, NX = 9;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY)), Xs = [0, 1, 2].map(() => new Float64Array(NX));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 1;
+function derivNL(y, out) {
+  const w = [y[0], y[1], y[2]], q = [y[3], y[4], y[5], y[6]], h = [y[7], y[8], y[9]], wd = wdot(w, q, h);
+  out[0] = wd[0]; out[1] = wd[1]; out[2] = wd[2];
+  const qv = [q[1], q[2], q[3]], c = cross(w, qv);
+  out[3] = -0.5 * dot(w, qv); out[4] = -0.5 * c[0] + 0.5 * q[0] * w[0]; out[5] = -0.5 * c[1] + 0.5 * q[0] * w[1]; out[6] = -0.5 * c[2] + 0.5 * q[0] * w[2];
+  out[7] = 0; out[8] = 0; out[9] = 0;
+}
+function derivL(x, out) { const A = P.A; for (let i = 0; i < NX; i++) { let s = 0; for (let j = 0; j < NX; j++) s += A[i][j] * x[j]; out[i] = s; } }
+function rk4(Y, n, f, h) {
+  f(Y, K1); for (let i = 0; i < n; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  f(YT, K2); for (let i = 0; i < n; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  f(YT, K3); for (let i = 0; i < n; i++) YT[i] = Y[i] + h * K3[i];
+  f(YT, K4); for (let i = 0; i < n; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+}
+function step(h) {
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r]; rk4(Y, NY, derivNL, h);
+    const n = Math.hypot(Y[3], Y[4], Y[5], Y[6]); for (let i = 3; i < 7; i++) Y[i] /= n;
+    if (Y[3] < 0) for (let i = 3; i < 7; i++) Y[i] = -Y[i];   // keep q0 > 0, as the linear model assumes
+    rk4(Xs[r], NX, derivL, h);
+  }
+}
+const qNL = (r) => { const Y = Ys[r]; return [Y[3], Y[4], Y[5], Y[6]]; };
+const qLin = (r) => { const X = Xs[r], v = [X[3], X[4], X[5]], n = norm(v); const s = n > 1 ? 1 / n : 1; return [Math.sqrt(Math.max(0, 1 - n * n)), v[0] * s, v[1] * s, v[2] * s]; };
+const gapOf = (r) => Math.max(Math.abs(Ys[r][4] - Xs[r][3]), Math.abs(Ys[r][5] - Xs[r][4]), Math.abs(Ys[r][6] - Xs[r][5]));
+function eulerOf(q) {
+  const qc = qconj(q), a = qrot(qc, [1, 0, 0]), b = qrot(qc, [0, 1, 0]), c = qrot(qc, [0, 0, 1]);
+  return [Math.atan2(-b[2], c[2]), Math.asin(clamp(a[2], -1, 1)), Math.atan2(-a[1], a[0])];
+}
+const qFromEuler = (e) => qmul(qmul(qaa(1, 0, 0, e[0]), qaa(0, 1, 0, e[1])), qaa(0, 0, 1, e[2]));
+const rotAngle = (q) => 2 * Math.acos(clamp(Math.abs(q[0]), 0, 1));
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (o) => Object.assign({ e0: [0, 0, 0], w0: [0, 0, 0], name: '' }, o);
+const S = {
+  I: [18, 20, 8], hn: [0, -0.4, 0], alt: 600, orbits: 1,
+  runs: [mkRun({}), mkRun({}), mkRun({})],
+  edit: 0, shown: [true, true, true],
+  speed: 300, playing: !reduceMotion,
+  pane: 'A', reorder: false, exag: 'auto',
+  show: { ghost: true, frame: true, labels: true },
+};
+let currentPreset = 'appA';
+const REC = [0, 1, 2].map(() => ({}));
+function resetRecords() { for (let r = 0; r < 3; r++) REC[r] = { gap: 0, amp: rotAngle(qNL(r)), qamp: 0, zc: [], lastP: null, zcL: [], lastL: null }; }
+function trackRun(r) {
+  const R = REC[r], Y = Ys[r], X = Xs[r];
+  R.gap = Math.max(R.gap, gapOf(r)); R.amp = Math.max(R.amp, rotAngle(qNL(r)));
+  R.qamp = Math.max(R.qamp, Math.abs(Y[4]), Math.abs(Y[5]), Math.abs(Y[6]));
+  // upward zero crossings of q2, for the pitch period of each model
+  const p = Y[5], pl = X[4];
+  if (R.lastP && R.lastP[1] < 0 && p >= 0) R.zc.push(R.lastP[0] + (simT - R.lastP[0]) * (-R.lastP[1]) / (p - R.lastP[1]));
+  if (R.lastL && R.lastL[1] < 0 && pl >= 0) R.zcL.push(R.lastL[0] + (simT - R.lastL[0]) * (-R.lastL[1]) / (pl - R.lastL[1]));
+  R.lastP = [simT, p]; R.lastL = [simT, pl];
+}
+
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HK = ['q0', 'q1', 'q2', 'l0', 'l1', 'l2', 'w0', 'w1', 'w2', 'v0', 'v1', 'v2', 'h0', 'h1', 'h2', 'k0', 'k1', 'k2', 'gap'];
+const HQ = {}; HK.forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) { Ht[j] = Ht[i]; HK.forEach((k) => { for (let r = 0; r < 3; r++) HQ[k][r][j] = HQ[k][r][i]; }); }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], X = Xs[r];
+    for (let k = 0; k < 3; k++) {
+      HQ['q' + k][r][i] = Y[4 + k]; HQ['l' + k][r][i] = X[3 + k];
+      HQ['w' + k][r][i] = Y[k] * R2D; HQ['v' + k][r][i] = X[k] * R2D;
+      HQ['h' + k][r][i] = Y[7 + k] - S.hn[k]; HQ['k' + k][r][i] = X[6 + k];
+    }
+    HQ.gap[r][i] = gapOf(r);
+  }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(200000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) { step(h); simT += h; for (let r = 0; r < 3; r++) trackRun(r); histPush(false); }
+}
+
+/* =========================================================
+   3D scene: each satellite with its linear model as a ghost
+   ========================================================= */
+const DQ = qaa(1, 0, 0, Math.PI);
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.6, BUS = 0.42;
+const exK = [1, 1, 1];
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 14, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 22, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 35, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    face: new THREE.MeshPhongMaterial({ shininess: 35 }), edge: new THREE.LineBasicMaterial(),
+    ghost: [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.28, depthWrite: false })),
+    ghostEdge: [0, 1, 2].map(() => new THREE.LineBasicMaterial({ transparent: true, opacity: 0.85 })),
+    wheel: [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ shininess: 60 })),
+    frame: new THREE.MeshBasicMaterial(),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+  };
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  const ground = new THREE.Group(); scene.add(ground);
+  ground.add(new THREE.Mesh(sphereGeo, M.earth));
+  { const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) { const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a)); }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) { const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c)); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    ground.add(new THREE.LineSegments(geo, M.grid)); }
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const wheelGeo = new THREE.CylinderGeometry(0.27, 0.27, 0.06, 28).rotateX(Math.PI / 2);
+  const AX_Q = [new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0)), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)), new THREE.Quaternion()];
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    const box = new THREE.Mesh(boxGeo, [M.hull, M.hull, M.hull, M.hull, M.face, M.hull]), edges = new THREE.LineSegments(edgeGeo, M.edge);
+    box.scale.setScalar(2 * BUS); edges.scale.setScalar(2 * BUS); veh.add(box, edges);
+    [0, 1, 2].forEach((i) => { const w = new THREE.Mesh(wheelGeo, M.wheel[i]); w.quaternion.copy(AX_Q[i]); const p = [0, 0, 0]; p[i] = i === 2 ? -(BUS + 0.04) : BUS + 0.04; w.position.set(p[0], p[1], p[2]); veh.add(w); });
+    const ghost = new THREE.Group(); lane.add(ghost);
+    const gb = new THREE.Mesh(boxGeo, M.ghost[r]), ge = new THREE.LineSegments(edgeGeo, M.ghostEdge[r]);
+    gb.scale.setScalar(2 * BUS * 1.04); ge.scale.setScalar(2 * BUS * 1.04); ghost.add(gb, ge);
+    const frame = [0, 1, 2].map(() => makeArrow(M.frame, lane));
+    return { lane, veh, ghost, frame };
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanes, makeArrow };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec3, shaftR, headR, headL) {
+  const len = vec3.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec3).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec3); Ar.head.scale.set(headR, hl, headR);
+}
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+function setStatic3D() {
+  if (!G) return;
+  const fr = [[1, 0, 0], [0, -1, 0], [0, 0, -1]], len = [1.2, 0.95, 1.45];
+  G.lanes.forEach((L) => L.frame.forEach((A, i) => setArrow(A, V3([0, 0, 0]), V3(fr[i]).multiplyScalar(len[i]), 0.006, 0.022, 0.07)));
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+function magnify(phi, k) {
+  if (k === 1) return phi;
+  const p1 = 30 * D2R / k;
+  if (phi <= p1) return k * phi;
+  return 30 * D2R + (phi - p1) * (Math.PI - 30 * D2R) / (Math.PI - p1);
+}
+function renderQuat(q, k) {
+  if (k === 1) return q;
+  const s = q[0] < 0 ? -1 : 1, w = s * q[0], v = [s * q[1], s * q[2], s * q[3]], sn = norm(v);
+  if (sn < 1e-15) return q;
+  const phi = 2 * Math.atan2(sn, w), pd = magnify(phi, k);
+  return [Math.cos(pd / 2), v[0] / sn * Math.sin(pd / 2), v[1] / sn * Math.sin(pd / 2), v[2] / sn * Math.sin(pd / 2)];
+}
+function setExag() {
+  const a = [0, 1, 2].map((r) => Math.max(rotAngle(qFromEuler(S.runs[r].e0.map((v) => v * D2R))), norm(S.runs[r].w0) * D2R / P.wc * 0.05));
+  const small = a.filter((v, r) => S.shown[r] && v > 1e-6 && v <= 20 * D2R);
+  let k = 1;
+  if (S.exag !== '1' && small.length) { const m = Math.max(...small); for (const c of [1, 2, 5, 10, 20, 50]) if (c * m <= 20 * D2R) k = c; }
+  for (let r = 0; r < 3; r++) exK[r] = a[r] <= 20 * D2R ? k : 1;
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic() {
+  const { off } = laneOffsets();
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.shown[r];
+    L.lane.visible = on; if (!on) continue;
+    L.lane.position.set(off[r], 0, 0);
+    const qa = qmul(DQ, renderQuat(qNL(r), exK[r])), qb = qmul(DQ, renderQuat(qLin(r), exK[r]));
+    L.veh.quaternion.set(qa[1], qa[2], qa[3], qa[0]);
+    L.ghost.quaternion.set(qb[1], qb[2], qb[3], qb[0]); L.ghost.visible = S.show.ghost;
+    L.frame.forEach((A) => { A.g.visible = S.show.frame; });
+    laneGeo[r].off = off[r];
+  }
+}
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')),
+  o: [mkLabel(SYM('ô') + '<sub class="n">1</sub> flight', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">2</sub>', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">3</sub> to Earth', 'var(--frame)', 'small')],
+};
+const laneKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  let first = -1;
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r] && S.show.labels;
+    const html = `${runHTML(r)}<span class="ex">${exK[r] === 1 ? 'true scale' : 'tilt ×' + exK[r]}</span>`;
+    if (html !== laneKey[r]) { LB.lane[r].innerHTML = html; laneKey[r] = html; }
+    if (on) { placeLabel(LB.lane[r], [laneGeo[r].off, 0, 1.3]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+  }
+  const fOn = S.show.labels && S.show.frame && first >= 0, tips = [[1.33, 0, 0], [0, -1.07, 0], [0, 0, -1.6]];
+  LB.o.forEach((lab, i) => { if (fOn) placeLabel(lab, [laneGeo[first].off + tips[i][0], tips[i][1], tips[i][2]], i === 2 ? 34 : 0, 0); else lab.hidden = true; });
+}
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'frame', 'hw', 'pos', 'neg', 'ax1', 'ax2', 'ax3', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = Cc('hull'); M.face.color = Cc('face'); M.edge.color = Cc('edge');
+    ['ax1', 'ax2', 'ax3'].forEach((n, i) => { M.wheel[i].color = Cc(n); });
+    M.ghost.forEach((m, r) => { m.color = Cc('run' + r); }); M.ghostEdge.forEach((m, r) => { m.color = Cc('run' + r); });
+    M.frame.color = Cc('frame'); M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line');
+  }
+  drawPlot(); drawPane();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_L = HAS3D ? new THREE.Vector3(0.5, -1, 0.45).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = ISO_L.clone();
+  const n = laneOffsets().n, rho = 1.35 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2), c = new THREE.Vector3(0, 0, -0.1);
+  G.controls.target.copy(c); G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix(); G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(0.0001, -1, 0.0001).normalize();
+  return ISO_L.clone();
+}
+
+/* =========================================================
+   Second pane: the A matrix, or its eigenvalues
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function drawPane() { if (S.pane === 'A') drawA(); else drawEig(); }
+const LABS = ['ω₁', 'ω₂', 'ω₃', 'q₁', 'q₂', 'q₃', 'h̃₁', 'h̃₂', 'h̃₃'], ORDER_N = [0, 1, 2, 3, 4, 5, 6, 7, 8], ORDER_P = [1, 4, 7, 0, 2, 3, 5, 6, 8];
+/* a short number for a matrix cell */
+function cellTxt(v) {
+  if (v === 0) return '0';
+  const a = Math.abs(v), e = Math.floor(Math.log10(a));
+  if (e >= -2 && e <= 1) return fx(v, Math.max(0, 3 - e)).replace(/0+$/, '').replace(/\.$/, '');
+  return (v < 0 ? MINUS : '') + (a / Math.pow(10, e)).toFixed(2) + 'e' + String(e).replace('-', MINUS);
+}
+const APANE = { hover: null, geom: null };
+function drawA() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const A = P.A, B = P.B, ord = S.reorder ? ORDER_P : ORDER_N, hset = P.hCells;
+  const m = { l: 34, r: 12, t: 86, b: capH + 52 }, avail = W - m.l - m.r, cs = Math.floor(Math.min((avail - 14) / 12, (H - m.t - m.b) / 9));
+  if (cs < 14) return;
+  const ox = m.l, oy = m.t, bx = ox + 9 * cs + 14;
+  APANE.geom = { ox, oy, cs, bx, ord };
+  const mag = (v) => (v === 0 ? 0 : clamp((Math.log10(Math.abs(v)) + 8) / 8, 0.12, 1));
+  const pos = hexRGB(COL.pos), neg = hexRGB(COL.neg), bg = hexRGB(COL.view);
+  const fill = (v) => { const c = v > 0 ? pos : neg, a = mag(v); return `rgb(${Math.round(bg[0] + (c[0] - bg[0]) * a)},${Math.round(bg[1] + (c[1] - bg[1]) * a)},${Math.round(bg[2] + (c[2] - bg[2]) * a)})`; };
+  const showNum = cs >= 50;
+  ctx.font = cs >= 62 ? MONO : '10px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) {
+    const v = A[ord[i]][ord[j]], x = ox + j * cs, y = oy + i * cs;
+    if (v !== 0) { ctx.fillStyle = fill(v); ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2); }
+    if (hset[ord[i] * 9 + ord[j]]) { ctx.strokeStyle = COL.hw; ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4); ctx.lineWidth = 1; }
+    if (showNum && v !== 0) { ctx.fillStyle = mag(v) > 0.62 ? COL.view : COL.ink; ctx.fillText(cellTxt(v), x + cs / 2, y + cs / 2); }
+  }
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 3; j++) {
+    const v = B[ord[i]][j], x = bx + j * cs, y = oy + i * cs;
+    if (v !== 0) { ctx.fillStyle = fill(v); ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2); if (showNum) { ctx.fillStyle = mag(v) > 0.62 ? COL.view : COL.ink; ctx.fillText(cellTxt(v), x + cs / 2, y + cs / 2); } }
+  }
+  // grid and block lines
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1;
+  for (let k = 0; k <= 9; k++) { ctx.beginPath(); ctx.moveTo(ox, oy + k * cs + 0.5); ctx.lineTo(ox + 9 * cs, oy + k * cs + 0.5); ctx.moveTo(ox + k * cs + 0.5, oy); ctx.lineTo(ox + k * cs + 0.5, oy + 9 * cs); ctx.stroke(); }
+  for (let k = 0; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(bx + k * cs + 0.5, oy); ctx.lineTo(bx + k * cs + 0.5, oy + 9 * cs); ctx.stroke(); }
+  for (let k = 0; k <= 9; k++) { ctx.beginPath(); ctx.moveTo(bx, oy + k * cs + 0.5); ctx.lineTo(bx + 3 * cs, oy + k * cs + 0.5); ctx.stroke(); }
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.6;
+  const cuts = S.reorder ? [3] : [3, 6];
+  cuts.forEach((k) => { ctx.beginPath(); ctx.moveTo(ox, oy + k * cs); ctx.lineTo(ox + 9 * cs, oy + k * cs); ctx.moveTo(ox + k * cs, oy); ctx.lineTo(ox + k * cs, oy + 9 * cs); ctx.moveTo(bx, oy + k * cs); ctx.lineTo(bx + 3 * cs, oy + k * cs); ctx.stroke(); });
+  ctx.strokeRect(ox, oy, 9 * cs, 9 * cs); ctx.strokeRect(bx, oy, 3 * cs, 9 * cs); ctx.lineWidth = 1;
+  // labels
+  ctx.font = UIF(600, 12.5); ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  for (let k = 0; k < 9; k++) { ctx.fillText(LABS[ord[k]], ox + k * cs + cs / 2, oy - 10); ctx.textAlign = 'right'; ctx.fillText(LABS[ord[k]], ox - 6, oy + k * cs + cs / 2); ctx.textAlign = 'center'; }
+  ['g₁', 'g₂', 'g₃'].forEach((t, j) => ctx.fillText(t, bx + j * cs + cs / 2, oy - 10));
+  ctx.font = UIF(700, 13); ctx.fillStyle = COL.ink; ctx.textAlign = 'left';
+  ctx.fillText('A', ox, oy - 30); ctx.fillText('B', bx, oy - 30);
+  ctx.font = UIF(500, 12.5); ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  const under = S.reorder
+    ? ['Top-left 3 × 3: pitch (ω₂, q₂, h̃₂) on its own.', 'Bottom-right 6 × 6: roll and yaw, coupled through the wheel bias.']
+    : ['Top row of blocks: A_ωω | A_ωq | A_ωh. Middle row: q̇ = ½ω, so ½I.', 'Bottom row: zero, because ḣ = −g_c does not depend on the state.'];
+  under.forEach((txt, k) => ctx.fillText(txt, ox, oy + 9 * cs + 20 + 16 * k, W - ox - 8));
+  // hover readout
+  if (APANE.hover) {
+    const { x, y } = APANE.hover; let i = Math.floor((y - oy) / cs), j, v, lab;
+    if (i >= 0 && i < 9) {
+      if (x >= ox && x < ox + 9 * cs) { j = Math.floor((x - ox) / cs); v = A[ord[i]][ord[j]]; lab = `∂${LABS[ord[i]]}̇/∂${LABS[ord[j]]}`; }
+      else if (x >= bx && x < bx + 3 * cs) { j = Math.floor((x - bx) / cs); v = B[ord[i]][j]; lab = `∂${LABS[ord[i]]}̇/∂g${'₁₂₃'[j]}`; }
+      if (lab) {
+        const txt = `${lab} = ${v === 0 ? '0' : sci(v, 4)}`; ctx.font = MONO;
+        const w = ctx.measureText(txt).width + 16; let px = Math.min(x + 12, W - w - 4);
+        ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.95; ctx.fillRect(px, y - 24, w, 20); ctx.globalAlpha = 1;
+        ctx.strokeStyle = COL.rule; ctx.strokeRect(px + 0.5, y - 23.5, w - 1, 19); ctx.fillStyle = COL.ink; ctx.textAlign = 'left'; ctx.fillText(txt, px + 8, y - 14);
+      }
+    }
+  }
+}
+/* eigenvalues of A on the s-plane, imaginary axis on a log scale in units of wc */
+function drawEig() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const m = { l: 74, r: 18, t: 54, b: capH + 40 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 120 || ph < 120) return;
+  const wc = P.wc, ev = P.modes.ev;
+  const maxIm = Math.max(10, ...ev.map((z) => Math.abs(z.im) / wc)), maxRe = Math.max(0.2, ...ev.map((z) => Math.abs(z.re) / wc));
+  const L1 = Math.ceil(Math.log10(maxIm * 1.5)), lo = 0.1;
+  // symmetric log: |y| below lo is linear, above it logarithmic
+  const sl = (v) => { const a = Math.abs(v); return Math.sign(v) * (a < lo ? a / lo : 1 + Math.log10(a / lo)); };
+  const ymax = 1 + Math.log10(Math.pow(10, L1) / lo), xr = maxRe * 1.3;
+  const X = (re) => m.l + (re / xr + 1) / 2 * pw, Y = (im) => m.t + (1 - sl(im) / ymax) / 2 * ph;
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.font = MONO; ctx.textBaseline = 'middle';
+  for (let e = Math.log10(lo); e <= L1; e++) for (const sg of [1, -1]) { const v = sg * Math.pow(10, e), y = Math.round(Y(v)) + 0.5; ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke(); ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; ctx.fillText(`${sg < 0 ? MINUS : ''}${e >= 0 ? String(Math.pow(10, e)) : String(+Math.pow(10, e).toPrecision(1))}`, m.l - 6, y); }
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; ctx.fillText('0', m.l - 6, Y(0));
+  ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(m.l, Y(0) + 0.5); ctx.lineTo(m.l + pw, Y(0) + 0.5); ctx.moveTo(X(0) + 0.5, m.t); ctx.lineTo(X(0) + 0.5, m.t + ph); ctx.stroke();
+  // left half plane: decaying; right: growing
+  ctx.fillStyle = COL.bad; ctx.globalAlpha = 0.06; ctx.fillRect(X(0), m.t, m.l + pw - X(0), ph); ctx.globalAlpha = 1;
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  const xt = ticksOf(-xr, xr, pw / 80); ctx.textAlign = 'center'; ctx.fillStyle = COL.muted;
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), m.t + ph + 12));
+  ctx.fillText('real part / ωc', m.l + pw / 2, m.t + ph + 28);
+  ctx.textAlign = 'left'; ctx.fillText('imaginary part / ωc (log scale)', 6, m.t - 14);
+  ctx.font = UIF(600, 12); ctx.fillStyle = COL.bad; ctx.textAlign = 'right'; ctx.fillText('right half plane: grows', m.l + pw - 6, m.t + ph - 12);
+  // the points, labeled by mode
+  const list = P.modes.list;
+  ev.forEach((z) => { const col = z.re > 1e-9 * wc ? COL.bad : COL.ink; ctx.fillStyle = col; ctx.strokeStyle = COL.view; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(z.re / wc), Y(z.im / wc), 5.5, 0, TAU); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1; });
+  ctx.font = UIF(600, 12.5); ctx.textAlign = 'left';
+  // labels from the top down, pushed apart so they never overlap
+  const labs = list.map((md) => { const z = md.z; return { md, x: X(z.re / wc), y: Y(z.im / wc) - 11, txt: md.count ? md.name : `${md.name}: ${fg(Math.abs(z.im) > 0 ? z.im / wc : z.re / wc, 4)}${Math.abs(z.im) > 0 ? 'j' : ''}` }; }).sort((a, b) => a.y - b.y);
+  for (let k = 1; k < labs.length; k++) if (labs[k].y < labs[k - 1].y + 15) labs[k].y = labs[k - 1].y + 15;
+  labs.forEach((L) => { ctx.fillStyle = L.md.kind === 'bad' ? COL.bad : COL.ink; ctx.fillText(L.txt, Math.min(L.x + 10, m.l + pw - ctx.measureText(L.txt).width - 4), L.y); });
+}
+ppCv.addEventListener('pointermove', (e) => { APANE.hover = { x: e.offsetX, y: e.offsetY }; });
+ppCv.addEventListener('pointerleave', () => { APANE.hover = null; });
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'q', ax: 1, hoverX: null, m: { l: 66, r: 16, t: 20, b: 24 } };
+const AXN = ['1, roll', '2, pitch', '3, yaw'];
+const QINFO = {
+  q: { unit: (k) => `quaternion q${AXN[k]} (solid nonlinear, dashed linear)`, key: 'q', key2: 'l' },
+  gap: { unit: () => 'largest |q_linear − q_nonlinear| over the three components', key: 'gap', log: true, noAx: true },
+  w: { unit: (k) => `rate ω${AXN[k]}, °/s (solid nonlinear, dashed linear)`, key: 'w', key2: 'v' },
+  h: { unit: (k) => `wheel momentum change h̃${AXN[k]}, N·m·s (zero without control)`, key: 'h', key2: 'k' },
+};
+const seriesKey = (info, k2) => (info.noAx ? info.key : (k2 ? info.key2 : info.key) + PL.ax);
+function setLegend() {
+  const info = QINFO[PL.q];
+  let html = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+  if (info.key2) html += '<span class="hleg"><span class="ln dash" style="--c:var(--muted)"></span>linear model</span>';
+  el('hlegs').innerHTML = html; el('axTabs').hidden = !!info.noAx;
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], logy = !!info.log, To = P.T, k1 = seriesKey(info), k2 = info.key2 ? seriesKey(info, true) : null;
+  const x0 = 0, x1 = Math.max(simT, P.tEnd, 1e-3) / To;
+  let mn = Infinity, mx = -Infinity, mnPos = Infinity;
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k]) continue;
+    [k1, k2].filter(Boolean).forEach((key) => { const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; if (v > 0 && v < mnPos) mnPos = v; } });
+  }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let y0, y1;
+  if (logy) { if (!isFinite(mnPos)) mnPos = 1e-12; y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(mx, mnPos * 10)) + 1e-9)); y0 = Math.max(Math.pow(10, Math.floor(Math.log10(mnPos))), y1 * 1e-8); }
+  else { let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6); y0 = mn - 0.08 * span; y1 = mx + 0.08 * span; }
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw, L0 = Math.log10(y0), L1 = Math.log10(y1);
+  const Yp = logy ? (v) => t + (L1 - Math.log10(Math.max(v, y0 * 1e-3))) / (L1 - L0) * ph : (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  let yv, yd = 0, ysc = 1;
+  if (logy) { yv = []; const st = Math.max(1, Math.ceil((L1 - L0) / Math.max(2, ph / 28))); for (let e = Math.ceil(L0 - 1e-9); e <= Math.floor(L1 + 1e-9); e += st) yv.push(Math.pow(10, e)); }
+  else { const e = Math.floor(Math.log10(Math.max(Math.abs(y0), Math.abs(y1), 1e-30))); if (e < -2) ysc = Math.pow(10, e); const yt = ticksOf(y0 / ysc, y1 / ysc, ph / 30); yv = yt.v.map((v) => v * ysc); yd = yt.d; }
+  const xt = ticksOf(x0, x1, pw / 70);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yv.forEach((v) => ctx.fillText(logy ? pow10(Math.round(Math.log10(v))) : fx(v / ysc, yd), l - 6, Yp(v)));
+  if (!logy && y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(info.unit(PL.ax) + (ysc !== 1 ? `, × ${pow10(Math.round(Math.log10(ysc)))}` : ''), 6, 9); ctx.fillText('orbits', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (PL.q === 'gap') { const y = Math.round(Yp(1e-3)) + 0.5; if (1e-3 > y0 && 1e-3 < y1) { ctx.strokeStyle = COL.warn; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); } }
+  const line = (a, col, w, dash, al) => {
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.globalAlpha = al; ctx.beginPath();
+    let on = false, lastX = -1;
+    for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) { on = false; continue; } const x = X(Ht[i] / To), y = Yp(v); if (on && hN > pw * 2 && Math.abs(x - lastX) < 0.5 && i < hN - 1) continue; if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; lastX = x; }
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.lineWidth = 1;
+  };
+  for (let k = 0; k < 3; k++) { if (!S.shown[k] || hN < 2) continue; line(HQ[k1][k], COL['run' + k], 1.8, [], 1); if (k2) line(HQ[k2][k], COL['run' + k], 1.4, [5, 4], 0.8); }
+  const xc = Math.round(X(simT / To)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = (x0 + (PL.hoverX - l) / pw * (x1 - x0)) * To;
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i] / To);
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`${fx(Ht[i] / To, 3)} orbits · ${fx(Ht[i] / 60, 1)} min`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`run ${k + 1}  ${fg(HQ[k1][k][i], 4)}${k2 ? '  lin ' + fg(HQ[k2][k][i], 4) : ''}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const autoName = (r) => { const e = S.runs[r].e0, w = S.runs[r].w0; return w.some((v) => v) ? `kick [${w.map(fn).join(', ')}]°/s` : `[${e.map(fn).join(', ')}]°`; };
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = runName;
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const minOf = (w) => TAU / w / 60;
+function modeTable() {
+  const wc = P.wc;
+  el('modeBody').innerHTML = P.modes.list.map((md) => {
+    const z = md.z, s = md.count ? `0 ×${md.count}` : Math.abs(z.im) > 0 ? `${z.re ? fs(z.re / wc, 3) + ' ' : ''}±${fg(z.im / wc, 4)}j` : fs(z.re / wc, 4);
+    const per = md.count ? '—' : Math.abs(z.im) > 0 ? `${fg(minOf(z.im), 3)} min` : z.re > 0 ? `×e in ${fg(1 / z.re / 60, 3)} min` : '—';
+    return `<tr><td>${md.kind === 'bad' ? ST('bad', md.name) : md.name}</td><td>${s}</td><td>${per}</td></tr>`;
+  }).join('');
+  const k2 = (S.I[0] - S.I[2]) / S.I[1];
+  el('modeNote').innerHTML = `Predictions: pitch libration √(3${SYM('k<sub>2</sub>')}) = ${k2 > 0 ? fg(Math.sqrt(3 * k2), 4) : '—'} (${SYM('k<sub>2</sub>')} = ${fg(k2, 3)}, Lesson 29); wheel nutation ≈ |${SYM('h<sub>2</sub>')}|/√(${SYM('I<sub>r</sub>I<sub>y</sub>')}) = ${fg(P.modes.nutW / wc, 3)} ${SYM('ω<sub>c</sub>')} (Lesson 27). Every eigenvalue on the imaginary axis means the uncontrolled satellite never settles.`;
+}
+function eqKv() {
+  const f0 = P.f0, wc = P.wc, [Ir, , Iy] = S.I, h = S.hn;
+  const rows = [
+    [`${SYM('ω̇')} at the operating point <span class="u">rad/s²</span>`, `[${f0.slice(0, 3).map((v) => (Math.abs(v) < 1e-18 ? '0' : sci(v, 2))).join(', ')}]`],
+    [`Expected: [${SYM('ω<sub>c</sub>h<sub>3</sub>')}/${SYM('I<sub>r</sub>')}, 0, −${SYM('ω<sub>c</sub>h<sub>1</sub>')}/${SYM('I<sub>y</sub>')}]`, `[${[wc * h[2] / Ir, 0, -wc * h[0] / Iy].map((v) => (Math.abs(v) < 1e-18 ? '0' : sci(v, 2))).join(', ')}]`],
+    ['Verdict', P.equil ? ST('ok', 'an equilibrium') : ST('bad', 'not an equilibrium')],
+  ];
+  el('eqKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+function runTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  let h = '';
+  h += row('Largest tilt <span class="u">°</span>', (r) => cell(r, fg(REC[r].amp * R2D, 3)));
+  h += row('Largest |q<sub>i</sub>|', (r) => cell(r, fg(REC[r].qamp, 3)));
+  h += row('Largest gap, linear − nonlinear', (r) => { const g = REC[r].gap; return cell(r, sci(g, 1), g > 0.1 * Math.max(REC[r].qamp, 1e-9) ? 'bad' : ''); }, true);
+  h += row('…as a share of the swing', (r) => cell(r, REC[r].qamp > 0 ? `${fg(100 * REC[r].gap / REC[r].qamp, 2)}%` : '—'));
+  h += row('Pitch period, nonlinear <span class="u">min</span>', (r) => { const z = REC[r].zc; return cell(r, z.length >= 2 ? fg((z[z.length - 1] - z[0]) / (z.length - 1) / 60, 4) : '—'); }, true);
+  h += row('…linear <span class="u">min</span>', (r) => { const z = REC[r].zcL; return cell(r, z.length >= 2 ? fg((z[z.length - 1] - z[0]) / (z.length - 1) / 60, 4) : '—'); });
+  el('runBody').innerHTML = h;
+}
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), wc = P.wc;
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const now = (r) => `<span class="now">q nonlinear [${[4, 5, 6].map((i) => fs(Ys[r][i], 4)).join(', ')}] · linear [${[3, 4, 5].map((i) => fs(Xs[r][i], 4)).join(', ')}]</span></span>`;
+  const gapTxt = (r) => `largest gap so far ${sci(REC[r].gap, 1)}, ${REC[r].qamp > 0 ? fg(100 * REC[r].gap / REC[r].qamp, 2) + '% of the swing' : ''}.`;
+  let t, s, runs = vis.map((r) => head(r) + gapTxt(r) + now(r)), watch;
+  const sc = currentPreset;
+  if (sc === 'appA') {
+    t = 'For errors of a few degrees the linear model is excellent';
+    s = `The Lesson 34 appendix: the Lesson 33 satellite (18, 20, 8 kg·m², pitch bias −0.4 N·m·s, 600 km) linearized about LVLH. Its A has nine eigenvalues, all on the imaginary axis: pitch libration at ±1.225j${SYM('ω<sub>c</sub>')}, a fast roll–yaw nutation at ±31.4j${SYM('ω<sub>c</sub>')} (3.1 min) from the wheel momentum, a slow roll–yaw mode near the orbit rate, and three zeros from the wheel states. Started 2°, −1°, 3° off (run 1), the linear and nonlinear quaternions stay within about 0.001 of each other over a whole orbit while they swing by a few hundredths. Run 2 is tilted in pitch only, which stays separate from roll and yaw; run 3 in roll only, which drags yaw along.`;
+    watch = 'The "Quaternion" history: solid and dashed lines lie on top of each other. The A matrix pane: "Pitch | roll–yaw" reorders the states and shows that the model splits in two, with the bias (amber outlines) driving the roll–yaw block.';
+  } else if (sc === 'large') {
+    t = 'The linear model is only good near the point it was made at';
+    s = 'Three pitch errors, 2°, 15° and 45°, each started from rest. Pitch is a pendulum (Lesson 30): the true restoring torque goes as sin θ cos θ, which the linear model replaces by θ. At 2° the two agree; at 15° the nonlinear swing falls behind; at 45° it is a different motion, with a longer period, and the linear model drifts far from it. A controller designed on the linear model must be checked on the nonlinear one, especially for large slews.';
+    watch = 'The "Linear − nonlinear" history on its log scale: the gap grows roughly as the cube of the angle. The "Three runs" table compares the pitch periods of the two models.';
+  } else if (sc === 'nut') {
+    t = 'The stored wheel momentum makes a fast roll–yaw wobble';
+    s = `A small roll-rate kick (run 1) or yaw-rate kick (run 2) excites the eigenvalue pair at ±${fg(Math.max(...P.modes.ev.map((z) => z.im)) / wc, 3)}j${SYM('ω<sub>c</sub>')}, a period of ${fg(minOf(Math.max(...P.modes.ev.map((z) => z.im))), 3)} min, close to the momentum-bias estimate |${SYM('h<sub>2</sub>')}|/√(${SYM('I<sub>r</sub>I<sub>y</sub>')}) from Lesson 27. It is far faster than anything set by the orbit rate alone: the entries of ${SYM('A<sub>ωω</sub>')} that come from the wheels are a hundred times larger than the orbit-rate ones. Run 3 kicks pitch, which the bias does not touch.`;
+    watch = 'The "Rate ω" history on roll: a fast wobble riding on the slow orbit-rate motion.';
+  } else if (sc === 'nobias') {
+    t = 'Without the bias, the fast mode disappears';
+    s = 'The same satellite with no wheel momentum. The nutation pair is gone, and the roll–yaw motion is the gravity-gradient libration of Lesson 29, at about the orbit rate. Pitch is unchanged: a pitch bias lies along the axis the satellite turns about, so it never enters the pitch equation.';
+    watch = 'The eigenvalue pane: two pairs near the orbit rate and three zeros, and no point near 31.';
+  } else if (sc === 'rollbias') {
+    t = 'With roll-wheel momentum, LVLH is not an equilibrium';
+    s = `With ${SYM('h')}<sub class="n">nom</sub> = [${S.hn.map(fn).join(', ')}] N·m·s the nonlinear equations at the operating point give ${SYM('ω̇')} = [${P.f0.slice(0, 3).map((v) => (Math.abs(v) < 1e-18 ? '0' : sci(v, 2))).join(', ')}] rad/s², not zero: the satellite starts to move even from rest (Lesson 33, case 1). The linear model has no constant term, so it sits still while the nonlinear satellite yaws away. Linearizing about a point that is not an equilibrium leaves out exactly this forcing, which is why the notes put the bias on pitch.`;
+    watch = 'Runs 1 and 2 start at rest: the ghost stays put while the solid satellite turns. "Is it an equilibrium?" shows the forcing.';
+  } else if (sc === 'unstable') {
+    t = 'A shows an unstable satellite before you simulate anything';
+    s = `Swap the roll and yaw inertias so that ${SYM('I<sub>y</sub>')} &gt; ${SYM('I<sub>r</sub>')}: the pitch stiffness 6${SYM('ω<sub>c</sub>')}²(${SYM('I<sub>y</sub>')} − ${SYM('I<sub>r</sub>')}) in ${SYM('A<sub>ωq</sub>')} turns positive and the pitch pair becomes real, one root in the right half plane (Lesson 29's "minor axis on the vertical" rule, broken). The linear model predicts the growth rate; the nonlinear one follows it until the angles are large. The notes' first check on A: a real, positive pitch eigenvalue when ${SYM('I<sub>r</sub>')} &gt; ${SYM('I<sub>y</sub>')} means a sign error.`;
+    watch = 'The eigenvalue pane: a red point on the right. "Linear − nonlinear": the models agree while the angle is small, then part.';
+  } else {
+    t = 'Your own operating point';
+    s = 'Every eigenvalue of A is a motion of the uncontrolled satellite; every pair of runs shows how far the linear model can be trusted.';
+    watch = 'Hover the A matrix for each entry.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  const orb = simT / P.T;
+  el('tOut').textContent = `${fx(orb, 2)} orbits · ${fx(simT / 60, simT < 6000 ? 1 : 0)} min`;
+  el('phaseChip').textContent = `Orbit ${Math.min(Math.floor(orb + 1e-9) + 1, Math.max(1, Math.ceil(S.orbits - 1e-9)))} of ${fn(S.orbits)}`;
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  modeTable(); eqKv(); runTable(); checks();
+}
+const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.max(Math.abs(b), 1e-300);
+function checks() {
+  const items = [], wc = P.wc, std = S.I[0] === 18 && S.I[1] === 20 && S.I[2] === 8 && S.alt === 600 && S.hn[0] === 0 && S.hn[1] === -0.4 && S.hn[2] === 0;
+  items.push({ s: P.jacErr < 1e-5 ? 'ok' : 'bad', t: 'The notes\' A equals the Jacobian of the nonlinear equations', sub: `largest difference ${sci(P.jacErr, 1)} of the largest entry, by central differences; B differs by ${sci(P.jacErrB, 1)}` });
+  if (std) {
+    const A = P.A, want = [[A[0][2], -0.02186], [A[2][0], 0.04919], [A[0][3] * 1e5, -5.439], [A[1][4] * 1e5, -0.3519], [A[2][5] * 1e5, -10.89], [A[0][8] * 1e5, 6.02], [A[2][6] * 1e5, -13.54]];
+    const ok = want.every(([v, w]) => near(v, w, 3e-3));
+    items.push({ s: ok ? 'ok' : 'bad', t: 'Appendix A blocks', sub: `A_ωω −0.02186, 0.04919 s⁻¹; A_ωq −5.439, −0.3519, −10.89 ×10⁻⁵; A_ωh 6.02, −13.54 ×10⁻⁵: computed ${want.map(([v]) => fg(v, 4)).join(', ')}` });
+    const ims = P.modes.ev.filter((z) => z.im > 1e-9).map((z) => z.im / wc).sort((a, b) => a - b), nz = P.modes.ev.filter((z) => Math.hypot(z.re, z.im) < 1e-6 * wc).length;
+    const ok2 = ims.length === 3 && near(ims[0], 1.045, 2e-3) && near(ims[1], 1.225, 2e-3) && near(ims[2], 31.4, 3e-3) && nz === 3;
+    items.push({ s: ok2 ? 'ok' : 'bad', t: 'Eigenvalues ±1.045j, ±1.225j, ±31.4j ωc and three zeros', sub: `computed ±${ims.map((v) => fg(v, 4)).join('j, ±')}j and ${nz} zeros` });
+  }
+  const k2 = (S.I[0] - S.I[2]) / S.I[1];
+  if (k2 > 0 && S.hn[0] === 0 && S.hn[2] === 0) {
+    const pw = P.modes.list.find((md) => md.name === 'pitch libration');
+    items.push({ s: pw && near(pw.z.im, Math.sqrt(3 * k2) * wc, 1e-6) ? 'ok' : 'bad', t: 'The pitch pair is Lesson 29\'s libration, √(3k₂)ωc', sub: `${pw ? fg(pw.z.im / wc, 6) : '—'} vs ${fg(Math.sqrt(3 * k2), 6)}` });
+  }
+  if (k2 < 0 && S.hn[0] === 0 && S.hn[2] === 0) {
+    const g = Math.max(...P.modes.ev.map((z) => z.re)), want = Math.sqrt(-3 * k2) * wc;
+    items.push({ s: near(g, want, 1e-6) ? 'ok' : 'bad', t: 'With Iy > Ir the pitch pair turns real: growth at √(3|k₂|)ωc', sub: `largest real part ${fg(g / wc, 6)} ωc vs ${fg(want / wc, 6)}, ×e every ${fg(1 / g / 60, 3)} min` });
+  }
+  items.push({ s: P.equil ? 'ok' : 'warn', t: P.equil ? 'The operating point is an equilibrium' : 'Not an equilibrium: the linear model leaves out a constant forcing', sub: `ω̇ at the operating point ${sci(norm(P.f0.slice(0, 3)), 1)} rad/s²` });
+  if (currentPreset === 'appA' && std && simT >= 0.999 * P.T && S.shown[0]) items.push({ s: REC[0].gap < 1.5e-3 ? 'ok' : 'bad', t: 'Appendix A: linear and nonlinear stay within about 0.001 over an orbit', sub: `largest quaternion gap ${sci(REC[0].gap, 2)}, swing ±${fg(REC[0].qamp, 2)}` });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function derive() {
+  const o = orbitOf(S.alt);
+  P = { R: o.R, wc: o.wc, T: o.T, tEnd: S.orbits * o.T };
+  P.A = analyticA(); P.B = analyticB();
+  const N = numericAB(), amax = Math.max(...P.A.flat().map(Math.abs));
+  P.jacErr = Math.max(...P.A.flat().map((v, k) => Math.abs(v - N.A[Math.floor(k / 9)][k % 9]))) / amax;
+  P.jacErrB = Math.max(...P.B.flat().map((v, k) => Math.abs(v - N.B[Math.floor(k / 3)][k % 3])));
+  P.f0 = f9([0, 0, 0, 0, 0, 0, ...S.hn]);
+  P.equil = norm(P.f0.slice(0, 3)) < 1e-15;
+  // which entries the wheel bias puts in A
+  const hn = S.hn; S.hn = [0, 0, 0]; const A0 = analyticA(); S.hn = hn;
+  P.hCells = P.A.flat().map((v, k) => Math.abs(v - A0[Math.floor(k / 9)][k % 9]) > 1e-12 * Math.max(1, Math.abs(v)));
+  P.modes = modes();
+}
+function resetRuns() {
+  derive();
+  for (let r = 0; r < 3; r++) {
+    const R = S.runs[r], q = qFromEuler(R.e0.map((v) => v * D2R)), Y = Ys[r], X = Xs[r];
+    Y.fill(0); X.fill(0);
+    for (let i = 0; i < 3; i++) { Y[i] = X[i] = R.w0[i] * D2R; Y[7 + i] = S.hn[i]; }
+    Y[3] = q[0]; Y[4] = q[1]; Y[5] = q[2]; Y[6] = q[3];
+    X[3] = q[1]; X[4] = q[2]; X[5] = q[3];
+  }
+  simT = 0;
+  const fast = Math.max(...P.modes.ev.map((z) => Math.hypot(z.re, z.im)), P.wc);
+  hStep = Math.min(1, P.T / 4000, 0.05 / fast);
+  hN = 0; hLast = -Infinity; hDt = P.tEnd / 3000;
+  resetRecords(); setExag(); histPush(true);
+}
+function rebuild() {
+  pastEnd = false;
+  resetRuns();
+  if (G) setStatic3D();
+  syncInputs(); setLegend();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+const PAIRS = [
+  ['altR', 'altN', (v) => { S.alt = v; }, () => S.alt, 150, true],
+  ['orbR', 'orbN', (v) => { S.orbits = v; }, () => S.orbits, 0.05, false],
+];
+const toRange = (v, log) => (log ? Math.log10(v) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  el('altNote').textContent = `ωc = ${sci(P.wc, 3)} rad/s · period ${fg(P.T / 60, 4)} min`;
+  const R = S.runs[S.edit];
+  for (let i = 0; i < 3; i++) { setBox('I' + i, fmt(S.I[i])); setBox('hn' + i, fmt(S.hn[i])); setBox('e' + i, fmt(R.e0[i])); setBox('w' + i, fmt(R.w0[i])); }
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  el('runNote').textContent = `Starts ${fg(rotAngle(qFromEuler(R.e0.map((v) => v * D2R))) * R2D, 3)}° from LVLH; the linear model starts from the same q₁, q₂, q₃.`;
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  el('chkGhost').checked = S.show.ghost; el('chkFrame').checked = S.show.frame; el('chkLabels').checked = S.show.labels;
+  $$('#exSeg [data-ex]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ex === S.exag)));
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  $$('#axTabs [data-ax]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.ax === PL.ax)));
+  el('orderBtn').hidden = S.pane !== 'A'; el('orderBtn').setAttribute('aria-pressed', String(S.reorder));
+  el('paneTitle').textContent = S.pane === 'A' ? 'A and B' : 'Eigenvalues of A';
+  el('paneCap').innerHTML = S.pane === 'A'
+    ? `Each cell is ∂(row rate)/∂(column state) at the operating point: teal positive, magenta negative, darker for larger magnitude (log scale). Amber outlines: entries the wheel bias creates. "Pitch | roll–yaw" reorders the states to show the split. Hover for values.`
+    : `Each eigenvalue is a natural motion of the uncontrolled satellite. On the imaginary axis: an oscillation forever; right half plane: growth. The vertical axis is logarithmic so the fast wheel nutation and the slow orbit-rate modes fit together.`;
+  const exs = [...new Set([0, 1, 2].filter((r) => S.shown[r]).map((r) => exK[r]))];
+  el('exagLbl').textContent = exs.every((k) => k === 1) ? 'tilts at true scale · ghost = linear model' : `tilts magnified ×${exs.filter((k) => k > 1).join(', ×')} up to 30° · ghost = linear model`;
+  syncSpeed();
+}
+function speedText() { return `${fg(S.speed, 2)}× · 1 orbit in ${fg(P.T / S.speed, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+function edited() { currentPreset = 'custom'; }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); edited(); rebuild(); });
+  n.addEventListener('change', () => { let v = parseFloat(n.value); if (!Number.isFinite(v)) { n.value = fmt(get()); return; } if (mn != null) v = Math.max(mn, v); n.value = fmt(v); r.value = toRange(v, log); set(v); edited(); rebuild(); });
+});
+function boxInput(id, apply) { el(id).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (!Number.isFinite(v)) { syncInputs(); return; } apply(v); edited(); rebuild(); }); }
+for (let i = 0; i < 3; i++) {
+  boxInput('I' + i, (v) => { S.I[i] = Math.max(0.01, v); });
+  boxInput('hn' + i, (v) => { S.hn[i] = v; });
+  boxInput('e' + i, (v) => { S.runs[S.edit].e0[i] = clamp(v, -170, 170); S.runs[S.edit].name = ''; });
+  boxInput('w' + i, (v) => { S.runs[S.edit].w0[i] = clamp(v, -5, 5); S.runs[S.edit].name = ''; });
+}
+function setEdit(r) { S.edit = r; syncInputs(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+el('chkGhost').addEventListener('change', (e) => { S.show.ghost = e.target.checked; });
+el('chkFrame').addEventListener('change', (e) => { S.show.frame = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+$$('#exSeg [data-ex]').forEach((b) => b.addEventListener('click', () => { S.exag = b.dataset.ex; setExag(); syncInputs(); }));
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => { const r = +b.dataset.run; S.shown[r] = !S.shown[r]; if (!S.shown.some(Boolean)) S.shown[r] = true; setExag(); syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts(); }));
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+el('orderBtn').addEventListener('click', () => { S.reorder = !S.reorder; syncInputs(); drawPane(); });
+function setTab(q, ax) { PL.q = q; if (ax != null) PL.ax = ax; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+$$('#axTabs [data-ax]').forEach((b) => b.addEventListener('click', () => setTab(PL.q, +b.dataset.ax)));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* the Lesson 34 appendix satellite: 18, 20, 8 kg m^2, pitch bias -0.4 N m s, 600 km */
+const PRESETS = {
+  appA: { orbits: 1, tab: 'q', ax: 2, pane: 'A', runs: [{ e0: [2, -1, 3], name: 'App. A, 2°/−1°/3°' }, { e0: [0, 2, 0], name: '2° pitch' }, { e0: [2, 0, 0], name: '2° roll' }] },
+  large: { orbits: 2, tab: 'gap', ax: 1, pane: 'eig', runs: [{ e0: [0, 2, 0], name: '2° pitch' }, { e0: [0, 15, 0], name: '15° pitch' }, { e0: [0, 45, 0], name: '45° pitch' }] },
+  nut: { orbits: 0.25, tab: 'w', ax: 0, pane: 'eig', runs: [{ w0: [0.01, 0, 0], name: 'roll kick' }, { w0: [0, 0, 0.01], name: 'yaw kick' }, { w0: [0, 0.01, 0], name: 'pitch kick' }] },
+  nobias: { orbits: 1, tab: 'q', ax: 0, pane: 'eig', hn: [0, 0, 0], runs: [{ e0: [2, -1, 3], name: '2°/−1°/3°' }, { e0: [0, 2, 0], name: '2° pitch' }, { e0: [2, 0, 0], name: '2° roll' }] },
+  rollbias: { orbits: 0.5, tab: 'q', ax: 2, pane: 'A', hn: [0.1, -0.4, 0], runs: [{ name: 'at rest' }, { name: 'at rest, ghost hidden' }, { e0: [2, -1, 3], name: '2°/−1°/3°' }] },
+  unstable: { orbits: 0.5, tab: 'q', ax: 1, pane: 'eig', I: [8, 20, 18], runs: [{ e0: [0, 0.1, 0], name: '0.1° pitch' }, { e0: [0, 0.5, 0], name: '0.5° pitch' }, { e0: [0.5, -0.5, 0.5], name: '0.5° each axis' }] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  S.I = (p.I || [18, 20, 8]).slice(); S.hn = (p.hn || [0, -0.4, 0]).slice(); S.alt = 600; S.orbits = p.orbits; S.pane = p.pane;
+  S.runs = p.runs.map((o) => mkRun(JSON.parse(JSON.stringify(o))));
+  S.shown = [true, true, true];
+  S.speed = +(orbitOf(S.alt).T * p.orbits / 25).toPrecision(2);
+  PL.q = p.tab; PL.ax = p.ax;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= P.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(S.pane === 'A' ? 'eig' : 'A');
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try { G = initGL(); new ResizeObserver(() => resize()).observe(vp); resize(); el('gl').addEventListener('dblclick', () => fit()); } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The A matrix, the eigenvalues, the plots and the analysis still work.';
+  vp.appendChild(d); el('exagLbl').hidden = true;
+  $$('.viewport .viewbar, #runChips').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('appA');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_L.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= P.tEnd) { dt = Math.max(0, P.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (G) { updateDynamic(); G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target); G.controls.update(); G.renderer.render(G.scene, G.cam); updateLabels(); }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__lin = { S, P: () => P, Ys, Xs, REC, advance, rebuild, applyPreset, updateReadouts, analyticA, numericAB, eig, f9, t: () => simT, hist: () => ({ hN, Ht, HQ }), setPlaying, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
