@@ -1,0 +1,1897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reaction Wheel Dynamics Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 30 apps). Control rail | three satellites beside a torque-budget or wheel-momentum pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --hw: #c97a00;
+  --cmd: #7340c2;
+  --ggt: #08808f;
+  --gyro: #e07a14;
+  --dist: #a3366f;
+  --ax1: #cc2b26;
+  --ax2: #1b8655;
+  --ax3: #2257c2;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.seg.wrap { flex-wrap: wrap; row-gap: 4px; }
+.runedit .seg .btn { padding: 3px 8px; font-size: 13px; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 33 · Active control</div>
+      <h1>Reaction Wheel Dynamics Explorer</h1>
+    </div>
+    <p class="lede">Three reaction wheels steer an Earth-pointing satellite by trading angular momentum with it. <b>What does the satellite do in orbit on its own, and what torque must the wheels supply to hold it pointed at the Earth?</b> Fly three satellites with the notes' equations, read every term of the torque balance, and watch the wheels fill up.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>V</kbd></dt><dd>Orbit frame or whole orbit</dd>
+            <dt><kbd>P</kbd></dt><dd>Torque budget or wheel momentum</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit run 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="case1">Case 1: roll wheel<small>L33 App. A</small></button>
+        <button class="btn" type="button" data-preset="case2">Case 2: 5° pitch<small>L33 App. A</small></button>
+        <button class="btn" type="button" data-preset="mistakes">Three mistakes<small>one symptom each</small></button>
+        <button class="btn" type="button" data-preset="sat">Saturation<small>and dumping</small></button>
+        <button class="btn" type="button" data-preset="bias">Bias stiffness<small>pitch wheel</small></button>
+        <button class="btn" type="button" data-preset="free">Free plant<small>no wheels, L29</small></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Satellite and orbit</h2>
+      <div class="trio">
+        <div class="lab">Inertia<span class="u">kg·m², with wheels</span></div>
+        <label><span><span class="sym">I<sub>r</sub></span> roll</span><input type="number" id="I0" min="0.01" step="any" aria-label="Roll moment of inertia"></label>
+        <label><span><span class="sym">I<sub>p</sub></span> pitch</span><input type="number" id="I1" min="0.01" step="any" aria-label="Pitch moment of inertia"></label>
+        <label><span><span class="sym">I<sub>y</sub></span> yaw</span><input type="number" id="I2" min="0.01" step="any" aria-label="Yaw moment of inertia"></label>
+      </div>
+      <div class="slider">
+        <label for="altR" title="Height of the circular orbit">alt<span class="u">km</span></label>
+        <input type="range" id="altR" min="2.2" max="4.62" step="0.002" aria-label="Altitude slider, logarithmic">
+        <input type="number" id="altN" min="150" step="any" aria-label="Altitude, km">
+      </div>
+      <p class="subnote" id="altNote"></p>
+      <div class="slider">
+        <label for="orbR" title="How long each run lasts">run<span class="u">orbits</span></label>
+        <input type="range" id="orbR" min="0.25" max="6" step="0.25" aria-label="Run length slider">
+        <input type="number" id="orbN" min="0.05" step="any" aria-label="Run length, orbits">
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Wheels</h2>
+      <div class="slider">
+        <label for="umaxR" title="Largest torque each wheel motor can produce"><span class="sym">u</span><sub class="n">max</sub><span class="u">N·m</span></label>
+        <input type="range" id="umaxR" min="-3.5" max="-0.5" step="0.01" aria-label="Wheel torque limit slider, logarithmic">
+        <input type="number" id="umaxN" min="1e-5" step="any" aria-label="Wheel torque limit, N·m">
+      </div>
+      <div class="slider">
+        <label for="hmaxR" title="Largest momentum each wheel can store, set by its top speed"><span class="sym">h</span><sub class="n">max</sub><span class="u">N·m·s</span></label>
+        <input type="range" id="hmaxR" min="-1" max="1" step="0.01" aria-label="Wheel momentum limit slider, logarithmic">
+        <input type="number" id="hmaxN" min="0.01" step="any" aria-label="Wheel momentum limit, N·m·s">
+      </div>
+      <div class="slider">
+        <label for="kdR" title="Momentum dumping: the thrusters apply -kd times the wheel momentum, an outside torque"><span class="sym">k<sub>d</sub></span><span class="u">dump, 1/s</span></label>
+        <input type="range" id="kdR" min="-3.5" max="-1.5" step="0.01" aria-label="Dumping gain slider, logarithmic">
+        <input type="number" id="kdN" min="1e-5" step="any" aria-label="Dumping gain, 1/s">
+      </div>
+      <p class="note">Three wheels on the principal axes, so <span class="sym">h̄</span><sub class="n">w</sub> = <span class="sym">h<sub>s</sub></span> and <span class="sym">A<sub>w</sub></span> = 1. A wheel at <span class="sym">h</span><sub class="n">max</sub> cannot take more momentum in that direction: it is saturated. Dumping fires thrusters while the wheels slow.</p>
+    </section>
+
+    <section class="group">
+      <h2>Disturbance</h2>
+      <div class="slider">
+        <label for="gdR" title="Size of the steady disturbance torque on the runs that have one"><span class="sym">g<sub>d</sub></span><span class="u">N·m</span></label>
+        <input type="range" id="gdR" min="-5" max="-2.5" step="0.01" aria-label="Disturbance torque slider, logarithmic">
+        <input type="number" id="gdN" min="1e-7" step="any" aria-label="Disturbance torque, N·m">
+      </div>
+      <p class="note">Each run picks where it acts. <b>Pitch, in body</b> (a misaligned thruster): fixed along an axis that keeps its direction in space, so it fills the pitch wheel steadily. <b>Roll, in body</b>: the roll axis swings round once per orbit, so the momentum it adds keeps changing direction and never builds past 2<span class="sym">g<sub>d</sub></span>/<span class="sym">ω<sub>c</sub></span>. <b>Fixed in space</b> (like solar pressure), in the orbit plane: it adds momentum in one direction in space, which the roll and yaw wheels must take turns holding, and it builds up.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three satellites</h2>
+      <div class="seg" role="group" aria-label="Run to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Run 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Run 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Run 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="trio">
+          <div class="lab">Start tilt<span class="u">deg</span></div>
+          <label>roll<input type="number" id="e0" step="any" aria-label="Starting roll angle, deg"></label>
+          <label>pitch<input type="number" id="e1" step="any" aria-label="Starting pitch angle, deg"></label>
+          <label>yaw<input type="number" id="e2" step="any" aria-label="Starting yaw angle, deg"></label>
+        </div>
+        <div class="trio">
+          <div class="lab">Start rate<span class="u">°/s vs orbit</span></div>
+          <label>roll<input type="number" id="w0" step="any" aria-label="Starting roll rate relative to the orbit, deg/s"></label>
+          <label>pitch<input type="number" id="w1" step="any" aria-label="Starting pitch rate relative to the orbit, deg/s"></label>
+          <label>yaw<input type="number" id="w2" step="any" aria-label="Starting yaw rate relative to the orbit, deg/s"></label>
+        </div>
+        <div class="trio">
+          <div class="lab">Wheels <span class="sym">h̄</span><sub class="n">w</sub><span class="u">N·m·s at start</span></div>
+          <label>roll<input type="number" id="h0" step="any" aria-label="Starting roll wheel momentum, N·m·s"></label>
+          <label>pitch<input type="number" id="h1" step="any" aria-label="Starting pitch wheel momentum, N·m·s"></label>
+          <label>yaw<input type="number" id="h2" step="any" aria-label="Starting yaw wheel momentum, N·m·s"></label>
+        </div>
+        <div class="row"><span class="lbl">control</span>
+          <div class="seg" role="group" aria-label="Control mode" id="modeSeg">
+            <button class="btn" type="button" data-mode="off">off</button>
+            <button class="btn" type="button" data-mode="hold">hold Earth-pointing</button>
+          </div>
+        </div>
+        <div class="row"><span class="lbl">dumping</span>
+          <div class="seg" role="group" aria-label="Momentum dumping" id="dumpSeg">
+            <button class="btn" type="button" data-dump="off">off</button>
+            <button class="btn" type="button" data-dump="auto">auto</button>
+          </div>
+        </div>
+        <div class="row"><span class="lbl">disturb</span>
+          <div class="seg" role="group" aria-label="Disturbance on this run" id="distSeg">
+            <button class="btn" type="button" data-dist="none">none</button>
+            <button class="btn" type="button" data-dist="pitch">pitch</button>
+            <button class="btn" type="button" data-dist="roll">roll</button>
+            <button class="btn" type="button" data-dist="space">in space</button>
+          </div>
+        </div>
+        <div class="row"><span class="lbl">model</span>
+          <div class="seg wrap" role="group" aria-label="Equations used" id="modelSeg">
+            <button class="btn" type="button" data-model="ok">as derived</button>
+            <button class="btn" type="button" data-model="row">third row</button>
+            <button class="btn" type="button" data-model="qB">q from ω<sub>B</sub></button>
+            <button class="btn" type="button" data-model="double">h counted twice</button>
+          </div>
+        </div>
+        <p class="note" id="runNote"></p>
+      </div>
+      <p class="note"><b>hold</b> is a stand-in controller: it cancels every other term in the torque balance and adds a gentle correction toward the orbit frame (natural frequency 0.02 rad/s). Lessons 34 to 36 design the real one, an LQR. The three "model" choices are the mistakes the notes warn about; each has one symptom.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkHw"> Wheel momentum <span class="sym">h̄</span><sub class="n">w</sub></label>
+        <label class="check"><input type="checkbox" id="chkTq"> Commanded torque <span class="sym">g̅</span><sub class="n">c</sub></label>
+        <label class="check"><input type="checkbox" id="chkFrame"> Orbit-frame axes</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+      <div class="row"><span class="lbl">3D tilts</span>
+        <div class="seg" role="group" aria-label="Tilt exaggeration" id="exSeg">
+          <button class="btn" type="button" data-ex="auto">magnified</button>
+          <button class="btn" type="button" data-ex="1">true scale</button>
+        </div>
+      </div>
+      <p class="note">Each wheel's disc turns at a speed set by its momentum (slowed for display) and turns red when saturated. The momentum arrow is scaled to <span class="sym">h</span><sub class="n">max</sub>. Tilts under 30° are magnified by the factor under each satellite.</p>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle" id="viewTitle">Orbit frame</div>
+        <div class="overlay legend" role="group" aria-label="Runs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Scene" id="sceneSeg">
+            <button class="btn" type="button" data-scene="lanes">Orbit frame</button>
+            <button class="btn" type="button" data-scene="orbit">Whole orbit</button>
+          </div>
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag" id="exagLbl"></div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Torque budget or wheel momentum"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Torque budget</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="tq">Torque budget</button>
+            <button class="btn" type="button" data-pane="hw">Wheel momentum</button>
+          </div>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="4" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Orbit 1</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="ang">Attitude</button>
+          <button class="btn" type="button" data-q="w">Rate ω</button>
+          <button class="btn" type="button" data-q="h">Wheels <span class="sym">h</span></button>
+          <button class="btn" type="button" data-q="g">Torque <span class="sym">g<sub>c</sub></span></button>
+          <button class="btn" type="button" data-q="m">Momentum check</button>
+        </div>
+        <div class="seg" role="group" aria-label="Axis to plot" id="axTabs">
+          <button class="btn" type="button" data-ax="0">roll</button>
+          <button class="btn" type="button" data-ax="1">pitch</button>
+          <button class="btn" type="button" data-ax="2">yaw</button>
+        </div>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>What does a satellite with reaction wheels do in orbit, and what torque must the wheels supply to hold it pointed at the Earth?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Reaction wheel</dt>
+          <dd>A flywheel driven by an electric motor. Spinning it up one way turns the satellite the other way.</dd>
+          <dt>Momentum exchange</dt>
+          <dd>Wheels move angular momentum between themselves and the body; they never add or remove any. Only outside torques, such as gravity gradient or thrusters, change the total.</dd>
+          <dt>LVLH (orbit frame)</dt>
+          <dd>Local vertical, local horizontal: axes that keep one face of the satellite toward the Earth. They turn once per orbit.</dd>
+          <dt>Gyroscopic coupling</dt>
+          <dd>Stored momentum carried around by a turning body produces a torque across the turn. It ties the axes together even when no wheel is being torqued.</dd>
+          <dt>Bias momentum</dt>
+          <dd>Wheel momentum kept on purpose, usually on the pitch axis, so wheels avoid passing through zero speed.</dd>
+          <dt>Saturation</dt>
+          <dd>A wheel at its top speed. It cannot absorb more momentum in that direction, so the satellite can no longer be held.</dd>
+          <dt>Momentum dumping</dt>
+          <dd>Using an outside torque, thrusters or magnetic torquers, while the wheels slow down, so the stored momentum leaves the spacecraft.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>The torque balance <span class="unit" id="brHead">run 1, N·m</span></h2>
+      <dl class="kv" id="brKv"></dl>
+      <p class="note">The bracket of the notes' equation, term by term, now: <span class="sym">I<sub>T</sub>ω̇</span> = frame + gyroscopic + <span class="sym">g<sub>c</sub></span> + gravity gradient + disturbance.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three runs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Run</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="runBody"></tbody>
+      </table>
+      <p class="note" id="runTabNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Euler's equation, wheels included (body frame)</div>
+          <div><i>I</i><sub>T</sub>ω̇<sub>B</sub> = −ω<sub>B</sub> × (<i>I</i><sub>T</sub>ω<sub>B</sub> + <i>h</i><sub>w</sub>) − <i>ḣ</i><sub>w</sub> + 3ω<sub>c</sub><sup>2</sup><i>c</i><sub>B</sub> × <i>I</i><sub>T</sub><i>c</i><sub>B</sub></div>
+        </div>
+        <div>
+          <div class="lab">Relative to the orbit frame</div>
+          <div>ω<sub>B</sub> = ω − ω<sub>c</sub><i>Q</i><sub>2</sub>, &nbsp;<i>c</i><sub>B</sub> = <i>Q</i><sub>3</sub>, &nbsp;<i>Q</i> = <i>Q</i><sub>P/O</sub>(<i>q</i>) = [<i>Q</i><sub>1</sub> <i>Q</i><sub>2</sub> <i>Q</i><sub>3</sub>]</div>
+        </div>
+        <div class="box">
+          <div class="lab">The state equations</div>
+          <div>ω̇ = <i>I</i><sub>T</sub><sup>−1</sup>[<i>I</i><sub>T</sub>ω<sup>×</sup><i>Q</i>ω<sub>c</sub> − (ω − ω<sub>c</sub><i>Q</i><sub>2</sub>) × (<i>I</i><sub>T</sub>(ω − ω<sub>c</sub><i>Q</i><sub>2</sub>) + <i>h</i><sub>w</sub>) + <i>g</i><sub>c</sub> + 3ω<sub>c</sub><sup>2</sup><i>Q</i><sub>3</sub> × <i>I</i><sub>T</sub><i>Q</i><sub>3</sub>]</div>
+          <div><i>q̇</i><sub>0</sub> = −½ω<sup>T</sup><b>q</b>, &nbsp;<b>q̇</b> = −½ω<sup>×</sup><b>q</b> + ½<i>q</i><sub>0</sub>ω, &nbsp;<i>ḣ</i><sub>w</sub> = −<i>g</i><sub>c</sub></div>
+        </div>
+        <div>
+          <div class="lab">The stand-in hold controller</div>
+          <div><i>g</i><sub>c</sub> = −(every other term) − <i>I</i><sub>T</sub>(2ζω<sub>n</sub>ω + 2ω<sub>n</sub><sup>2</sup><b>q</b>), clipped to |<i>g</i><sub>c,i</sub>| ≤ <i>u</i><sub>max</sub>, |<i>h</i><sub>i</sub>| ≤ <i>h</i><sub>max</sub></div>
+        </div>
+        <p class="note">ω is the body rate relative to the orbit frame and ω<sub>c</sub> = [0, −ω<sub>c</sub>, 0]. The simulation integrates these equations exactly as written, with fixed-step RK4, plus the disturbance and the dumping thrusters as outside torques. The momentum check rebuilds the total angular momentum in inertial axes, <i>C</i><sub>A/B</sub>(<i>I</i><sub>T</sub>ω<sub>B</sub> + <i>h</i><sub>w</sub>), and compares its change with the integral of the outside torques. μ = 398 600.4418 km³/s², <i>R</i><sub>E</sub> = 6378.137 km.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+/* a vector with each part as a number to 2 significant figures, or 0 */
+const vsci = (v, tiny) => `[${v.map((x) => (Math.abs(x) < (tiny || 1e-15) ? '0' : sci(x, 2))).join(', ')}]`;
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (...vs) => [0, 1, 2].map((i) => vs.reduce((s, v) => s + v[i], 0));
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+/* qrot(q, v_body) = v_orbit; the notes' Q_P/O is the transpose of this rotation */
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function qFromCols(a, b, c) {
+  const m00 = a[0], m11 = b[1], m22 = c[2], tr = m00 + m11 + m22;
+  let q;
+  if (tr > 0) { const s = 2 * Math.sqrt(tr + 1); q = [0.25 * s, (b[2] - c[1]) / s, (c[0] - a[2]) / s, (a[1] - b[0]) / s]; }
+  else if (m00 > m11 && m00 > m22) { const s = 2 * Math.sqrt(1 + m00 - m11 - m22); q = [(b[2] - c[1]) / s, 0.25 * s, (b[0] + a[1]) / s, (c[0] + a[2]) / s]; }
+  else if (m11 > m22) { const s = 2 * Math.sqrt(1 + m11 - m00 - m22); q = [(c[0] - a[2]) / s, (b[0] + a[1]) / s, 0.25 * s, (c[1] + b[2]) / s]; }
+  else { const s = 2 * Math.sqrt(1 + m22 - m00 - m11); q = [(a[1] - b[0]) / s, (c[0] + a[2]) / s, (c[1] + b[2]) / s, 0.25 * s]; }
+  return q;
+}
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+
+/* =========================================================
+   Physics: the Lesson 33 equations, as written in the notes
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378.137e3, IS = 0.02;
+const orbitOf = (altKm) => { const R = RE + altKm * 1e3, wc = Math.sqrt(MU / (R * R * R)); return { R, wc, T: TAU / wc }; };
+let P = {};
+/* the notes' Q_P/O from the quaternion of the body relative to the orbit frame, scalar first */
+function Qof(q) {
+  const [q0, q1, q2, q3] = q;
+  return [
+    [2 * q0 * q0 - 1 + 2 * q1 * q1, 2 * q1 * q2 + 2 * q0 * q3, 2 * q1 * q3 - 2 * q0 * q2],
+    [2 * q1 * q2 - 2 * q0 * q3, 2 * q0 * q0 - 1 + 2 * q2 * q2, 2 * q2 * q3 + 2 * q0 * q1],
+    [2 * q1 * q3 + 2 * q0 * q2, 2 * q2 * q3 - 2 * q0 * q1, 2 * q0 * q0 - 1 + 2 * q3 * q3],
+  ];
+}
+const col = (Q, j) => [Q[0][j], Q[1][j], Q[2][j]];
+const row = (Q, i) => [Q[i][0], Q[i][1], Q[i][2]];
+/* orbit-frame axes in inertial axes at orbit angle u: o1 along the flight path, o2 opposite the normal, o3 to the Earth */
+const oAxes = (u) => [[-Math.sin(u), Math.cos(u), 0], [0, 0, -1], [-Math.cos(u), -Math.sin(u), 0]];
+/* body vector to inertial axes: v_O = Q^T v_B, then the orbit axes */
+function toA(Q, u, vB) {
+  const vO = [0, 1, 2].map((j) => Q[0][j] * vB[0] + Q[1][j] * vB[1] + Q[2][j] * vB[2]), o = oAxes(u);
+  return add(scl(o[0], vO[0]), scl(o[1], vO[1]), scl(o[2], vO[2]));
+}
+function fromA(Q, u, vA) {
+  const o = oAxes(u), vO = [dot(vA, o[0]), dot(vA, o[1]), dot(vA, o[2])];
+  return [0, 1, 2].map((i) => Q[i][0] * vO[0] + Q[i][1] * vO[1] + Q[i][2] * vO[2]);
+}
+/* every term of the bracket at one state, for one run; gc is the commanded torque, or null to let the run's controller decide */
+function terms(r, y, t, gcIn) {
+  const R = S.runs[r], model = R.model, wc = P.wc;
+  // the mistaken model counts the wheels' share of the body's rotation twice: as if each axis had I_s more inertia
+  const I = model === 'double' ? S.I.map((v) => v + IS) : S.I;
+  const w = [y[0], y[1], y[2]], q = [y[3], y[4], y[5], y[6]], h = [y[7], y[8], y[9]];
+  const Q = Qof(q), Q2 = col(Q, 1), Q3 = model === 'row' ? row(Q, 2) : col(Q, 2);
+  const Qwc = scl(Q2, -wc), wB = [w[0] - wc * Q2[0], w[1] - wc * Q2[1], w[2] - wc * Q2[2]];
+  // I_T w^x Q wc: the price of measuring the rate in a turning frame
+  const wx = cross(w, Qwc), fr = [I[0] * wx[0], I[1] * wx[1], I[2] * wx[2]];
+  // -(w_B) x (I_T w_B + h_w)
+  const hu = h;
+  const Lb = [I[0] * wB[0], I[1] * wB[1], I[2] * wB[2]];
+  const gyB = scl(cross(wB, Lb), -1), gyW = scl(cross(wB, hu), -1);
+  const IQ3 = [I[0] * Q3[0], I[1] * Q3[1], I[2] * Q3[2]], gg = scl(cross(Q3, IQ3), 3 * wc * wc);
+  const u = wc * t;
+  const gd = R.dist === 'pitch' ? [0, S.gd, 0] : R.dist === 'roll' ? [S.gd, 0, 0] : R.dist === 'space' ? fromA(Q, u, [S.gd, 0, 0]) : [0, 0, 0];
+  const gt = R.dumpOn ? scl(h, -S.kd) : [0, 0, 0];
+  let gc = gcIn;
+  if (!gc) {
+    if (R.mode === 'hold') {
+      // cancel every other term, then pull toward the orbit frame; the wheels then decide what they can give
+      const s = q[0] < 0 ? -1 : 1, wn = S.wn, z = S.zeta;
+      const other = add(fr, gyB, gyW, gg, gd, gt);
+      gc = [0, 1, 2].map((i) => -other[i] - I[i] * (2 * z * wn * w[i] + 2 * wn * wn * s * q[i + 1]));
+      gc = gc.map((g, i) => {
+        let v = clamp(g, -S.umax, S.umax);
+        // h_dot = -g_c: a wheel near its top speed can only take what room it has left, reached over two steps
+        const hd = -v, room = Math.max(0, S.hmax - Math.abs(h[i])) / (2 * hStep);
+        if (hd * h[i] > 0 && Math.abs(hd) > room) v = -Math.sign(hd) * room;
+        return v;
+      });
+    } else gc = [0, 0, 0];
+  }
+  const sum = add(fr, gyB, gyW, gc, gg, gd, gt);
+  return { I, Q, Q2, Q3, w, wB, q, h, fr, gyB, gyW, gy: add(gyB, gyW), gc, gg, gd, gt, sum, u };
+}
+/* ---------- three runs, one integrator ----------
+   y = [w1, w2, w3, q0, q1, q2, q3, h1, h2, h3, J1, J2, J3]: rate relative to the orbit frame, quaternion of the body
+   relative to the orbit frame, wheel momenta, and the inertial angular impulse of the outside torques */
+const NY = 13;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 1;
+function deriv(r, y, t, out) {
+  const T = terms(r, y, t, null), I = T.I, R = S.runs[r];
+  out[0] = T.sum[0] / I[0]; out[1] = T.sum[1] / I[1]; out[2] = T.sum[2] / I[2];
+  // the quaternion moves with the rate relative to the orbit frame; the mistaken model uses the inertial rate
+  const wq = R.model === 'qB' ? T.wB : T.w, q0 = y[3], qv = [y[4], y[5], y[6]], c = cross(wq, qv);
+  out[3] = -0.5 * dot(wq, qv);
+  out[4] = -0.5 * c[0] + 0.5 * q0 * wq[0]; out[5] = -0.5 * c[1] + 0.5 * q0 * wq[1]; out[6] = -0.5 * c[2] + 0.5 * q0 * wq[2];
+  out[7] = -T.gc[0]; out[8] = -T.gc[1]; out[9] = -T.gc[2];
+  const gA = toA(T.Q, T.u, add(T.gg, T.gd, T.gt));
+  out[10] = gA[0]; out[11] = gA[1]; out[12] = gA[2];
+}
+function rk4(r, h, t) {
+  const Y = Ys[r];
+  deriv(r, Y, t, K1);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, t + 0.5 * h, K2);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, t + 0.5 * h, K3);
+  for (let i = 0; i < NY; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, t + h, K4);
+  for (let i = 0; i < NY; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+  const n = Math.hypot(Y[3], Y[4], Y[5], Y[6]);
+  for (let i = 3; i < 7; i++) Y[i] /= n;
+}
+const qOf = (r) => { const Y = Ys[r]; return [Y[3], Y[4], Y[5], Y[6]]; };
+const hOf = (r) => { const Y = Ys[r]; return [Y[7], Y[8], Y[9]]; };
+const termsNow = (r) => terms(r, Ys[r], simT, null);
+/* total angular momentum in inertial axes, C_A/B (I_T w_B + h_w), the wheels counted once */
+function Htot(r, y, t) {
+  const q = [y[3], y[4], y[5], y[6]], Q = Qof(q), Q2 = col(Q, 1), wc = P.wc, I = S.I;
+  const wB = [y[0] - wc * Q2[0], y[1] - wc * Q2[1], y[2] - wc * Q2[2]];
+  return toA(Q, wc * t, [I[0] * wB[0] + y[7], I[1] * wB[1] + y[8], I[2] * wB[2] + y[9]]);
+}
+/* roll, pitch, yaw: C_B/O = R3(yaw) R2(pitch) R1(roll) */
+function eulerOf(q) {
+  const qc = qconj(q), a = qrot(qc, [1, 0, 0]), b = qrot(qc, [0, 1, 0]), c = qrot(qc, [0, 0, 1]);
+  return [Math.atan2(-b[2], c[2]), Math.asin(clamp(a[2], -1, 1)), Math.atan2(-a[1], a[0])];
+}
+const qFromEuler = (e) => qmul(qmul(qaa(1, 0, 0, e[0]), qaa(0, 1, 0, e[1])), qaa(0, 0, 1, e[2]));
+const prevE = [null, null, null];
+const wrapNear = (a, ref) => a + TAU * Math.round((ref - a) / TAU);
+function eulerCont(r, q) {
+  const e = eulerOf(q), p = prevE[r];
+  if (!p) { prevE[r] = e; return e; }
+  const c1 = e.map((v, i) => wrapNear(v, p[i])), c2 = [e[0] + Math.PI, Math.PI - e[1], e[2] + Math.PI].map((v, i) => wrapNear(v, p[i]));
+  const dist = (c) => Math.abs(c[0] - p[0]) + Math.abs(c[1] - p[1]) + Math.abs(c[2] - p[2]);
+  const out = dist(c1) <= dist(c2) ? c1 : c2;
+  prevE[r] = out; return out;
+}
+const rotAngle = (q) => 2 * Math.acos(clamp(Math.abs(q[0]), 0, 1));
+/* the analytic side */
+const k2 = () => (S.I[0] - S.I[2]) / S.I[1];
+const wl = () => Math.sqrt(3 * Math.max(0, k2())) * P.wc;
+function pitchExactPeriod(r) {
+  const R = S.runs[r], th0 = R.e0[1] * D2R, w0 = R.w0[1] * D2R, L = wl();
+  if (!(L > 0)) return NaN;
+  const s2 = Math.sin(th0) ** 2 + w0 * w0 / (L * L);
+  return s2 < 1 ? 4 * ellipK(Math.sqrt(s2)) / L : NaN;
+}
+const pitchOnly = (r) => { const R = S.runs[r]; return R.e0[0] === 0 && R.e0[2] === 0 && R.w0[0] === 0 && R.w0[2] === 0 && R.h0[0] === 0 && R.h0[2] === 0; };
+/* hold with no other outside torque: the wheel momentum stays fixed in space, so in body axes it turns at wc */
+function hLaw(r, t) {
+  const h0 = S.runs[r].h0, c = Math.cos(P.wc * t), s = Math.sin(P.wc * t);
+  return [h0[0] * c + h0[2] * s, h0[1], h0[2] * c - h0[0] * s];
+}
+/* when a body-fixed disturbance fills the first wheel, under hold */
+function tSatPred(r) {
+  const R = S.runs[r];
+  if (R.mode !== 'hold' || R.dist !== 'pitch' || R.dump !== 'off' || !(S.gd > 0)) return NaN;
+  // the pitch wheel takes the torque at a steady rate: h2_dot = g_d
+  return (S.hmax * 0.995 - R.h0[1]) / S.gd;
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (o) => Object.assign({ e0: [0, 0, 0], w0: [0, 0, 0], h0: [0, 0, 0], mode: 'off', dump: 'off', dist: 'none', model: 'ok', name: '' }, o, { dumpOn: false });
+const S = {
+  I: [18, 20, 8], alt: 600, orbits: 1,
+  umax: 0.02, hmax: 1, kd: 0.005, wn: 0.02, zeta: 0.9,
+  gd: 5e-4,
+  runs: [mkRun({}), mkRun({}), mkRun({})],
+  edit: 0, shown: [true, true, true],
+  speed: 300, playing: !reduceMotion,
+  scene: 'lanes', pane: 'tq', exag: 'auto',
+  show: { hw: true, tq: true, frame: true, labels: true },
+};
+let currentPreset = 'case1';
+
+/* ---------- per-run records ---------- */
+const REC = [0, 1, 2].map(() => ({}));
+function resetRecords() {
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], T0 = terms(r, Y, 0, null);
+    REC[r] = {
+      H0: Htot(r, Y, 0), errH: 0, hMax: Math.max(...S.runs[r].h0.map(Math.abs)), angMax: rotAngle(qOf(r)),
+      gcMax: Math.max(...T0.gc.map(Math.abs)), tSat: null, lawErr: 0, zc: [], lastP: null, imp: 0,
+      t0: { wdot: [0, 1, 2].map((i) => T0.sum[i] / S.I[i]), gc: T0.gc.slice(), Q3: T0.Q3.slice() },
+    };
+  }
+}
+function trackRun(r, e) {
+  const R = REC[r], Y = Ys[r], h = hOf(r), Ru = S.runs[r];
+  const H = Htot(r, Y, simT), dH = [H[0] - R.H0[0] - Y[10], H[1] - R.H0[1] - Y[11], H[2] - R.H0[2] - Y[12]];
+  R.Hs = Math.max(R.Hs || 0, norm(R.H0), norm(H));
+  R.errH = Math.max(R.errH, norm(dH) / Math.max(R.Hs, 1e-6));
+  const hm = Math.max(...h.map(Math.abs)); R.hMax = Math.max(R.hMax, hm);
+  if (R.tSat === null && hm >= S.hmax * 0.995) R.tSat = simT;
+  R.angMax = Math.max(R.angMax, rotAngle(qOf(r)));
+  const L = hLaw(r, simT); R.lawErr = Math.max(R.lawErr, Math.hypot(h[0] - L[0], h[2] - L[2]));
+  const p = e[1];
+  if (R.lastP && R.lastP[1] < 0 && p >= 0) R.zc.push(R.lastP[0] + (simT - R.lastP[0]) * (-R.lastP[1]) / (p - R.lastP[1]));
+  R.lastP = [simT, p];
+  if (Ru.dumpOn) R.imp += S.kd * norm(h) * hDt;
+}
+/* auto dumping: start above 80 percent of a wheel's limit, stop below 20 percent (above g_d/k_d, where dumping balances the disturbance) */
+function updateDump() {
+  for (let r = 0; r < 3; r++) {
+    const R = S.runs[r]; if (R.dump !== 'auto') { R.dumpOn = false; continue; }
+    const hm = Math.max(...hOf(r).map(Math.abs));
+    if (!R.dumpOn && hm > 0.8 * S.hmax) R.dumpOn = true;
+    else if (R.dumpOn && hm < 0.2 * S.hmax) R.dumpOn = false;
+  }
+}
+
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HK = ['a0', 'a1', 'a2', 'w0', 'w1', 'w2', 'h0', 'h1', 'h2', 'g0', 'g1', 'g2', 'L0', 'L1', 'L2', 'm'];
+const HQ = {}; HK.forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 1;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) { Ht[j] = Ht[i]; HK.forEach((k) => { for (let r = 0; r < 3; r++) HQ[k][r][j] = HQ[k][r][i]; }); }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) {
+    const Y = Ys[r], e = eulerCont(r, qOf(r)), T = termsNow(r), L = hLaw(r, simT);
+    for (let k = 0; k < 3; k++) {
+      HQ['a' + k][r][i] = e[k] * R2D; HQ['w' + k][r][i] = Y[k] * R2D; HQ['h' + k][r][i] = Y[7 + k];
+      HQ['g' + k][r][i] = T.gc[k]; HQ['L' + k][r][i] = L[k];
+    }
+    REC[r].gcMax = Math.max(REC[r].gcMax, ...T.gc.map(Math.abs));
+    trackRun(r, e);
+    HQ.m[r][i] = REC[r].errH;
+  }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(200000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    updateDump();
+    for (let r = 0; r < 3; r++) rk4(r, h, simT);
+    simT += h;
+    histPush(false);
+  }
+}
+
+/* =========================================================
+   3D scene: three satellites with their wheels, in the orbit frame or around the whole orbit
+   ========================================================= */
+const DQ = qaa(1, 0, 0, Math.PI);   // orbit frame to display: x flight, z up
+const disp = (v) => [v[0], -v[1], -v[2]];
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.6, RO = 1.9, OSC = 0.22, OFFS = [0, -26, -52].map((d) => d * D2R), BUS = 0.42;
+const exK = [1, 1, 1], wheelAng = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 14, 1); cylGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 22, 1); coneGeo.translate(0, -0.5, 0);
+  function makeArrow(mat, parent) {
+    const shaft = new THREE.Mesh(cylGeo, mat), head = new THREE.Mesh(coneGeo, mat);
+    const g = new THREE.Group(); g.add(shaft, head); parent.add(g);
+    return { g, shaft, head };
+  }
+  function lineObj(mat, parent, n) {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const l = new THREE.Line(geo, mat); l.frustumCulled = false; parent.add(l); return l;
+  }
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 35, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    face: new THREE.MeshPhongMaterial({ shininess: 35, transparent: true, opacity: 0.8 }),
+    edge: new THREE.LineBasicMaterial(),
+    wheel: [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ shininess: 60 })), wheelB: new THREE.MeshPhongMaterial({ shininess: 60 }), sat: new THREE.MeshPhongMaterial({ shininess: 60 }),
+    frame: new THREE.MeshBasicMaterial(), hw: new THREE.MeshPhongMaterial({ shininess: 40 }), tq: new THREE.MeshPhongMaterial({ shininess: 40 }),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+    orbit: new THREE.LineBasicMaterial(), nadir: new THREE.LineDashedMaterial({ dashSize: 0.05, gapSize: 0.04 }),
+  };
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+  const boxMats = [M.hull, M.hull, M.hull, M.hull, M.face, M.hull];
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  function earthGrid(parent) {
+    const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) { const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a)); }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) { const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c)); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    parent.add(new THREE.LineSegments(geo, M.grid));
+  }
+  // a wheel: two half discs in contrasting colors so its turning shows, axis along local z
+  const halfA = new THREE.CylinderGeometry(1, 1, 1, 32, 1, false, 0, Math.PI).rotateX(Math.PI / 2);
+  const halfB = new THREE.CylinderGeometry(1, 1, 1, 32, 1, false, Math.PI, Math.PI).rotateX(Math.PI / 2);
+  const AX_Q = [new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0)), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)), new THREE.Quaternion()];
+  function makeSat(parent) {
+    const veh = new THREE.Group(); parent.add(veh);
+    const box = new THREE.Mesh(boxGeo, boxMats), edges = new THREE.LineSegments(edgeGeo, M.edge);
+    box.scale.setScalar(2 * BUS); edges.scale.setScalar(2 * BUS);
+    veh.add(box, edges);
+    const wheels = [0, 1, 2].map((i) => {
+      const mount = new THREE.Group(); mount.quaternion.copy(AX_Q[i]); veh.add(mount);
+      const spin = new THREE.Group(); mount.add(spin);
+      const a = new THREE.Mesh(halfA, M.wheel[i]), b = new THREE.Mesh(halfB, M.wheelB);
+      spin.add(a, b); spin.scale.set(0.27, 0.27, 0.06);
+      // each wheel just outside the bus face its axis points through: roll at the front, pitch at the side, yaw on top (zenith side)
+      const p = [0, 0, 0]; p[i] = i === 2 ? -(BUS + 0.04) : BUS + 0.04; mount.position.set(p[0], p[1], p[2]);
+      return { mount, spin, a };
+    });
+    return { veh, box, edges, wheels };
+  }
+  const lanesRoot = new THREE.Group(); scene.add(lanesRoot);
+  const ground = new THREE.Group(); lanesRoot.add(ground);
+  ground.add(new THREE.Mesh(sphereGeo, M.earth)); earthGrid(ground);
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const lanes = [0, 1, 2].map(() => {
+    const lane = new THREE.Group(); lanesRoot.add(lane);
+    const sat = makeSat(lane);
+    const frame = [0, 1, 2].map(() => makeArrow(M.frame, lane));
+    const hw = makeArrow(M.hw, lane), tq = makeArrow(M.tq, lane);
+    return Object.assign({ lane, frame, hw, tq }, sat);
+  });
+  const orbitRoot = new THREE.Group(); scene.add(orbitRoot);
+  orbitRoot.add(new THREE.Mesh(sphereGeo, M.earth)); earthGrid(orbitRoot);
+  const orbitLine = lineObj(M.orbit, orbitRoot, 181);
+  { const a = orbitLine.geometry.attributes.position.array; for (let i = 0; i <= 180; i++) { const u = TAU * i / 180; a[3 * i] = RO * Math.cos(u); a[3 * i + 1] = RO * Math.sin(u); a[3 * i + 2] = 0; } }
+  const osats = [0, 1, 2].map(() => {
+    const g = new THREE.Group(); orbitRoot.add(g);
+    const inner = new THREE.Group(); inner.scale.setScalar(OSC); g.add(inner);
+    const sat = makeSat(inner);
+    const hw = makeArrow(M.hw, g);
+    const nad = lineObj(M.nadir, orbitRoot, 2);
+    return Object.assign({ g, inner, hw, nad }, sat);
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanesRoot, lanes, orbitRoot, osats };
+}
+const Y_AXIS = HAS3D ? new THREE.Vector3(0, 1, 0) : null;
+const qT = HAS3D ? new THREE.Quaternion() : null;
+function setArrow(Ar, origin, vec3, shaftR, headR, headL) {
+  const len = vec3.length();
+  if (!(len > 1e-9)) { Ar.g.visible = false; return; }
+  Ar.g.visible = true;
+  const dir = tmpV.copy(vec3).divideScalar(len);
+  qT.setFromUnitVectors(Y_AXIS, dir);
+  const hl = Math.min(headL, 0.5 * len), sl = len - hl;
+  Ar.shaft.quaternion.copy(qT); Ar.shaft.position.copy(origin); Ar.shaft.scale.set(shaftR, Math.max(sl, 1e-9), shaftR);
+  Ar.head.quaternion.copy(qT); Ar.head.position.copy(origin).add(vec3); Ar.head.scale.set(headR, hl, headR);
+}
+const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+function setStatic3D() {
+  if (!G) return;
+  const fr = [[1, 0, 0], [0, -1, 0], [0, 0, -1]], len = [1.2, 0.95, 1.45];
+  G.lanes.forEach((L) => L.frame.forEach((A, i) => setArrow(A, V3([0, 0, 0]), V3(fr[i]).multiplyScalar(len[i]), 0.006, 0.022, 0.07)));
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+function magnify(phi, k) {
+  if (k === 1) return phi;
+  const p1 = 30 * D2R / k;
+  if (phi <= p1) return k * phi;
+  return 30 * D2R + (phi - p1) * (Math.PI - 30 * D2R) / (Math.PI - p1);
+}
+function renderQuat(q, k) {
+  if (k === 1) return q;
+  const s = q[0] < 0 ? -1 : 1, w = s * q[0], v = [s * q[1], s * q[2], s * q[3]], sn = norm(v);
+  if (sn < 1e-15) return q;
+  const phi = 2 * Math.atan2(sn, w), pd = magnify(phi, k);
+  return [Math.cos(pd / 2), v[0] / sn * Math.sin(pd / 2), v[1] / sn * Math.sin(pd / 2), v[2] / sn * Math.sin(pd / 2)];
+}
+function niceK(a) {
+  if (S.exag === '1' || !(a > 0)) return 1;
+  let k = 1; for (const c of [1, 2, 5, 10, 20, 50, 100]) if (c * a <= 20 * D2R) k = c;
+  return k;
+}
+/* how big each run's motion will be: its start tilt, or a quick look at the run's first swing */
+function setExag() {
+  const a = [0, 1, 2].map((r) => Math.max(rotAngle(qFromEuler(S.runs[r].e0.map((v) => v * D2R))), norm(S.runs[r].w0) * D2R / Math.max(wl(), P.wc), 0));
+  const small = a.filter((v, r) => S.shown[r] && v > 1e-6 && v <= 20 * D2R);
+  const k = niceK(small.length ? Math.max(...small) : 0);
+  for (let r = 0; r < 3; r++) exK[r] = a[r] <= 20 * D2R ? k : 1;
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic(dtReal) {
+  const lanesOn = S.scene === 'lanes';
+  G.lanesRoot.visible = lanesOn; G.orbitRoot.visible = !lanesOn;
+  const { off } = laneOffsets();
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r], q = qOf(r), qd = renderQuat(q, exK[r]), h = hOf(r);
+    laneGeo[r].on = on;
+    // spin each wheel, slowed: up to 5 rad/s on screen at full momentum
+    if (S.playing && !reduceMotion) for (let i = 0; i < 3; i++) wheelAng[r][i] += 5 * h[i] / S.hmax * dtReal;
+    const sats = [G.lanes[r], G.osats[r]];
+    sats.forEach((s) => s.wheels.forEach((W, i) => { W.spin.rotation.z = wheelAng[r][i]; W.a.material = Math.abs(h[i]) >= S.hmax * 0.999 ? G.M.sat : G.M.wheel[i]; }));
+    const T = termsNow(r);
+    if (lanesOn) {
+      const L = G.lanes[r];
+      L.lane.visible = on; if (!on) continue;
+      L.lane.position.set(off[r], 0, 0);
+      const qv = qmul(DQ, qd);
+      L.veh.quaternion.set(qv[1], qv[2], qv[3], qv[0]);
+      L.frame.forEach((A) => { A.g.visible = S.show.frame; });
+      const hn = norm(h);
+      if (S.show.hw && hn > 1e-4 * S.hmax) {
+        const d = disp(qrot(qd, scl(h, 1 / hn))), len = 0.3 + 0.9 * Math.min(1, hn / S.hmax);
+        setArrow(L.hw, V3([0, 0, 0]), V3(d).multiplyScalar(len), 0.022, 0.06, 0.15);
+        laneGeo[r].hw = [off[r] + d[0] * len * 1.12, d[1] * len * 1.12, d[2] * len * 1.12];
+      } else { L.hw.g.visible = false; laneGeo[r].hw = null; }
+      const gn = norm(T.gc);
+      if (S.show.tq && gn > 1e-3 * S.umax) {
+        const d = disp(qrot(qd, scl(T.gc, 1 / gn))), len = 0.3 + 0.6 * Math.min(1, gn / S.umax);
+        setArrow(L.tq, V3([0, 0, 0]), V3(d).multiplyScalar(len), 0.016, 0.05, 0.12);
+      } else L.tq.g.visible = false;
+      laneGeo[r].off = off[r];
+    } else {
+      const O = G.osats[r];
+      O.g.visible = on; O.nad.visible = on; if (!on) continue;
+      const u = P.wc * simT + OFFS[r], o = oAxes(u);
+      O.g.position.set(RO * Math.cos(u), RO * Math.sin(u), 0);
+      const qOA = qFromCols(o[0], o[1], o[2]), qv = qmul(qOA, qd);
+      O.veh.quaternion.set(qv[1], qv[2], qv[3], qv[0]);
+      const hn = norm(h);
+      if (S.show.hw && hn > 1e-4 * S.hmax) {
+        // the wheel momentum in inertial axes, from the true attitude
+        const hA = toA(Qof(q), P.wc * simT, h), len = 0.25 + 0.4 * Math.min(1, hn / S.hmax);
+        setArrow(O.hw, V3([0, 0, 0]), V3(scl(hA, 1 / hn)).multiplyScalar(len), 0.012, 0.035, 0.09);
+      } else O.hw.g.visible = false;
+      const pa = O.nad.geometry.attributes.position.array;
+      pa[0] = RO * Math.cos(u); pa[1] = RO * Math.sin(u); pa[2] = 0; pa[3] = 0; pa[4] = 0; pa[5] = 0;
+      O.nad.geometry.attributes.position.needsUpdate = true; O.nad.computeLineDistances();
+      laneGeo[r].opos = [RO * 1.18 * Math.cos(u), RO * 1.18 * Math.sin(u), 0.25];
+    }
+  }
+}
+/* labels */
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) {
+  const d = document.createElement('div');
+  d.className = 'vlabel' + (cls ? ' ' + cls : '');
+  if (color) d.style.setProperty('--c', color);
+  d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d;
+}
+const LB = {
+  lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')),
+  orb: [0, 1, 2].map((r) => mkLabel(String(r + 1), `var(--run${r})`, 'small')),
+  hw: mkLabel(SYM('h̄') + '<sub class="n">w</sub>', 'var(--hw)', 'small'),
+  o: [mkLabel(SYM('ô') + '<sub class="n">1</sub> flight', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">2</sub>', 'var(--frame)', 'small'), mkLabel(SYM('ô') + '<sub class="n">3</sub> to Earth', 'var(--frame)', 'small')],
+  earth: mkLabel('Earth', 'var(--muted)', 'small'),
+};
+const laneKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  const lanesOn = S.scene === 'lanes', showL = S.show.labels;
+  let first = -1, hwDone = false;
+  for (let r = 0; r < 3; r++) {
+    const g = laneGeo[r], on = S.shown[r] && showL;
+    const html = `${runHTML(r)}<span class="ex">${exK[r] === 1 ? 'true scale' : 'tilt ×' + exK[r]}</span>`;
+    if (html !== laneKey[r]) { LB.lane[r].innerHTML = html; laneKey[r] = html; }
+    if (on && lanesOn) { placeLabel(LB.lane[r], [g.off, 0, 1.3]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+    if (on && !lanesOn && g.opos) placeLabel(LB.orb[r], g.opos); else LB.orb[r].hidden = true;
+    if (on && lanesOn && S.show.hw && g.hw && !hwDone) { placeLabel(LB.hw, g.hw, 10, 0); hwDone = true; }
+  }
+  if (!hwDone) LB.hw.hidden = true;
+  const fOn = showL && lanesOn && S.show.frame && first >= 0, tips = [[1.33, 0, 0], [0, -1.07, 0], [0, 0, -1.6]];
+  LB.o.forEach((lab, i) => { if (fOn) placeLabel(lab, [laneGeo[first].off + tips[i][0], tips[i][1], tips[i][2]], i === 2 ? 34 : 0, 0); else lab.hidden = true; });
+  if (showL && !lanesOn) placeLabel(LB.earth, [0, 0, -1.15]); else LB.earth.hidden = true;
+}
+/* theme */
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'frame', 'hw', 'cmd', 'ggt', 'gyro', 'dist', 'ax1', 'ax2', 'ax3', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = Cc('hull'); M.face.color = Cc('face'); M.edge.color = Cc('edge');
+    ['ax1', 'ax2', 'ax3'].forEach((n, i) => { M.wheel[i].color = Cc(n); });
+    M.wheelB.color = Cc('hull-top'); M.sat.color = Cc('bad'); M.sat.emissive = Cc('bad').multiplyScalar(0.35);
+    M.frame.color = Cc('frame'); M.hw.color = Cc('hw'); M.hw.emissive = Cc('hw').multiplyScalar(0.25);
+    M.tq.color = Cc('cmd'); M.tq.emissive = Cc('cmd').multiplyScalar(0.25);
+    M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line'); M.orbit.color = Cc('muted'); M.nadir.color = Cc('muted');
+  }
+  drawPlot(); drawPane();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false);
+  G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_L = HAS3D ? new THREE.Vector3(0.5, -1, 0.45).normalize() : null;
+const ISO_O = HAS3D ? new THREE.Vector3(0.7, -0.9, 0.75).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  const lanesOn = S.scene === 'lanes';
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = (lanesOn ? ISO_L : ISO_O).clone();
+  const n = laneOffsets().n, rho = lanesOn ? 1.35 + 0.5 * LANE * (n - 1) : RO + 0.45;
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2);
+  const c = new THREE.Vector3(0, 0, lanesOn ? -0.1 : 0);
+  G.controls.target.copy(c);
+  G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix();
+  G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return S.scene === 'lanes' ? new THREE.Vector3(0.0001, -1, 0.0001).normalize() : new THREE.Vector3(0.0001, -1, 0.02).normalize();
+  return (S.scene === 'lanes' ? ISO_L : ISO_O).clone();
+}
+
+/* =========================================================
+   Second pane: the torque budget, or the wheel momentum
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksOf(a, b, n) {
+  const s = niceStep(b - a, n), out = [];
+  for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v);
+  return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) };
+}
+function drawPane() { if (S.pane === 'tq') drawBudget(); else drawWheels(); }
+/* the bars: each term of the bracket, per axis, on a signed log scale */
+const BARS = [['fr', 'frame', 'frame'], ['gy', 'gyroscopic', 'gyro'], ['gc', 'commanded gc', 'cmd'], ['gg', 'gravity gradient', 'ggt'], ['ext', 'disturbance + thrusters', 'dist'], ['sum', 'sum = I·ω̇', 'ink']];
+const BUD = { hover: null, geom: null };
+function drawBudget() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const T = termsNow(S.edit), vals = { fr: T.fr, gy: T.gy, gc: T.gc, gg: T.gg, ext: add(T.gd, T.gt), sum: T.sum };
+  const all = [].concat(...Object.values(vals)).map(Math.abs).filter((v) => v > 0);
+  const top = Math.ceil(Math.log10(Math.max(...all, 1e-8)) + 0.2), floor = Math.min(top - 4, -9), Lmax = top - floor;
+  const m = { l: 64, r: 14, t: 92, b: capH + 34 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 120 || ph < 80) return;
+  const y0 = m.t + ph / 2, Ysg = (v) => { const a = Math.abs(v); if (a <= Math.pow(10, floor)) return y0; return y0 - Math.sign(v) * (Math.log10(a) - floor) / Lmax * (ph / 2); };
+  // grid at each decade
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.strokeStyle = COL.rule; ctx.lineWidth = 1;
+  for (let e = floor + 1; e <= top; e++) {
+    if ((top - e) % (ph < 260 ? 2 : 1)) continue;
+    for (const sg of [1, -1]) {
+      const y = Math.round(Ysg(sg * Math.pow(10, e))) + 0.5;
+      ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke();
+      ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; ctx.fillText((sg < 0 ? MINUS : '') + pow10(e), m.l - 6, y);
+    }
+  }
+  ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(m.l, Math.round(y0) + 0.5); ctx.lineTo(m.l + pw, Math.round(y0) + 0.5); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'right'; ctx.fillText('0', m.l - 6, y0);
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(m.l + 0.5, m.t + 0.5, pw - 1, ph - 1);
+  ctx.textAlign = 'left'; ctx.fillText(`N·m, signed log scale (|g| < ${pow10(floor)} drawn as 0)`, 6, m.t - 12);
+  const gw = pw / 3, bw = Math.min(26, (gw - 18) / BARS.length - 3);
+  BUD.geom = { m, pw, ph, gw, bw, vals };
+  for (let k = 0; k < 3; k++) {
+    const gx = m.l + k * gw, x0 = gx + (gw - BARS.length * (bw + 3)) / 2;
+    if (k) { ctx.strokeStyle = COL.rule; ctx.beginPath(); ctx.moveTo(Math.round(gx) + 0.5, m.t); ctx.lineTo(Math.round(gx) + 0.5, m.t + ph); ctx.stroke(); }
+    ctx.fillStyle = COL.ink; ctx.font = UIF(700, 13); ctx.textAlign = 'center'; ctx.fillText(['roll', 'pitch', 'yaw'][k], gx + gw / 2, m.t + ph + 14);
+    BARS.forEach(([key, , c], j) => {
+      const v = vals[key][k], x = x0 + j * (bw + 3), y = Ysg(v);
+      ctx.fillStyle = COL[c]; ctx.globalAlpha = key === 'sum' ? 0.9 : 0.85;
+      ctx.fillRect(x, Math.min(y, y0), bw, Math.max(1, Math.abs(y - y0)));
+      // the wheel's share of the gyroscopic term, hatched over the body's share
+      if (key === 'gy' && Math.abs(T.gyW[k]) > 0) { const yw = Ysg(T.gyW[k]); ctx.globalAlpha = 0.45; ctx.fillStyle = COL.hw; ctx.fillRect(x + bw * 0.25, Math.min(yw, y0), bw * 0.5, Math.max(1, Math.abs(yw - y0))); }
+      ctx.globalAlpha = 1;
+    });
+  }
+  // legend
+  ctx.font = UIF(600, 12); ctx.textAlign = 'left';
+  let lx = 8, ly = 42;
+  BARS.forEach(([, lab, c]) => { const w = ctx.measureText(lab).width + 26; if (lx + w > W - 8) { lx = 8; ly += 16; } ctx.fillStyle = COL[c]; ctx.fillRect(lx, ly - 5, 10, 10); ctx.fillStyle = COL.ink; ctx.fillText(lab, lx + 14, ly); lx += w; });
+  if (lx + 130 > W - 8) { lx = 8; ly += 16; }
+  ctx.fillStyle = COL.hw; ctx.globalAlpha = 0.6; ctx.fillRect(lx, ly - 5, 10, 10); ctx.globalAlpha = 1; ctx.fillStyle = COL.ink; ctx.fillText('wheels’ part of gyroscopic', lx + 14, ly);
+  // hover value
+  if (BUD.hover) {
+    const { x, y } = BUD.hover, k = Math.floor((x - m.l) / gw);
+    if (k >= 0 && k < 3) {
+      const x0 = m.l + k * gw + (gw - BARS.length * (bw + 3)) / 2, j = Math.floor((x - x0) / (bw + 3));
+      if (j >= 0 && j < BARS.length) {
+        const [key, lab] = BARS[j], v = vals[key][k], txt = `${['roll', 'pitch', 'yaw'][k]} ${lab}: ${Math.abs(v) < 1e-15 ? '0' : sci(v, 3)} N·m`;
+        ctx.font = MONO; const bw2 = ctx.measureText(txt).width + 16; let bx = Math.min(x + 12, W - bw2 - 4);
+        ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.95; ctx.fillRect(bx, y - 22, bw2, 20); ctx.globalAlpha = 1;
+        ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, y - 21.5, bw2 - 1, 19); ctx.fillStyle = COL.ink; ctx.textAlign = 'left'; ctx.fillText(txt, bx + 8, y - 12);
+      }
+    }
+  }
+}
+ppCv.addEventListener('pointermove', (e) => { BUD.hover = { x: e.offsetX, y: e.offsetY }; });
+ppCv.addEventListener('pointerleave', () => { BUD.hover = null; });
+/* roll and yaw wheel momentum in one plane, pitch wheel as a bar beside it */
+function drawWheels() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const m = { l: 56, r: 92, t: 56, b: capH + 40 }, pw = W - m.l - m.r, ph = H - m.t - m.b, s = Math.floor(Math.min(pw, ph));
+  if (s < 90) return;
+  let ext = 0.12 * S.hmax;
+  for (let r = 0; r < 3; r++) if (S.shown[r]) { for (let i = 0; i < hN; i++) ext = Math.max(ext, Math.abs(HQ.h0[r][i]), Math.abs(HQ.h2[r][i])); ext = Math.max(ext, Math.hypot(S.runs[r].h0[0], S.runs[r].h0[2])); }
+  ext = Math.min(1.15 * S.hmax, ext * 1.25);
+  const ox = Math.round(m.l + (pw - s) / 2), oy = Math.round(m.t + (ph - s) / 2), X = (v) => ox + (v + ext) / (2 * ext) * s, Y = (v) => oy + (ext - v) / (2 * ext) * s;
+  const t = ticksOf(-ext, ext, s / 60);
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1; ctx.beginPath();
+  t.v.forEach((v) => { ctx.moveTo(Math.round(X(v)) + 0.5, oy); ctx.lineTo(Math.round(X(v)) + 0.5, oy + s); ctx.moveTo(ox, Math.round(Y(v)) + 0.5); ctx.lineTo(ox + s, Math.round(Y(v)) + 0.5); });
+  ctx.stroke(); ctx.strokeRect(ox + 0.5, oy + 0.5, s - 1, s - 1);
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center'; t.v.forEach((v) => ctx.fillText(fx(v, t.d), X(v), oy + s + 12)); ctx.fillText('h₁, roll wheel, N·m·s', ox + s / 2, oy + s + 28);
+  ctx.textAlign = 'right'; t.v.forEach((v) => ctx.fillText(fx(v, t.d), ox - 6, Y(v)));
+  ctx.textAlign = 'left'; ctx.fillText('h₃, yaw wheel', ox - 40, oy - 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(ox, oy, s, s); ctx.clip();
+  // the saturation box
+  ctx.strokeStyle = COL.bad; ctx.lineWidth = 1.6; ctx.setLineDash([6, 4]); ctx.strokeRect(X(-S.hmax), Y(S.hmax), X(S.hmax) - X(-S.hmax), Y(-S.hmax) - Y(S.hmax)); ctx.setLineDash([]);
+  // the migration circle for the edited run: its start momentum, held fixed in space
+  const R = S.runs[S.edit], rad = Math.hypot(R.h0[0], R.h0[2]);
+  if (rad > 0) { ctx.strokeStyle = COL['run' + S.edit]; ctx.globalAlpha = 0.5; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(X(0), Y(0), (X(rad) - X(0)), 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+  for (let r = 0; r < 3; r++) {
+    if (!S.shown[r] || hN < 1) continue;
+    ctx.strokeStyle = COL['run' + r]; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i < hN; i++) { const x = X(HQ.h0[r][i]), y = Y(HQ.h2[r][i]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.lineWidth = 1;
+    const j = hN - 1; ctx.fillStyle = COL['run' + r]; ctx.strokeStyle = COL.view; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(HQ.h0[r][j]), Y(HQ.h2[r][j]), 5, 0, TAU); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+  }
+  ctx.restore();
+  // pitch wheel bars
+  const bx = ox + s + 26, bwid = 12, Yb = (v) => oy + (Math.max(S.hmax * 1.1, ext) - v) / (2 * Math.max(S.hmax * 1.1, ext)) * s;
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(bx - 0.5, oy + 0.5, 3 * (bwid + 4) + 2, s - 1);
+  ctx.strokeStyle = COL.bad; ctx.setLineDash([6, 4]); [S.hmax, -S.hmax].forEach((v) => { const y = Math.round(Yb(v)) + 0.5; ctx.beginPath(); ctx.moveTo(bx - 4, y); ctx.lineTo(bx + 3 * (bwid + 4) + 4, y); ctx.stroke(); }); ctx.setLineDash([]);
+  ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(bx - 4, Math.round(Yb(0)) + 0.5); ctx.lineTo(bx + 3 * (bwid + 4) + 4, Math.round(Yb(0)) + 0.5); ctx.stroke();
+  for (let r = 0; r < 3; r++) { if (!S.shown[r]) continue; const v = Ys[r][8], x = bx + 2 + r * (bwid + 4); ctx.fillStyle = COL['run' + r]; ctx.fillRect(x, Math.min(Yb(v), Yb(0)), bwid, Math.max(1, Math.abs(Yb(v) - Yb(0)))); }
+  ctx.font = MONO; ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; ctx.fillText('h₂ pitch', bx + 1.5 * (bwid + 4), oy - 12);
+  ctx.textAlign = 'left'; ctx.fillStyle = COL.bad; ctx.fillText(`±${fn(S.hmax)}`, bx + 3 * (bwid + 4) + 6, Yb(S.hmax));
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'h', ax: 0, hoverX: null, m: { l: 66, r: 16, t: 20, b: 24 } };
+const QINFO = {
+  ang: { unit: (k) => `${['roll', 'pitch', 'yaw'][k]} from the orbit frame, deg`, key: 'a', log: false },
+  w: { unit: (k) => `${['roll', 'pitch', 'yaw'][k]} rate relative to the orbit, °/s`, key: 'w', log: false },
+  h: { unit: (k) => `${['roll', 'pitch', 'yaw'][k]} wheel momentum, N·m·s (dashed: held fixed in space)`, key: 'h', log: false, lim: () => S.hmax, law: true },
+  g: { unit: (k) => `${['roll', 'pitch', 'yaw'][k]} commanded torque gc, N·m`, key: 'g', log: false, lim: () => S.umax, sci: true },
+  m: { unit: () => 'momentum check: |ΔH − ∫ outside torques| / |H|', key: 'm', log: true, noAx: true },
+};
+function seriesKey(info) { return info.noAx ? info.key : info.key + PL.ax; }
+function setLegend() {
+  const info = QINFO[PL.q];
+  let html = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+  if (info.law) html += '<span class="hleg"><span class="ln dash" style="--c:var(--muted)"></span>fixed in space</span>';
+  el('hlegs').innerHTML = html;
+  el('axTabs').hidden = !!info.noAx;
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], key = seriesKey(info), logy = info.log, To = P.T;
+  const x0 = 0, x1 = Math.max(simT, P.tEnd, 1e-3) / To;
+  const lawKey = 'L' + PL.ax, showLaw = info.law && [0, 1, 2].some((r) => S.shown[r] && S.runs[r].mode === 'hold');
+  let mn = Infinity, mx = -Infinity, mnPos = Infinity;
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k]) continue;
+    const arrs = [HQ[key][k]]; if (showLaw && S.runs[k].mode === 'hold') arrs.push(HQ[lawKey][k]);
+    arrs.forEach((a) => { for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; if (v > 0 && v < mnPos) mnPos = v; } });
+  }
+  if (info.lim) { const L = info.lim(); if (mx > 0.4 * L) mx = Math.max(mx, L); if (mn < -0.4 * L) mn = Math.min(mn, -L); }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let y0, y1;
+  if (logy) {
+    if (!isFinite(mnPos)) mnPos = 1e-16;
+    y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(mx, mnPos * 10)) + 1e-9)); y0 = Math.max(Math.pow(10, Math.floor(Math.log10(mnPos))), y1 * 1e-10, 1e-17);
+  } else {
+    let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
+    y0 = mn - 0.08 * span; y1 = mx + 0.08 * span;
+    if (mn >= 0 && mn < 0.3 * span) y0 = 0;
+    if (mx <= 0 && -mx < 0.3 * span) y1 = 0;
+  }
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw, L0 = Math.log10(y0), L1 = Math.log10(y1);
+  const Yp = logy ? (v) => t + (L1 - Math.log10(Math.max(v, y0 * 1e-3))) / (L1 - L0) * ph : (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  let yv, yd = 0, ysc = 1;
+  if (logy) { yv = []; const st = Math.max(1, Math.ceil((L1 - L0) / Math.max(2, ph / 28))); for (let e = Math.ceil(L0 - 1e-9); e <= Math.floor(L1 + 1e-9); e += st) yv.push(Math.pow(10, e)); }
+  else {
+    if (info.sci) { const e = Math.floor(Math.log10(Math.max(Math.abs(y0), Math.abs(y1), 1e-30))); ysc = Math.pow(10, e); }
+    const yt = ticksOf(y0 / ysc, y1 / ysc, ph / 30); yv = yt.v.map((v) => v * ysc); yd = yt.d;
+  }
+  const xt = ticksOf(x0, x1, pw / 70);
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center';
+  xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right';
+  yv.forEach((v) => ctx.fillText(logy ? pow10(Math.round(Math.log10(v))) : fx(v / ysc, yd), l - 6, Yp(v)));
+  if (!logy && y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left';
+  ctx.fillText(info.unit(PL.ax) + (!logy && ysc !== 1 ? `, × ${pow10(Math.round(Math.log10(ysc)))}` : ''), 6, 9); ctx.fillText('orbits', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  if (info.lim) { const L = info.lim(); [L, -L].forEach((v) => { if (v < y0 || v > y1) return; const y = Math.round(Yp(v)) + 0.5; ctx.strokeStyle = COL.bad; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; }); }
+  const line = (a, col, w, dash, al) => {
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.globalAlpha = al; ctx.beginPath();
+    let on = false, lastX = -1;
+    for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v) || (logy && !(v > 0))) { on = false; continue; } const x = X(Ht[i] / To), y = Yp(v); if (on && hN > pw * 2 && Math.abs(x - lastX) < 0.5 && i < hN - 1) continue; if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y); on = true; lastX = x; }
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.lineWidth = 1;
+  };
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k] || hN < 2) continue;
+    line(HQ[key][k], COL['run' + k], 1.8, [], 1);
+    if (showLaw && S.runs[k].mode === 'hold') line(HQ[lawKey][k], COL['run' + k], 1.2, [5, 4], 0.7);
+  }
+  const xc = Math.round(X(simT / To)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = (x0 + (PL.hoverX - l) / pw * (x1 - x0)) * To;
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i] / To);
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`${fx(Ht[i] / To, 3)} orbits · ${fx(Ht[i] / 60, 1)} min`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`run ${k + 1}  ${fg(HQ[key][k][i], 4)}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+const MODEL_NAME = { ok: '', row: 'third row', qB: 'q from ωB', double: 'h twice' };
+const autoName = (r) => { const h = S.runs[r].h0; return h.some((v) => v) ? `h [${h.map(fn).join(', ')}]` : 'no wheel momentum'; };
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = (r) => { const R = S.runs[r]; return runName(r) + (R.mode === 'hold' ? ', hold' : '') + (R.model !== 'ok' ? `, ${MODEL_NAME[R.model]}` : ''); };
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const deg = (rad, d) => `${fg(rad * R2D, d || 3)}°`;
+const orbs = (t) => t / P.T;
+function runTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row2 = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  let h = '';
+  h += row2('Control', (r) => cell(r, S.runs[r].mode === 'hold' ? 'hold' : 'off'));
+  h += row2('Equations', (r) => cell(r, S.runs[r].model === 'ok' ? ST('ok', 'as derived') : ST('bad', MODEL_NAME[S.runs[r].model])));
+  ['roll', 'pitch', 'yaw'].forEach((a, i) => { h += row2(`${a} wheel now <span class="u">N·m·s</span>`, (r) => { const v = Ys[r][7 + i]; return cell(r, fs(v, 3), Math.abs(v) >= S.hmax * 0.999 ? 'bad' : ''); }, i === 0); });
+  h += row2('Fullest wheel so far <span class="u">N·m·s</span>', (r) => cell(r, fg(REC[r].hMax, 3), REC[r].hMax >= S.hmax * 0.999 ? 'bad' : ''));
+  h += row2('Saturates at, predicted <span class="u">min</span>', (r) => { const t = tSatPred(r); return cell(r, isFinite(t) ? fg(t / 60, 3) : '—'); });
+  h += row2('…simulated <span class="u">min</span>', (r) => cell(r, REC[r].tSat !== null ? fg(REC[r].tSat / 60, 3) : '—', REC[r].tSat !== null ? 'bad' : ''));
+  h += row2('Largest tilt from LVLH <span class="u">°</span>', (r) => cell(r, fg(REC[r].angMax * R2D, 3)), true);
+  h += row2('Tilt now <span class="u">°</span>', (r) => cell(r, fg(rotAngle(qOf(r)) * R2D, 3)));
+  h += row2('|gc| now <span class="u">N·m</span>', (r) => cell(r, sci(norm(termsNow(r).gc), 2)), true);
+  h += row2('Largest |gc,i| <span class="u">N·m</span>', (r) => cell(r, sci(REC[r].gcMax, 2), REC[r].gcMax >= S.umax * 0.999 ? 'bad' : ''));
+  h += row2('Dumping', (r) => cell(r, S.runs[r].dump === 'auto' ? (S.runs[r].dumpOn ? ST('warn', 'firing') : 'standby') : '—'));
+  h += row2('Thruster impulse <span class="u">N·m·s</span>', (r) => cell(r, REC[r].imp > 0 ? fg(REC[r].imp, 3) : '—'));
+  el('runBody').innerHTML = h;
+  el('runTabNote').innerHTML = `Wheel limits: ${fn(S.umax)} N·m and ${fn(S.hmax)} N·m·s per wheel. The prediction is ${SYM('t')} = (${SYM('h')}<sub class="n">max</sub> − ${SYM('h')}<sub class="n">0</sub>)/|${SYM('g<sub>d</sub>')}| for a body-fixed disturbance held by the wheels.`;
+}
+function brKv() {
+  const r = S.edit, T = termsNow(r), wd = [0, 1, 2].map((i) => T.sum[i] / S.I[i]);
+  el('brHead').textContent = `run ${r + 1}, N·m`;
+  const rows = [
+    [`Frame: ${SYM('I<sub>T</sub>ω<sup>×</sup>Qω<sub>c</sub>')}`, vsci(T.fr)],
+    [`Gyroscopic, body: −${SYM('ω<sub>B</sub>')} × ${SYM('I<sub>T</sub>ω<sub>B</sub>')}`, vsci(T.gyB)],
+    [`Gyroscopic, wheels: −${SYM('ω<sub>B</sub>')} × ${SYM('h<sub>w</sub>')}`, vsci(T.gyW)],
+    [`Commanded ${SYM('g<sub>c</sub>')}`, vsci(T.gc)],
+    [`Gravity gradient: 3${SYM('ω<sub>c</sub>')}²${SYM('Q<sub>3</sub>')} × ${SYM('I<sub>T</sub>Q<sub>3</sub>')}`, vsci(T.gg)],
+    ['Disturbance and thrusters', vsci(add(T.gd, T.gt))],
+    [`Sum, ${SYM('I<sub>T</sub>ω̇')}`, vsci(T.sum)],
+    [`${SYM('ω̇')} <span class="u">rad/s²</span>`, vsci(wd)],
+    [`${SYM('Q<sub>3</sub>')} (nadir in body axes)`, `[${T.Q3.map((v) => fs(v, 4)).join(', ')}]`],
+  ];
+  el('brKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+/* the plain-language card */
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), Tm = P.T / 60;
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const now = (r) => { const e = prevE[r] || eulerOf(qOf(r)), h = hOf(r); return `<span class="now">now roll ${fs(e[0] * R2D, 2)}° pitch ${fs(e[1] * R2D, 2)}° yaw ${fs(e[2] * R2D, 2)}° · h [${h.map((v) => fs(v, 3)).join(', ')}]</span></span>`; };
+  let t, s, runs, watch;
+  const sc = currentPreset;
+  if (sc === 'case1') {
+    t = 'Momentum in the roll wheel has to be turned with the satellite';
+    s = `Appendix A, case 1: aligned with the orbit frame, at rest, with ${SYM('h̄')}<sub class="n">w</sub> = [0.1, −0.4, 0] N·m·s. Gravity gradient is zero and nothing is commanded, yet the gyroscopic term −${SYM('ω<sub>B</sub>')} × (${SYM('I<sub>T</sub>ω<sub>B</sub>')} + ${SYM('h<sub>w</sub>')}) is not: the satellite turns once per orbit, carrying the roll wheel's momentum around, and that takes a torque of ${sci(P.wc * 0.1, 2)} N·m about yaw. With no wheel torque (run 1) the satellite starts to yaw. To hold it (run 2), the wheels must supply exactly that torque, so the momentum passes from the roll wheel to the yaw wheel: ${SYM('h')}<sub class="n">1</sub> = 0.1 cos ${SYM('ω<sub>c</sub>t')}, ${SYM('h')}<sub class="n">3</sub> = −0.1 sin ${SYM('ω<sub>c</sub>t')}, all of it in the yaw wheel after a quarter orbit (${fg(Tm / 4, 3)} min). Seen from space, the momentum never moves; the satellite turns under it. The pitch wheel's momentum (run 3) lies along the axis the satellite turns about, so it costs nothing: steady bias belongs on the pitch wheel.`;
+    runs = vis.map((r) => { const R = S.runs[r]; return head(r) + (R.mode === 'hold' ? `holding; in body axes the 0.1 N·m·s has turned ${fx(((Math.atan2(-Ys[r][9], Ys[r][7]) * R2D) % 360 + 360) % 360, 0)}° from the roll wheel toward the yaw wheel.` : R.h0[0] ? `yawing away with no torque commanded, ${deg(rotAngle(qOf(r)), 2)} off so far.` : 'stays exactly in place: an equilibrium.') + now(r); });
+    watch = 'Switch the 3D view to "Whole orbit": run 2\'s amber momentum arrow keeps pointing the same way in space as the satellite goes round. "Wheel momentum" shows its quarter-circle from the roll axis to the yaw axis.';
+  } else if (sc === 'case2') {
+    t = 'Gravity gradient pulls a pitched satellite back, as in Lessons 29 and 30';
+    s = `Appendix A, case 2: pitched 5°, at rest, with all the wheel momentum on pitch. Then ${SYM('Q<sub>3</sub>')} = [−0.0872, 0, 0.9962], the gyroscopic term is zero because the momentum and the turning share the pitch axis, and only gravity gradient acts: ${SYM('ω̇')}<sub class="n">2</sub> = −3${SYM('ω<sub>c</sub>')}²(${SYM('I<sub>r</sub>')} − ${SYM('I<sub>y</sub>')}) sin θ cos θ / ${SYM('I<sub>p</sub>')} = ${sci(REC[0].t0.wdot[1], 2)} rad/s², restoring. Run 1 swings like the Lesson 30 pendulum with ${SYM('k<sub>2</sub>')} = ${fg(k2(), 2)}, period ${fg(TAU / wl() / 60, 3)} min. Run 2's wheels pull it back and hold it. Run 3 takes ${SYM('c<sub>B</sub>')} from the third row of ${SYM('Q')} instead of the third column: the sign of the torque flips and the satellite falls away, the only symptom of the mistake.`;
+    runs = vis.map((r) => { const R = S.runs[r]; return head(r) + (R.model === 'row' ? `ω̇₂ started at ${sci(REC[r].t0.wdot[1], 2)} rad/s², positive: pushed away.` : R.mode === 'hold' ? `pulled back to ${deg(rotAngle(qOf(r)), 2)}.` : `swings ±5° about the vertical.`) + now(r); });
+    watch = 'The "Attitude" history on pitch: run 1 swings, run 2 settles to zero, run 3 runs away. The torque budget shows gravity gradient alone for run 1.';
+  } else if (sc === 'mistakes') {
+    t = 'Each classic mistake has one symptom';
+    s = 'The notes warn of three slips that are easy to make and hard to see. <b>Third row of Q</b> for the nadir direction: gravity gradient pushes a tilted satellite away instead of back (run 1, 5° pitch, compare case 2). <b>Quaternion driven by ω<sub>B</sub></b> instead of the rate relative to the orbit: a satellite sitting still in the orbit frame starts to pitch away at exactly the orbit rate, and the false attitude then feeds gravity gradient, which swings it up to 55° (run 2). <b>Wheel momentum counted twice</b>, built from the wheels\' inertial speeds while the wheels are also inside I<sub>T</sub>: as if every axis had the wheel inertia, 0.02 kg·m², added again. The motion looks plausible, and only the momentum check catches it (run 3). Check every simulation against hand-worked states like Appendix A before you trust it.';
+    runs = vis.map((r) => { const R = S.runs[r]; return head(r) + (R.model === 'row' ? `pushed away: ${deg(REC[r].angMax, 3)} so far from a 5° start.` : R.model === 'qB' ? `started pitching at the orbit rate though nothing turned it; now ${fs((prevE[r] || [0, 0, 0])[1] * R2D, 1)}°.` : R.model === 'double' ? `moves much like the correct one, but the momentum check is off by ${sci(REC[r].errH, 1)}.` : 'as derived.') + now(r); });
+    watch = 'The "Momentum check" history on a log scale: correct bookkeeping stays near 10⁻¹² or below; the double-counted run climbs far above it. The "Attitude" history on pitch shows the other two symptoms.';
+  } else if (sc === 'sat') {
+    const ts = tSatPred(0);
+    t = 'A one-way disturbance fills the wheels until they saturate';
+    s = `A steady pitch torque of ${fn(S.gd)} N·m, like a misaligned thruster, acts on runs 1 and 2. To hold the attitude the wheels must absorb it, so the pitch wheel's momentum grows at that rate and reaches its ${fn(S.hmax)} N·m·s limit after about ${fg(ts / 60, 3)} min. Then it can take no more and run 1 is pushed away. Run 2 dumps momentum: when a wheel passes 80% of its limit, thrusters push on the body while the controller slows the wheel, so the momentum leaves the spacecraft and the attitude holds. Run 3 feels the same torque about roll. The roll axis swings round once per orbit, so the momentum it adds keeps changing direction in space: it passes between the roll and yaw wheels and never builds past 2${SYM('g<sub>d</sub>')}/${SYM('ω<sub>c</sub>')} = ${fg(2 * S.gd / P.wc, 3)} N·m·s.`;
+    runs = vis.map((r) => { const R = S.runs[r]; return head(r) + (R.dist === 'roll' ? `wheels cycle; fullest so far ${fg(REC[r].hMax, 2)} N·m·s, against a bound of ${fg(2 * S.gd / P.wc, 2)}.` : REC[r].tSat !== null && R.dump === 'off' ? `saturated at ${fg(REC[r].tSat / 60, 3)} min; tilt now ${deg(rotAngle(qOf(r)), 2)}.` : R.dump === 'auto' ? `dumping with ${fg(REC[r].imp, 2)} N·m·s of thruster impulse so far, tilt ${deg(rotAngle(qOf(r)), 2)}.` : `filling, ${fg(REC[r].hMax, 2)} N·m·s.`) + now(r); });
+    watch = 'The "Wheels h" history on pitch: run 1 ramps to the red limit, run 2 saws up and down. Switch to roll or yaw for run 3, whose momentum swings back and forth; "Wheel momentum" shows it circling inside the box.';
+  } else if (sc === 'bias') {
+    t = 'A pitch-wheel bias stiffens roll and yaw';
+    s = `Three satellites start rolled 2°, with no control. Without wheel momentum (run 1), roll and yaw swing slowly under gravity gradient, with periods of tens of minutes. A pitch bias adds the gyroscopic term −${SYM('ω<sub>B</sub>')} × ${SYM('h<sub>w</sub>')}: the wheel resists being tilted, as in the momentum-bias satellites of Lesson 26, and roll and yaw now move together in a faster, smaller wobble (runs 2 and 3). Bias is useful for stiffness and to keep the wheels away from zero speed, but it couples the axes: a controller for one axis now has to deal with the other.`;
+    runs = vis.map((r) => head(r) + `largest tilt so far ${deg(REC[r].angMax, 3)}.` + now(r));
+    watch = 'The "Attitude" history on yaw: the bigger the bias, the more the roll error shows up in yaw, and the faster it goes.';
+  } else if (sc === 'free') {
+    const Tex = pitchExactPeriod(1);
+    t = 'With no wheel momentum and no control, this is the Lesson 29 satellite';
+    s = `With ${SYM('h<sub>w</sub>')} = 0 and ${SYM('g<sub>c</sub>')} = 0, the Lesson 33 equations reduce to a rigid body under gravity gradient. These inertias satisfy ${SYM('I<sub>p</sub>')} &gt; ${SYM('I<sub>r</sub>')} &gt; ${SYM('I<sub>y</sub>')}, so every tilt librates. The pitched run swings by itself with period ${fg(Tex / 60, 3)} min (${fg(TAU / wl() / 60, 3)} for small swings), and roll and yaw swing together.`;
+    runs = vis.map((r) => head(r) + `largest tilt so far ${deg(REC[r].angMax, 3)}.` + now(r));
+    watch = 'The torque budget: only the frame, gyroscopic and gravity-gradient terms are nonzero.';
+  } else {
+    t = 'Your own satellites';
+    s = 'Every term of the torque balance is live on the "Torque budget" pane for the run being edited. Wheels can only move momentum around; outside torques (gravity gradient, disturbances, thrusters) change the total, and the momentum check confirms it.';
+    runs = vis.map((r) => head(r) + `tilt ${deg(rotAngle(qOf(r)), 3)}, fullest wheel ${fg(Math.max(...hOf(r).map(Math.abs)), 3)} N·m·s.` + now(r));
+    watch = 'Hover the torque budget for each term\'s value.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  const orb = simT / P.T;
+  el('tOut').textContent = `${fx(orb, 2)} orbits · ${fx(simT / 60, simT < 6000 ? 1 : 0)} min`;
+  el('phaseChip').textContent = `Orbit ${Math.min(Math.floor(orb + 1e-9) + 1, Math.max(1, Math.ceil(S.orbits - 1e-9)))} of ${fn(S.orbits)}`;
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  runTable(); brKv(); checks();
+}
+const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.max(Math.abs(b), 1e-300);
+function checks() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), items = [], std = S.I[0] === 18 && S.I[1] === 20 && S.I[2] === 8 && S.alt === 600;
+  if (std) items.push({ s: near(P.wc, 1.083e-3, 5e-4) && near(P.T / 60, 96.7, 5e-4) ? 'ok' : 'bad', t: 'App. A: ωc = 1.083 × 10⁻³ rad/s, period 96.7 min', sub: `computed ${sci(P.wc, 3)} rad/s, ${fg(P.T / 60, 4)} min` });
+  if (currentPreset === 'case1' && std) {
+    const a = REC[0].t0.wdot, g = REC[1].t0.gc;
+    items.push({ s: near(a[2], -1.35e-5, 4e-3) && Math.abs(a[0]) < 1e-15 && Math.abs(a[1]) < 1e-15 ? 'ok' : 'bad', t: 'Case 1, run 1: ω̇ = [0, 0, −1.35 × 10⁻⁵] rad/s²', sub: `computed ${vsci(a)}` });
+    items.push({ s: near(g[2], 1.08e-4, 4e-3) && Math.abs(g[0]) < 1e-15 ? 'ok' : 'bad', t: 'Case 1, run 2: hold needs gc = [0, 0, 1.08 × 10⁻⁴] N·m', sub: `computed ${vsci(g)}` });
+    if (simT > 0) items.push({ s: REC[1].lawErr < 1e-4 * 0.1 + 1e-9 ? 'ok' : 'bad', t: 'Run 2: h₁ = 0.1 cos ωct, h₃ = −0.1 sin ωct', sub: `largest gap ${sci(REC[1].lawErr, 1)} N·m·s` });
+    if (simT >= P.T / 4) {
+      let i = 0; while (i < hN - 1 && Ht[i] < P.T / 4) i++;
+      items.push({ s: Math.abs(HQ.h2[1][i] + 0.1) < 1e-3 && Math.abs(HQ.h0[1][i]) < 1e-3 ? 'ok' : 'bad', t: `A quarter orbit (${fg(P.T / 240, 3)} min) later, all 0.10 N·m·s is in the yaw wheel`, sub: `h₁ ${fs(HQ.h0[1][i], 4)}, h₃ ${fs(HQ.h2[1][i], 4)} at ${fg(Ht[i] / 60, 4)} min` });
+    }
+  }
+  if (currentPreset === 'case2' && std) {
+    const Q3 = REC[0].t0.Q3, a = REC[0].t0.wdot[1], ar = REC[2].t0.wdot[1];
+    items.push({ s: near(Q3[0], -0.0872, 2e-3) && near(Q3[2], 0.9962, 1e-4) ? 'ok' : 'bad', t: 'Case 2: Q₃ = [−0.0872, 0, 0.9962]', sub: `computed [${Q3.map((v) => fs(v, 4)).join(', ')}]` });
+    items.push({ s: near(a, -1.53e-7, 4e-3) ? 'ok' : 'bad', t: 'Case 2: ω̇₂ = −1.53 × 10⁻⁷ rad/s², restoring', sub: `computed ${sci(a, 3)}` });
+    items.push({ s: near(ar, 1.53e-7, 4e-3) ? 'ok' : 'bad', t: 'Third row of Q flips the sign: ω̇₂ = +1.53 × 10⁻⁷', sub: `run 3 computed ${sci(ar, 3)}` });
+  }
+  if (simT > 0) {
+    const good = vis.filter((r) => S.runs[r].model === 'ok' || S.runs[r].model === 'row');
+    if (good.length) { const e = Math.max(...good.map((r) => REC[r].errH)); items.push({ s: e < 1e-6 ? 'ok' : 'bad', t: 'A wheel moves momentum, it does not create it', sub: `total H changes only by the outside torques: largest gap ${sci(e, 1)} of |H|` }); }
+    vis.filter((r) => S.runs[r].model === 'double').forEach((r) => items.push({ s: REC[r].errH > 1e-5 ? 'ok' : 'na', t: `Run ${r + 1}: double counting breaks the momentum budget`, sub: `gap ${sci(REC[r].errH, 1)} of |H|, against under 10⁻⁶ when counted once` }));
+    vis.filter((r) => S.runs[r].model === 'qB' && !S.runs[r].e0.some((v) => v)).forEach((r) => {
+      // the first minute: the false pitch grows at the orbit rate before gravity gradient has had time to act
+      let i = 0; while (i < hN - 1 && Ht[i] < 60) i++;
+      if (Ht[i] < 30) return;
+      const rate = HQ.a1[r][i] * D2R / Ht[i];
+      items.push({ s: near(-rate, P.wc, 0.02) ? 'ok' : 'warn', t: `Run ${r + 1}: q driven by ωB starts turning at the orbit rate`, sub: `apparent pitch rate ${sci(rate, 3)} rad/s vs −ωc = ${sci(-P.wc, 3)}` });
+    });
+    vis.filter((r) => S.runs[r].dist === 'roll' && S.runs[r].mode === 'hold' && S.runs[r].model === 'ok' && simT >= 0.6 * P.T).forEach((r) => {
+      const b = 2 * S.gd / P.wc;
+      items.push({ s: near(REC[r].hMax, b, 0.03) ? 'ok' : 'warn', t: `Run ${r + 1}: a roll torque never builds past 2gd/ωc`, sub: `fullest wheel ${fg(REC[r].hMax, 4)} vs ${fg(b, 4)} N·m·s` });
+    });
+    vis.forEach((r) => {
+      const z = REC[r].zc, Ru = S.runs[r];
+      if (z.length < 2 || Ru.mode !== 'off' || Ru.model !== 'ok' || !pitchOnly(r) || !Ru.e0[1]) return;
+      const meas = (z[z.length - 1] - z[0]) / (z.length - 1), ex = pitchExactPeriod(r);
+      items.push({ s: near(meas, ex, 2e-3) ? 'ok' : 'bad', t: `Run ${r + 1}: pitch swings at 4K(sin θ₀)/ωₗ, as in Lesson 30`, sub: `measured ${fg(meas / 60, 5)} min vs ${fg(ex / 60, 5)} min (small swing ${fg(TAU / wl() / 60, 4)})` });
+    });
+    vis.forEach((r) => {
+      const tp = tSatPred(r), ts = REC[r].tSat;
+      if (!isFinite(tp) || ts === null) return;
+      items.push({ s: near(ts, tp, 0.01) ? 'ok' : 'warn', t: `Run ${r + 1}: the wheel saturates when predicted`, sub: `${fg(ts / 60, 4)} min simulated vs ${fg(tp / 60, 4)} min` });
+    });
+    vis.forEach((r) => {
+      const Ru = S.runs[r];
+      if (Ru.mode !== 'hold' || Ru.model !== 'ok' || REC[r].tSat !== null || simT < 0.5 * P.T) return;
+      const a = rotAngle(qOf(r));
+      items.push({ s: a < 0.05 * D2R ? 'ok' : 'warn', t: `Run ${r + 1}: the wheels hold it Earth-pointing`, sub: `tilt ${fg(a * R2D, 3)}°, wheel torque peak ${sci(REC[r].gcMax, 2)} N·m` });
+    });
+  }
+  if (!items.length) items.push({ s: 'na', t: 'Press Play to run the checks', sub: '' });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function derive() { const o = orbitOf(S.alt); P = { R: o.R, wc: o.wc, T: o.T, tEnd: S.orbits * o.T }; }
+function resetRuns() {
+  derive();
+  for (let r = 0; r < 3; r++) {
+    const R = S.runs[r], Y = Ys[r], q = qFromEuler(R.e0.map((v) => v * D2R));
+    Y.fill(0);
+    for (let i = 0; i < 3; i++) { Y[i] = R.w0[i] * D2R; Y[7 + i] = clamp(R.h0[i], -S.hmax, S.hmax); }
+    Y[3] = q[0]; Y[4] = q[1]; Y[5] = q[2]; Y[6] = q[3];
+    R.dumpOn = false;
+    prevE[r] = R.e0.map((v) => v * D2R);
+    wheelAng[r] = [0, 0, 0];
+  }
+  simT = 0;
+  // the stand-in controller is the fastest thing here; bias momentum adds a fast wobble when there is no control
+  let fast = Math.max(S.wn, 4 * P.wc);
+  S.runs.forEach((R) => { const hb = norm(R.h0); fast = Math.max(fast, hb / Math.sqrt(Math.min(S.I[0] * S.I[2], S.I[0] * S.I[1], S.I[1] * S.I[2])), norm(R.w0) * D2R); });
+  hStep = Math.min(1, P.T / 4000, 0.05 / fast);
+  hN = 0; hLast = -Infinity; hDt = P.tEnd / 3000;
+  resetRecords();
+  setExag();
+  histPush(true);
+}
+function rebuild() {
+  pastEnd = false;
+  resetRuns();
+  if (G) setStatic3D();
+  syncInputs(); setLegend();
+  lastV = '';
+  updateReadouts(); drawPane(); drawPlot();
+}
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+const PAIRS = [
+  ['altR', 'altN', (v) => { S.alt = v; }, () => S.alt, 150, true],
+  ['orbR', 'orbN', (v) => { S.orbits = v; }, () => S.orbits, 0.05, false],
+  ['umaxR', 'umaxN', (v) => { S.umax = v; }, () => S.umax, 1e-5, true],
+  ['hmaxR', 'hmaxN', (v) => { S.hmax = v; }, () => S.hmax, 0.01, true],
+  ['kdR', 'kdN', (v) => { S.kd = v; }, () => S.kd, 1e-5, true],
+  ['gdR', 'gdN', (v) => { S.gd = v; }, () => S.gd, 1e-7, true],
+];
+const toRange = (v, log) => (log ? Math.log10(v) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  el('altNote').textContent = `ωc = ${sci(P.wc, 3)} rad/s · period ${fg(P.T / 60, 4)} min`;
+  const R = S.runs[S.edit];
+  for (let i = 0; i < 3; i++) { setBox('I' + i, fmt(S.I[i])); setBox('e' + i, fmt(R.e0[i])); setBox('w' + i, fmt(R.w0[i])); setBox('h' + i, fmt(R.h0[i])); }
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  const segs = [['#modeSeg [data-mode]', 'mode'], ['#dumpSeg [data-dump]', 'dump'], ['#distSeg [data-dist]', 'dist'], ['#modelSeg [data-model]', 'model']];
+  segs.forEach(([sel, k]) => $$(sel).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[k] === R[k]))));
+  const tp = tSatPred(S.edit);
+  el('runNote').innerHTML = `${R.model === 'ok' ? '' : ST('bad', 'deliberate mistake') + ' '}${isFinite(tp) ? `fills its first wheel in about ${fg(tp / 60, 3)} min. ` : ''}Pitch libration period ${fg(TAU / wl() / 60, 3)} min with these inertias (${SYM('k<sub>2</sub>')} = ${fg(k2(), 2)}).`;
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  el('chkHw').checked = S.show.hw; el('chkTq').checked = S.show.tq; el('chkFrame').checked = S.show.frame; el('chkLabels').checked = S.show.labels;
+  $$('#exSeg [data-ex]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ex === S.exag)));
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#sceneSeg [data-scene]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scene === S.scene)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  $$('#axTabs [data-ax]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.ax === PL.ax)));
+  el('viewTitle').textContent = S.scene === 'lanes' ? 'Orbit frame' : 'Not to scale';
+  el('paneTitle').textContent = S.pane === 'tq' ? `Torque budget, run ${S.edit + 1}` : 'Wheel momentum';
+  el('paneCap').innerHTML = S.pane === 'tq'
+    ? `Each term of the bracket for the run being edited, now, about each axis. Their sum is ${SYM('I<sub>T</sub>ω̇')}: zero when the satellite holds still relative to the orbit. The amber inset is the stored wheel momentum's share of the gyroscopic term. Hover for values.`
+    : `Roll and yaw wheel momentum in one plane, pitch as bars. Red dashes: the wheel limit. The dotted circle is the edited run's start momentum held fixed in space: under hold, roll-yaw momentum travels round it once per orbit.`;
+  const exs = [...new Set([0, 1, 2].filter((r) => S.shown[r]).map((r) => exK[r]))];
+  el('exagLbl').textContent = exs.every((k) => k === 1) ? 'tilts at true scale' : `tilts magnified ×${exs.filter((k) => k > 1).join(', ×')} up to 30°, then less`;
+  syncSpeed();
+}
+function speedText() { const s = S.speed; return `${fg(s, 2)}× · 1 orbit in ${fg(P.T / s, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+function edited() { currentPreset = 'custom'; }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); edited(); rebuild(); });
+  n.addEventListener('change', () => {
+    let v = parseFloat(n.value);
+    if (!Number.isFinite(v)) { n.value = fmt(get()); return; }
+    if (mn != null) v = Math.max(mn, v);
+    n.value = fmt(v); r.value = toRange(v, log); set(v); edited(); rebuild();
+  });
+});
+function boxInput(id, apply) {
+  el(id).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (!Number.isFinite(v)) { syncInputs(); return; } apply(v); edited(); rebuild(); });
+}
+for (let i = 0; i < 3; i++) {
+  boxInput('I' + i, (v) => { S.I[i] = Math.max(0.01, v); });
+  boxInput('e' + i, (v) => { S.runs[S.edit].e0[i] = clamp(v, -180, 180); });
+  boxInput('w' + i, (v) => { S.runs[S.edit].w0[i] = clamp(v, -5, 5); });
+  boxInput('h' + i, (v) => { S.runs[S.edit].h0[i] = v; S.runs[S.edit].name = ''; });
+}
+function setEdit(r) { S.edit = r; syncInputs(); brKv(); drawPane(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+[['#modeSeg [data-mode]', 'mode'], ['#dumpSeg [data-dump]', 'dump'], ['#distSeg [data-dist]', 'dist'], ['#modelSeg [data-model]', 'model']].forEach(([sel, k]) => {
+  $$(sel).forEach((b) => b.addEventListener('click', () => { S.runs[S.edit][k] = b.dataset[k]; edited(); rebuild(); }));
+});
+el('chkHw').addEventListener('change', (e) => { S.show.hw = e.target.checked; });
+el('chkTq').addEventListener('change', (e) => { S.show.tq = e.target.checked; });
+el('chkFrame').addEventListener('change', (e) => { S.show.frame = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+$$('#exSeg [data-ex]').forEach((b) => b.addEventListener('click', () => { S.exag = b.dataset.ex; setExag(); syncInputs(); }));
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => {
+  const r = +b.dataset.run; S.shown[r] = !S.shown[r];
+  if (!S.shown.some(Boolean)) S.shown[r] = true;
+  setExag(); syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts();
+}));
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setScene(s) { S.scene = s; syncInputs(); if (G) { updateDynamic(0); fit(viewDir('iso')); } }
+$$('#sceneSeg [data-scene]').forEach((b) => b.addEventListener('click', () => setScene(b.dataset.scene)));
+function setTab(q, ax) { PL.q = q; if (ax != null) PL.ax = ax; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+$$('#axTabs [data-ax]').forEach((b) => b.addEventListener('click', () => setTab(PL.q, +b.dataset.ax)));
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* the Appendix A satellite: 18, 20, 8 kg m^2 (roll, pitch, yaw) in a 600 km orbit */
+const PRESETS = {
+  case1: { orbits: 0.5, tab: 'h', ax: 0, pane: 'hw', runs: [{ h0: [0.1, -0.4, 0], name: 'roll + pitch wheels' }, { h0: [0.1, -0.4, 0], mode: 'hold', name: 'roll + pitch wheels' }, { h0: [0, -0.4, 0], name: 'pitch wheel only' }] },
+  case2: { orbits: 2, tab: 'ang', ax: 1, pane: 'tq', runs: [{ e0: [0, 5, 0], h0: [0, -0.4, 0], name: '5° pitch' }, { e0: [0, 5, 0], h0: [0, -0.4, 0], mode: 'hold', name: '5° pitch' }, { e0: [0, 5, 0], h0: [0, -0.4, 0], model: 'row', name: '5° pitch' }] },
+  mistakes: { orbits: 1, tab: 'm', ax: 1, pane: 'tq', runs: [{ e0: [0, 5, 0], h0: [0, -0.4, 0], model: 'row', name: '5° pitch' }, { h0: [0, -0.4, 0], model: 'qB', name: 'Earth-pointing' }, { h0: [0.1, -0.4, 0], model: 'double', name: 'roll + pitch wheels' }] },
+  sat: { orbits: 1.5, tab: 'h', ax: 1, pane: 'hw', runs: [{ mode: 'hold', dist: 'pitch', name: 'pitch torque' }, { mode: 'hold', dist: 'pitch', dump: 'auto', name: 'pitch torque, dumping' }, { mode: 'hold', dist: 'roll', name: 'roll torque' }] },
+  bias: { orbits: 1, tab: 'ang', ax: 2, pane: 'tq', runs: [{ e0: [2, 0, 0], name: 'no bias' }, { e0: [2, 0, 0], h0: [0, -0.4, 0], name: 'bias 0.4' }, { e0: [2, 0, 0], h0: [0, -0.95, 0], name: 'bias 0.95' }] },
+  free: { orbits: 3, tab: 'ang', ax: 1, pane: 'tq', runs: [{ e0: [10, 0, 0], name: '10° roll' }, { e0: [0, 10, 0], name: '10° pitch' }, { e0: [0, 0, 10], name: '10° yaw' }] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  Object.assign(S, { I: [18, 20, 8], alt: 600, umax: 0.02, hmax: 1, kd: 0.005, gd: 5e-4, orbits: p.orbits, pane: p.pane });
+  S.runs = p.runs.map((o) => mkRun(JSON.parse(JSON.stringify(o))));
+  S.shown = [true, true, true];
+  const o = orbitOf(S.alt); S.speed = +(o.T / 20).toPrecision(2);
+  PL.q = p.tab; PL.ax = p.ax;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= P.tEnd - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(S.pane === 'tq' ? 'hw' : 'tq');
+  else if (k === 'v') setScene(S.scene === 'lanes' ? 'orbit' : 'lanes');
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try {
+    G = initGL();
+    new ResizeObserver(() => resize()).observe(vp);
+    resize();
+    el('gl').addEventListener('dblclick', () => fit());
+  } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The torque budget, the wheel-momentum chart, the plots and the analysis still work.';
+  vp.appendChild(d);
+  el('exagLbl').hidden = true;
+  $$('.viewport .viewbar, #runChips').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('case1');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_L.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= P.tEnd) { dt = Math.max(0, P.tEnd - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (G) {
+    updateDynamic(dtReal);
+    G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target);
+    G.controls.update(); G.renderer.render(G.scene, G.cam);
+    updateLabels();
+  }
+  drawPlot(); drawPane();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__rw = { S, P: () => P, Ys, REC, advance, rebuild, applyPreset, updateReadouts, terms, termsNow, Htot, Qof, eulerOf, qFromEuler, hLaw, tSatPred, pitchExactPeriod, t: () => simT, hist: () => ({ hN, Ht, HQ }), exK, setPlaying, setScene, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
