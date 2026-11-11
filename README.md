@@ -21,6 +21,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `gravity-gradient-explorer/` | Lessons 28–29 gravity-gradient stabilization: the torque and its Lesson 28 appendix numbers, three satellites in the orbit frame or around the whole orbit, the k1–k3 stability map (option A vs B, gyroscopic-only region lost to damping), libration periods and growth rates |
 | `libration-capture-explorer/` | Lesson 30 large-angle pitch: the phase plane with the separatrix, exact pendulum periods, a libration damper (ζ, time constant), capture from a tumble upright or inverted, and a capture map |
 | `reaction-wheel-dynamics-explorer/` | Lesson 33 reaction-wheel plant model: the notes' nonlinear equations in the LVLH frame, a live torque budget, roll-to-yaw momentum migration (Appendix A), saturation and momentum dumping, and the three classic simulation mistakes |
+| `linearization-explorer/` | Lesson 34 linearization: the nonlinear satellite beside its linear model, the 9×9 A and B as a heatmap with the pitch / roll–yaw split, the eigenvalues named by mode, a numerical-Jacobian check, and an operating point that is not an equilibrium |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
