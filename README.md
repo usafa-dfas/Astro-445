@@ -22,6 +22,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `libration-capture-explorer/` | Lesson 30 large-angle pitch: the phase plane with the separatrix, exact pendulum periods, a libration damper (ζ, time constant), capture from a tumble upright or inverted, and a capture map |
 | `reaction-wheel-dynamics-explorer/` | Lesson 33 reaction-wheel plant model: the notes' nonlinear equations in the LVLH frame, a live torque budget, roll-to-yaw momentum migration (Appendix A), saturation and momentum dumping, and the three classic simulation mistakes |
 | `linearization-explorer/` | Lesson 34 linearization: the nonlinear satellite beside its linear model, the 9×9 A and B as a heatmap with the pitch / roll–yaw split, the eigenvalues named by mode, a numerical-Jacobian check, and an operating point that is not an equilibrium |
+| `lqr-design-explorer/` | Lesson 35 LQR: three one-axis designs by Bryson's rule or by hand, poles and root locus as Q/R sweeps, the Riccati solution beside the Appendix A closed forms, where the cost goes, units, ratio and robustness |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
