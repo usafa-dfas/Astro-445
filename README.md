@@ -20,6 +20,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `momentum-precession-explorer/` | Lesson 27 momentum precession: a steady torque on a momentum-bias platform, precession and nutation as a cycloid, three wheel sizes against a pointing requirement, wheel sizing chart, outside vs internal damping |
 | `gravity-gradient-explorer/` | Lessons 28–29 gravity-gradient stabilization: the torque and its Lesson 28 appendix numbers, three satellites in the orbit frame or around the whole orbit, the k1–k3 stability map (option A vs B, gyroscopic-only region lost to damping), libration periods and growth rates |
 | `libration-capture-explorer/` | Lesson 30 large-angle pitch: the phase plane with the separatrix, exact pendulum periods, a libration damper (ζ, time constant), capture from a tumble upright or inverted, and a capture map |
+| `reaction-wheel-dynamics-explorer/` | Lesson 33 reaction-wheel plant model: the notes' nonlinear equations in the LVLH frame, a live torque budget, roll-to-yaw momentum migration (Appendix A), saturation and momentum dumping, and the three classic simulation mistakes |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
