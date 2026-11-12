@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LQR Tuning Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: instrument console (matches the Lesson 23 to 35 apps). Control rail | three satellites beside a requirements, gain or error-quaternion pane, over a history strip | analysis rail */
+:root {
+  --scheme: light;
+  --paper: #eaedf0;
+  --panel: #f9fafb;
+  --view: #f3f5f7;
+  --ink: #141a21;
+  --muted: #586370;
+  --rule: #cfd5dc;
+  --run0: #2257c2;
+  --run1: #cc2b26;
+  --run2: #1b8655;
+  --paxis: #47515d;
+  --frame: #6a7582;
+  --hw: #c97a00;
+  --pos: #08808f;
+  --neg: #a3366f;
+  --cmd: #7340c2;
+  --ggt: #08808f;
+  --gyro: #e07a14;
+  --dist: #a3366f;
+  --ax1: #cc2b26;
+  --ax2: #1b8655;
+  --ax3: #2257c2;
+  --face: #c97a00;
+  --good: #1b8655;
+  --warn: #b86e00;
+  --bad: #cc2b26;
+  --hull: #c5ccd4;
+  --hull-top: #9aa5b1;
+  --edge: #47515d;
+  --earth: #3f7cb8;
+  --earth-line: #a9c6e3;
+  --accent: #c97a00;
+  --on-accent: #1a1305;
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scheme: dark;
+    --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+    --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+    --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+    --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+    --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+    --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+    --earth: #3a74ad; --earth-line: #6f9bc6;
+    --accent: #ffb01f; --on-accent: #1a1305;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --paper: #0b0e12; --panel: #13181e; --view: #080b0e;
+  --ink: #e6e9ed; --muted: #8e98a5; --rule: #283039;
+  --run0: #5b96ff; --run1: #ff5d51; --run2: #45c58c;
+  --paxis: #b8c0ca; --frame: #7f8a97; --hw: #ffb01f; --pos: #35c3cc; --neg: #ff7ab8; --cmd: #ac8dff; --ggt: #35c3cc; --gyro: #ffa24a; --dist: #ff7ab8; --ax1: #ff5d51; --ax2: #45c58c; --ax3: #5b96ff; --face: #ffb01f;
+  --good: #45c58c; --warn: #ffb01f; --bad: #ff5d51;
+  --hull: #4a5561; --hull-top: #6b7784; --edge: #aab4bf;
+  --earth: #3a74ad; --earth-line: #6f9bc6;
+  --accent: #ffb01f; --on-accent: #1a1305;
+  color-scheme: dark;
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  height: 100%; margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "ctl stage ana";
+  gap: 10px 12px;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+}
+
+/* ---------- header ---------- */
+.top { grid-area: top; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; }
+.brand { display: grid; gap: 3px; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -.005em; text-wrap: balance; }
+.lede { margin: 0; flex: 1 1 380px; max-width: 84ch; color: var(--muted); font-size: 14.5px; }
+.lede b { color: var(--ink); font-weight: 600; }
+.top-actions { display: flex; gap: 6px; margin-left: auto; position: relative; }
+
+/* ---------- rails ---------- */
+.rail { min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; scrollbar-width: thin; }
+.controls { grid-area: ctl; }
+.analysis { grid-area: ana; }
+.group { padding: 14px 16px 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; align-content: start; }
+.group:last-child { border-bottom: 0; }
+.group[hidden] { display: none !important; }
+h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h2 .unit { font-family: var(--f-num); font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sw); margin-right: 6px; vertical-align: 0; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sym { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0; }
+.sym sub, sub.n { font-family: var(--f-math); font-style: normal; font-size: .72em; }
+sub sub { font-size: .8em; }
+
+/* sliders */
+.slider { display: grid; grid-template-columns: 54px minmax(0, 1fr) 74px; gap: 8px; align-items: center; }
+.slider label { white-space: nowrap; }
+.slider .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; line-height: 1; margin-top: 2px; letter-spacing: 0; font-style: normal; }
+.subnote { margin: -6px 0 0 62px; font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 0; accent-color: var(--ink); }
+input[type=number] {
+  width: 100%; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--view); font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+/* three number boxes side by side, one per axis */
+.trio { display: grid; grid-template-columns: 54px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.trio .lab { font-size: 13px; line-height: 1.15; padding-bottom: 5px; }
+.trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
+.trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
+.trio label .sym { color: var(--ink); }
+
+/* buttons */
+.btn {
+  font-size: 13.5px; font-weight: 500; line-height: 1.15;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--rule); color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn svg { width: 14px; height: 14px; vertical-align: -2px; fill: currentColor; }
+.btn.play { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; min-width: 86px; }
+.btn.play:hover { filter: brightness(1.06); }
+a.btn { text-decoration: none; display: inline-block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pgrid .btn { text-align: left; display: grid; gap: 1px; padding: 6px 9px; }
+.pgrid .btn small { font-family: var(--f-num); font-size: 11px; opacity: .75; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .lbl { font-size: 13px; color: var(--muted); min-width: 54px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; }
+.seg.wrap { flex-wrap: wrap; row-gap: 4px; }
+.runedit .seg .btn { padding: 3px 8px; font-size: 13px; }
+.runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+#runSeg .btn { padding: 4px 10px; }
+#runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
+.swaps .btn { padding: 3px 8px; font-size: 12.5px; }
+
+.checks { display: grid; gap: 7px; }
+.check { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 14.5px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); flex: none; }
+
+/* ---------- stage ---------- */
+.stage {
+  grid-area: stage; min-height: 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto 220px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+}
+.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--rule); min-height: 0; }
+.viewport, .pane { position: relative; min-height: 0; background: var(--view); overflow: hidden; }
+#gl, #pp { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#pp { touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vlabel {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--c, var(--ink));
+  text-shadow: 0 0 3px var(--view), 0 0 3px var(--view), 0 0 6px var(--view);
+}
+.vlabel .sym { font-size: 17px; }
+.vlabel.small { font-size: 13.5px; }
+.vlabel.small .sym { font-size: 15px; }
+.vlabel.lane { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.vlabel .ex { display: block; font-family: var(--f-num); font-size: 11px; font-weight: 400; color: var(--muted); }
+.vlabel[hidden] { display: none !important; }
+
+.overlay { position: absolute; display: flex; gap: 6px; }
+.vtitle { left: 10px; top: 9px; font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+.legend { left: 10px; top: 30px; flex-direction: column; align-items: flex-start; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 500; padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.chip .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--sw); background: var(--sw); flex: none; margin: 0; }
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .sw { background: transparent; }
+.viewbar { right: 10px; top: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; }
+.viewbar .seg .btn { padding: 4px 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
+.viewbar .seg .btn[aria-pressed="true"] { background: var(--ink); }
+.viewbar > .btn { padding: 4px 8px; }
+.exag { display: block; left: 10px; bottom: 10px; right: 10px; width: max-content; max-width: calc(100% - 20px); font-family: var(--f-num); font-size: 12px; color: var(--muted); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.panecap { display: block; left: 10px; right: 10px; bottom: 9px; font-size: 12.5px; color: var(--muted); }
+.overlay[hidden] { display: none !important; }
+.glfail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+.transport {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 8px 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.transport .speed { display: flex; align-items: center; gap: 8px; min-width: 170px; flex: 0 1 260px; }
+.transport .speed > label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport output, .tclock { font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phase-chip { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); white-space: nowrap; color: var(--muted); }
+.tclock { margin-left: auto; font-size: 14px; }
+.tclock .sym { font-size: 16px; }
+
+.history { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.hist-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 7px 12px 2px; }
+.hist-head .title { font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hist-head .seg .btn, .hist-head > .btn { padding: 3px 8px; }
+.hlegs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.hleg { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.hleg .ln { width: 16px; height: 0; border-top: 2.5px solid var(--c); }
+.hleg .ln.dash { border-top-style: dashed; }
+.plotwrap { position: relative; min-height: 0; }
+#plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* ---------- analysis ---------- */
+.verdict { display: grid; gap: 5px; }
+.verdict .rt { font-size: 19px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.verdict .rs { font-size: 14px; color: var(--muted); }
+.verdict .rs b { color: var(--ink); font-weight: 600; }
+ul.vruns { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; }
+ul.vruns[hidden], .vwatch[hidden] { display: none; }
+ul.vruns li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; font-size: 14px; line-height: 1.38; }
+ul.vruns li > .sw { margin: 5px 0 0; }
+ul.vruns .nm { font-weight: 700; color: var(--c); }
+ul.vruns .now { display: block; margin-top: 1px; font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.vwatch { margin: 4px 0 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--accent); background: var(--view); border-radius: 0 5px 5px 0; }
+.vwatch .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.question { margin: 0; font-size: 14px; padding: 6px 9px; border-left: 3px solid var(--earth); background: var(--view); border-radius: 0 5px 5px 0; }
+.question .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+details.terms { margin-top: 2px; }
+details.terms > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+details.terms > summary:hover { color: var(--ink); }
+details.terms dl { display: grid; gap: 6px; margin: 8px 0 0; font-size: 13.5px; }
+details.terms dt { font-weight: 700; }
+details.terms dd { margin: -4px 0 0; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; align-items: baseline; }
+.kv dt { color: var(--muted); font-size: 14px; }
+.kv dt .sym { color: var(--ink); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-num); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dd .u { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.st { display: inline-block; font-family: var(--f-ui); font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.st[data-s="ok"] { color: var(--good); }
+.st[data-s="warn"] { color: var(--warn); }
+.st[data-s="bad"] { color: var(--bad); }
+.st[data-s="na"] { color: var(--muted); }
+
+/* runs as columns, quantities as rows */
+table.lanes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+table.lanes col.k { width: 37%; }
+table.lanes th { font-size: 12.5px; font-weight: 700; text-align: right; padding: 0 0 5px 4px; line-height: 1.15; color: var(--c, var(--muted)); }
+table.lanes th:first-child { text-align: left; padding-left: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+table.lanes td { font-family: var(--f-num); font-size: 12px; text-align: right; padding: 4px 0 4px 4px; border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.lanes td:first-child { font-family: var(--f-ui); font-size: 13.5px; color: var(--muted); text-align: left; padding-left: 0; white-space: normal; }
+table.lanes td:first-child .u { font-family: var(--f-num); font-size: 10.5px; }
+table.lanes td .st { font-size: 11px; padding: 0 5px; }
+table.lanes tr.sep td { border-top: 2px solid var(--rule); }
+table.lanes td.bad { color: var(--bad); }
+table.lanes td.good { color: var(--good); }
+table.lanes td.wrap { white-space: normal; line-height: 1.25; }
+
+ul.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+ul.checklist .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; border: 1.5px solid var(--muted); color: var(--muted); }
+ul.checklist li[data-s="ok"] .mk { border-color: var(--good); color: var(--good); }
+ul.checklist li[data-s="bad"] .mk { border-color: var(--bad); color: var(--bad); }
+ul.checklist li[data-s="warn"] .mk { border-color: var(--warn); color: var(--warn); }
+ul.checklist .sub { display: block; font-family: var(--f-num); font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.eqs { display: grid; gap: 9px; font-family: var(--f-math); font-size: 15px; line-height: 1.45; }
+.eqs .lab { font-family: var(--f-ui); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eqs i { font-style: italic; }
+.eqs sub, .eqs sup { font-size: .7em; }
+.eqs .box { border: 1px solid var(--rule); border-radius: 5px; padding: 4px 8px; }
+.eqs .note { font-family: var(--f-ui); }
+
+details.keys { position: relative; }
+details.keys > summary { list-style: none; }
+details.keys > summary::-webkit-details-marker { display: none; }
+details.keys .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 290px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.35);
+}
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 14px; }
+.pop dt { font-family: var(--f-num); font-size: 12px; }
+.pop dd { margin: 0; color: var(--muted); }
+kbd { font-family: var(--f-num); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--view); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1239px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "ctl stage" "ctl ana"; align-items: start; }
+  .rail { overflow: visible; }
+  .stage { grid-template-rows: min(62vh, 560px) auto 230px; }
+  .analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(300px, 1fr) minmax(340px, 1fr); }
+  .stage { grid-template-rows: minmax(700px, auto) auto 230px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "ctl" "ana"; }
+  h1 { font-size: 26px; }
+  .stage { grid-template-rows: auto auto 240px; }
+  .views { grid-template-columns: minmax(0, 1fr); grid-template-rows: 360px 400px; }
+  .tclock { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+table.modes col.k { width: 46%; }
+table.modes td { white-space: normal; }
+.runedit-in { display: grid; gap: 9px; }
+.runedit-in[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">AstroEngr 445 · Lesson 36 · Linear quadratic regulator (3)</div>
+      <h1>LQR Tuning Lab</h1>
+    </div>
+    <p class="lede">A gain on paper is not yet an attitude controller: the satellite is nonlinear, the wheel has limits, disturbances do not go away. <b>Can you tune an LQR that meets all four requirements on the real satellite?</b> The lab script's 30° slew and 5 × 10⁻⁴ N·m disturbance, with three designs side by side.</p>
+    <div class="top-actions">
+      <a class="btn" href="../">All lessons</a>
+      <details class="keys" id="keys">
+        <summary class="btn">Shortcuts</summary>
+        <div class="pop">
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Play or pause</dd>
+            <dt><kbd>R</kbd></dt><dd>Restart</dd>
+            <dt><kbd>F</kbd></dt><dd>Fit the 3D view</dd>
+            <dt><kbd>0</kbd> <kbd>T</kbd> <kbd>S</kbd></dt><dd>Iso, top or side view</dd>
+            <dt><kbd>P</kbd></dt><dd>Next pane</dd>
+            <dt><kbd>Z</kbd></dt><dd>Zoom on the hold phase</dd>
+            <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Edit design 1, 2 or 3</dd>
+          </dl>
+        </div>
+      </details>
+      <button class="btn" id="themeBtn" type="button">Dark</button>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+    </div>
+  </header>
+
+  <!-- ================= controls ================= -->
+  <aside class="rail controls" aria-label="Controls">
+    <section class="group">
+      <h2>Presets</h2>
+      <div class="pgrid">
+        <button class="btn" type="button" data-preset="lab">The lab<small>R1–R4</small></button>
+        <button class="btn" type="button" data-preset="windup">Fixing windup<small>gate, ramp, speed</small></button>
+        <button class="btn" type="button" data-preset="sec3">Disturbance<small>§3 offset vs integral</small></button>
+        <button class="btn" type="button" data-preset="sec4">Wheel momentum<small>§4 weight on h</small></button>
+        <button class="btn" type="button" data-preset="sec5">45° slew<small>§5 limits, windup</small></button>
+        <button class="btn" type="button" data-preset="shape">Too much torque<small>§5 three options</small></button>
+      </div>
+      <label class="check"><input type="checkbox" id="chkSol"> Show a solution in "The lab" (instructor)</label>
+    </section>
+
+    <section class="group">
+      <h2>Test case</h2>
+      <div class="slider">
+        <label for="slewR" title="Commanded pitch slew at t = 0">slew<span class="u">deg</span></label>
+        <input type="range" id="slewR" min="0" max="90" step="1" aria-label="Slew angle slider">
+        <input type="number" id="slewN" min="0" step="any" aria-label="Slew angle, deg">
+      </div>
+      <div class="slider">
+        <label for="gdR" title="Constant disturbance torque on pitch, during the window below"><span class="sym">g<sub>d</sub></span><span class="u">N·m</span></label>
+        <input type="range" id="gdR" min="-5" max="-2.5" step="0.01" aria-label="Disturbance slider, logarithmic">
+        <input type="number" id="gdN" min="0" step="any" aria-label="Disturbance, N·m">
+      </div>
+      <div class="trio">
+        <div class="lab">Times<span class="u">s</span></div>
+        <label>dist. on<input type="number" id="tOn" min="0" step="any" aria-label="Disturbance starts, s"></label>
+        <label>dist. off<input type="number" id="tOff" min="0" step="any" aria-label="Disturbance stops, s"></label>
+        <label>end<input type="number" id="tEnd" min="10" step="any" aria-label="Run length, s"></label>
+      </div>
+      <p class="note">Nonlinear pitch: <span class="sym">I<sub>p</sub>θ̈</span> = <span class="sym">u</span> + <span class="sym">g<sub>d</sub></span> − 3<span class="sym">ω<sub>c</sub></span>²(<span class="sym">I<sub>r</sub></span> − <span class="sym">I<sub>y</sub></span>) sin <span class="sym">θ</span> cos <span class="sym">θ</span>, <span class="sym">ḣ</span> = −<span class="sym">u</span>, with the satellite of Lessons 33–35 (20, 18, 8 kg·m², 600 km). Requirements R1–R4 are the lab's, measured as its script measures them.</p>
+    </section>
+
+    <section class="group">
+      <h2>Three designs <span class="unit">Section 1</span></h2>
+      <div class="seg" role="group" aria-label="Design to edit" id="runSeg">
+        <button class="btn" type="button" data-edit="0"><span class="sw" style="--sw:var(--run0)"></span>Design 1</button>
+        <button class="btn" type="button" data-edit="1"><span class="sw" style="--sw:var(--run1)"></span>Design 2</button>
+        <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Design 3</button>
+      </div>
+      <div class="runedit" id="runEdit" style="--sw:var(--run0)">
+        <div class="trio">
+          <div class="lab">Bryson<span class="u">limits</span></div>
+          <label>θmax, rad<input type="number" id="thmax" min="1e-4" step="any" aria-label="thmax, rad: Bryson attitude limit"></label>
+          <label>ωmax, rad/s<input type="number" id="wmax" min="0" step="any" placeholder="Inf" aria-label="wmax, rad/s: Bryson rate limit; empty means no rate weight"></label>
+          <label>umaxR, N·m<input type="number" id="umaxR" min="1e-6" step="any" aria-label="umaxR, N·m: torque used in Bryson's R"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="useInt"> Integral action (useInt)</label>
+        <div class="trio">
+          <div class="lab">Integral<span class="u">and command</span></div>
+          <label>Ti, s<input type="number" id="Ti" min="1" step="any" aria-label="Ti, s: Bryson time scale for the integral state"></label>
+          <label>gate, deg<input type="number" id="gate" min="0" step="any" placeholder="Inf" aria-label="gate, deg: integrate only while the error is below this; empty means always"></label>
+          <label>ramp, s<input type="number" id="ramp" min="0" step="any" aria-label="ramp, s: ramp the command over this time; 0 means a step"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="useH"> Feed back wheel momentum, weight below</label>
+        <div class="slider"><label for="hmR"><span class="sym">h</span><sub class="n">max</sub><span class="u">N·m·s</span></label><input type="range" id="hmR" min="-2" max="1" step="0.01" aria-label="Wheel momentum weight slider, logarithmic"><input type="number" id="hmN" min="1e-3" step="any" aria-label="hmax, N·m·s"></div>
+        <label class="check"><input type="checkbox" id="useLim"> Wheel torque limited to 0.02 N·m</label>
+        <p class="note" id="runNote"></p>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Error quaternion</h2>
+      <div class="trio">
+        <div class="lab">Now<span class="u">roll, pitch, yaw °</span></div>
+        <label>roll<input type="number" id="qa0" step="any" aria-label="Current roll, deg"></label>
+        <label>pitch<input type="number" id="qa1" step="any" aria-label="Current pitch, deg"></label>
+        <label>yaw<input type="number" id="qa2" step="any" aria-label="Current yaw, deg"></label>
+      </div>
+      <div class="trio">
+        <div class="lab">Command<span class="u">roll, pitch, yaw °</span></div>
+        <label>roll<input type="number" id="qc0" step="any" aria-label="Commanded roll, deg"></label>
+        <label>pitch<input type="number" id="qc1" step="any" aria-label="Commanded pitch, deg"></label>
+        <label>yaw<input type="number" id="qc2" step="any" aria-label="Commanded yaw, deg"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="chkFlip"> <span>Command stored with the opposite sign (−q<sub>c</sub>)</span></label>
+      <div class="row"><button class="btn" type="button" id="randBtn">Random pair</button><button class="btn" type="button" id="appBtn">Appendix A</button></div>
+      <p class="note">Results on the "Error quaternion" pane.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="chkCmd"> Commanded attitude as a ghost</label>
+        <label class="check"><input type="checkbox" id="chkLabels"> Labels</label>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ================= stage ================= -->
+  <main class="stage">
+    <div class="views">
+      <div class="viewport" id="viewport">
+        <canvas id="gl" aria-label="3D view of the three satellites"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="overlay vtitle">Orbit frame, pitch</div>
+        <div class="overlay legend" role="group" aria-label="Designs to show" id="runChips">
+          <button class="chip" type="button" data-run="0" style="--sw:var(--run0)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="1" style="--sw:var(--run1)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+          <button class="chip" type="button" data-run="2" style="--sw:var(--run2)" aria-pressed="true"><span class="sw"></span><span class="nm"></span></button>
+        </div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="View direction">
+            <button class="btn" type="button" data-view="iso">Iso</button>
+            <button class="btn" type="button" data-view="top">Top</button>
+            <button class="btn" type="button" data-view="side">Side</button>
+          </div>
+          <button class="btn" type="button" id="fitBtn">Fit</button>
+        </div>
+        <div class="overlay exag">true scale · ghost = command · red wheel = at its torque limit</div>
+      </div>
+      <div class="pane" id="paneWrap">
+        <canvas id="pp" aria-label="Requirements, three-axis gain or error quaternion"></canvas>
+        <div class="overlay vtitle" id="paneTitle">Requirements</div>
+        <div class="overlay viewbar">
+          <div class="seg" role="group" aria-label="Second pane" id="paneSeg">
+            <button class="btn" type="button" data-pane="req">Requirements</button>
+            <button class="btn" type="button" data-pane="k3">Three-axis K</button>
+            <button class="btn" type="button" data-pane="dq">Error quaternion</button>
+          </div>
+        </div>
+        <div class="overlay panecap" id="paneCap"></div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="btn play" type="button" id="playBtn"></button>
+      <button class="btn" type="button" id="resetBtn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5z"/></svg> Restart</button>
+      <div class="speed">
+        <label for="speedR">Speed</label>
+        <input type="range" id="speedR" min="0" max="2.5" step="0.01" aria-label="Simulation speed relative to real time">
+        <output id="speedOut"></output>
+      </div>
+      <span class="phase-chip" id="phaseChip">Slewing</span>
+      <div class="tclock"><span class="sym">t</span> = <span id="tOut">0</span></div>
+    </div>
+
+    <div class="history">
+      <div class="hist-head">
+        <span class="title">History</span>
+        <div class="seg" role="group" aria-label="Quantity to plot" id="histTabs">
+          <button class="btn" type="button" data-q="err">Error</button>
+          <button class="btn" type="button" data-q="u">Torque</button>
+          <button class="btn" type="button" data-q="h">Wheel <span class="sym">h</span></button>
+          <button class="btn" type="button" data-q="z">Integrator <span class="sym">z</span></button>
+        </div>
+        <button class="btn" type="button" id="zoomBtn" aria-pressed="false">Zoom on hold</button>
+        <span class="hlegs" id="hlegs"></span>
+      </div>
+      <div class="plotwrap"><canvas id="plot" aria-label="History plot"></canvas></div>
+    </div>
+  </main>
+
+  <!-- ================= analysis ================= -->
+  <aside class="rail analysis" aria-label="Analysis">
+    <section class="group verdict">
+      <h2>What is happening</h2>
+      <p class="question"><span class="lbl">The question</span>Can you tune an LQR that meets all four requirements on the nonlinear, torque-limited satellite?</p>
+      <div class="rt" id="vTitle">—</div>
+      <div class="rs" id="vSub"></div>
+      <ul class="vruns" id="vRuns"></ul>
+      <p class="vwatch" id="vWatch"></p>
+      <details class="terms">
+        <summary>New to this? Key terms</summary>
+        <dl>
+          <dt>Slew</dt>
+          <dd>A deliberate change of attitude, here a turn in pitch to a new commanded angle.</dd>
+          <dt>Error quaternion</dt>
+          <dd>The rotation from where the satellite is to where it should be. Feeding back its vector part makes the regulator steer to the command instead of to zero.</dd>
+          <dt>Integral action</dt>
+          <dd>An extra state that adds up the error over time, so a constant disturbance cannot leave a steady offset.</dd>
+          <dt>Windup</dt>
+          <dd>The integrator piling up while the error is large, during a slew or while the wheel is saturated, and then having to be unwound by overshooting.</dd>
+          <dt>Gating</dt>
+          <dd>Letting the integrator run only while the error is small.</dd>
+          <dt>Command shaping</dt>
+          <dd>Ramping the commanded angle instead of stepping it, so the error, and the torque it asks for, never gets large.</dd>
+          <dt>Saturation</dt>
+          <dd>The wheel asked for more torque than it can give; it gives its maximum and the linear design no longer describes what happens.</dd>
+        </dl>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Requirements</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Design</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="reqBody"></tbody>
+      </table>
+      <p class="note" id="reqNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>The designs</h2>
+      <table class="lanes">
+        <colgroup><col class="k"><col><col><col></colgroup>
+        <thead><tr><th>Design</th><th style="--c:var(--run0)">1</th><th style="--c:var(--run1)">2</th><th style="--c:var(--run2)">3</th></tr></thead>
+        <tbody id="desBody"></tbody>
+      </table>
+    </section>
+
+    <section class="group">
+      <h2>Checks worth running</h2>
+      <ul class="checklist" id="checks"></ul>
+    </section>
+
+    <section class="group">
+      <h2>Model</h2>
+      <div class="eqs">
+        <div>
+          <div class="lab">Design model (one axis)</div>
+          <div><i>x</i> = [<i>z</i>, <i>θ</i>, <i>θ̇</i>, <i>h</i>] (z and h when chosen), &nbsp;<i>ż</i> = <i>θ</i>, &nbsp;<i>I</i><sub>p</sub><i>θ̈</i> = <i>u</i> − <i>k</i><sub>gg</sub><i>θ</i>, &nbsp;<i>ḣ</i> = −<i>u</i></div>
+          <div><i>Q</i> = diag(1/(θ<sub>max</sub><i>T</i><sub>i</sub>)², 1/θ<sub>max</sub>², 1/ω<sub>max</sub>², 1/<i>h</i><sub>max</sub>²), &nbsp;<i>R</i> = 1/<i>u</i><sub>maxR</sub>²</div>
+        </div>
+        <div class="box">
+          <div class="lab">Controller, as in the lab script</div>
+          <div><i>e</i> = 2 sin((<i>θ</i> − <i>θ</i><sub>c</sub>)/2), &nbsp;<i>u</i> = sat(−<i>K</i>[<i>z</i>, <i>e</i>, <i>θ̇</i> − <i>θ̇</i><sub>c</sub>, <i>h</i>]), &nbsp;<i>ż</i> = <i>e</i> while |<i>e</i>| &lt; gate</div>
+          <div>θ<sub>c</sub> ramps to the slew over the ramp time, or steps</div>
+        </div>
+        <div>
+          <div class="lab">Three effects worth predicting</div>
+          <div>offset under <i>g</i><sub>d</sub>: <i>θ</i><sub>ss</sub> = <i>g</i><sub>d</sub>/(<i>k</i><sub>1</sub> + <i>k</i><sub>gg</sub>); &nbsp;wheel filling: <i>ḣ</i> = <i>g</i><sub>d</sub></div>
+          <div><i>d</i>/<i>dt</i>(<i>I</i><sub>p</sub><i>θ̇</i> + <i>h</i>) = <i>g</i><sub>d</sub> − <i>k</i><sub>gg</sub>θ: the controller cannot change the total momentum</div>
+        </div>
+        <div>
+          <div class="lab">Error quaternion</div>
+          <div>δ<i>q</i><sub>0</sub> = <i>q</i><sub>c0</sub><i>q</i><sub>0</sub> + <b>q</b><sub>c</sub><sup>T</sup><b>q</b>, &nbsp;δ<b>q</b> = <i>q</i><sub>c0</sub><b>q</b> − <i>q</i><sub>0</sub><b>q</b><sub>c</sub> − <b>q</b><sub>c</sub><sup>×</sup><b>q</b>; flip the sign when δ<i>q</i><sub>0</sub> &lt; 0</div>
+        </div>
+        <p class="note">The simulation integrates the lab script's equations with fixed-step RK4 instead of ode45, so its numbers differ from MATLAB's in the last digit or so. The three-axis gain uses the Lesson 34 nine-state model with the same Bryson limits (q<sub>max</sub> = θ<sub>max</sub>/2). k<sub>gg</sub> = 3ω<sub>c</sub>²(I<sub>r</sub> − I<sub>y</sub>) = 3.52 × 10⁻⁵ N·m/rad. The Riccati equation is solved by the matrix sign function, polished by Newton steps.</p>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const HAS3D = !!(window.THREE && THREE.OrbitControls);
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (id) => document.getElementById(id);
+const TAU = 2 * Math.PI, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const root = document.documentElement;
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const MINUS = '−', FIG = ' ';
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fx(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+}
+function fs(x, d) {
+  if (!isFinite(x)) return '—';
+  const v = Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x;
+  return (v < 0 ? MINUS : FIG) + Math.abs(v).toFixed(d);
+}
+function sci(x, d = 1) {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  let e = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e += 1; }
+  return fx(m, d) + ' × 10' + String(e).split('').map((c) => SUP[c]).join('');
+}
+function fg(x, sig = 4) {
+  if (x === Infinity) return '∞';
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e5 || a < 1e-3) return sci(x, Math.max(0, sig - 2));
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return fx(x, Math.min(d, 7));
+}
+/* a setting as typed: three significant figures, no trailing zeros */
+const fn = (v) => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5) ? sci(+v.toPrecision(3), 1).replace('.0 ×', ' ×') : String(+v.toPrecision(3)).replace('-', MINUS));
+const pow10 = (e) => '10' + String(e).split('').map((c) => SUP[c]).join('');
+const SYM = (s) => `<span class="sym">${s}</span>`;
+/* a vector with each part as a number to 2 significant figures, or 0 */
+const vsci = (v, tiny) => `[${v.map((x) => (Math.abs(x) < (tiny || 1e-15) ? '0' : sci(x, 2))).join(', ')}]`;
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (...vs) => [0, 1, 2].map((i) => vs.reduce((s, v) => s + v[i], 0));
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+];
+const qconj = (q) => [q[0], -q[1], -q[2], -q[3]];
+const qaa = (x, y, z, a) => { const s = Math.sin(a / 2); return [Math.cos(a / 2), x * s, y * s, z * s]; };
+/* qrot(q, v_body) = v_orbit; the notes' Q_P/O is the transpose of this rotation */
+function qrot(q, v) {
+  const w = q[0], x = q[1], y = q[2], z = q[3];
+  const tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
+}
+function qFromCols(a, b, c) {
+  const m00 = a[0], m11 = b[1], m22 = c[2], tr = m00 + m11 + m22;
+  let q;
+  if (tr > 0) { const s = 2 * Math.sqrt(tr + 1); q = [0.25 * s, (b[2] - c[1]) / s, (c[0] - a[2]) / s, (a[1] - b[0]) / s]; }
+  else if (m00 > m11 && m00 > m22) { const s = 2 * Math.sqrt(1 + m00 - m11 - m22); q = [(b[2] - c[1]) / s, 0.25 * s, (b[0] + a[1]) / s, (c[0] + a[2]) / s]; }
+  else if (m11 > m22) { const s = 2 * Math.sqrt(1 + m11 - m00 - m22); q = [(c[0] - a[2]) / s, (b[0] + a[1]) / s, 0.25 * s, (c[1] + b[2]) / s]; }
+  else { const s = 2 * Math.sqrt(1 + m22 - m00 - m11); q = [(a[1] - b[0]) / s, (c[0] + a[2]) / s, (c[1] + b[2]) / s, 0.25 * s]; }
+  return q;
+}
+function ellipK(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k));
+  if (b === 0) return Infinity;
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++) { const t = (a + b) / 2; b = Math.sqrt(a * b); a = t; }
+  return Math.PI / (2 * a);
+}
+function hexRGB(h) {
+  const s = h.replace('#', ''), f = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)];
+}
+/* ---------- dense matrices (arrays of rows) ---------- */
+const zeros = (n, m) => Array.from({ length: n }, () => new Array(m === undefined ? n : m).fill(0));
+const eye = (n) => { const I = zeros(n); for (let i = 0; i < n; i++) I[i][i] = 1; return I; };
+const mT = (A) => A[0].map((_, j) => A.map((r) => r[j]));
+function mmul(A, B) {
+  const n = A.length, m = B[0].length, k = B.length, C = zeros(n, m);
+  for (let i = 0; i < n; i++) for (let l = 0; l < k; l++) { const a = A[i][l]; if (a === 0) continue; for (let j = 0; j < m; j++) C[i][j] += a * B[l][j]; }
+  return C;
+}
+const madd = (A, B, s = 1) => A.map((r, i) => r.map((v, j) => v + s * B[i][j]));
+const mscale = (A, s) => A.map((r) => r.map((v) => v * s));
+const mcopy = (A) => A.map((r) => r.slice());
+const mnorm = (A) => Math.sqrt(A.reduce((s, r) => s + r.reduce((t, v) => t + v * v, 0), 0));
+/* inverse and log|det| by Gauss-Jordan with partial pivoting */
+function minvdet(A) {
+  const n = A.length, M = A.map((r, i) => r.concat(eye(n)[i]));
+  let logdet = 0;
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (M[p][c] === 0) throw new Error('singular');
+    if (p !== c) { const t = M[p]; M[p] = M[c]; M[c] = t; }
+    const d = M[c][c]; logdet += Math.log(Math.abs(d));
+    for (let j = 0; j < 2 * n; j++) M[c][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[c][j]; }
+  }
+  return { inv: M.map((r) => r.slice(n)), logdet };
+}
+const minv = (A) => minvdet(A).inv;
+/* least squares A X = B for tall A, by the normal equations */
+const lstsq = (A, B) => { const At = mT(A); return mmul(minv(mmul(At, A)), mmul(At, B)); };
+/* ---------- eigenvalues: balance, reduce to Hessenberg form, then the Francis double-shift QR (after Numerical Recipes balanc, elmhes, hqr) ---------- */
+function eig(A0) {
+  const n = A0.length, a = [null].concat(A0.map((r) => [0].concat(r)));   // 1-indexed copy
+  const SIGN = (x, y) => (y >= 0 ? Math.abs(x) : -Math.abs(x));
+  // balance: scale rows and columns by powers of 2 so their norms match
+  for (let last = 0; !last;) {
+    last = 1;
+    for (let i = 1; i <= n; i++) {
+      let r = 0, c = 0;
+      for (let j = 1; j <= n; j++) if (j !== i) { c += Math.abs(a[j][i]); r += Math.abs(a[i][j]); }
+      if (c && r) {
+        let g = r / 2, f = 1; const s = c + r;
+        while (c < g) { f *= 2; c *= 4; }
+        g = r * 2;
+        while (c > g) { f /= 2; c /= 4; }
+        if ((c + r) / f < 0.95 * s) { last = 0; g = 1 / f; for (let j = 1; j <= n; j++) a[i][j] *= g; for (let j = 1; j <= n; j++) a[j][i] *= f; }
+      }
+    }
+  }
+  // Hessenberg form by elimination with pivoting
+  for (let m = 2; m < n; m++) {
+    let x = 0, i = m;
+    for (let j = m; j <= n; j++) if (Math.abs(a[j][m - 1]) > Math.abs(x)) { x = a[j][m - 1]; i = j; }
+    if (i !== m) { for (let j = m - 1; j <= n; j++) { const t = a[i][j]; a[i][j] = a[m][j]; a[m][j] = t; } for (let j = 1; j <= n; j++) { const t = a[j][i]; a[j][i] = a[j][m]; a[j][m] = t; } }
+    if (x) for (i = m + 1; i <= n; i++) { let y = a[i][m - 1]; if (y) { y /= x; a[i][m - 1] = y; for (let j = m; j <= n; j++) a[i][j] -= y * a[m][j]; for (let j = 1; j <= n; j++) a[j][m] += y * a[j][i]; } }
+  }
+  for (let i = 3; i <= n; i++) for (let j = 1; j < i - 1; j++) a[i][j] = 0;
+  // QR iterations
+  const wr = new Array(n + 1).fill(0), wi = new Array(n + 1).fill(0);
+  let anorm = 0; for (let i = 1; i <= n; i++) for (let j = Math.max(i - 1, 1); j <= n; j++) anorm += Math.abs(a[i][j]);
+  let nn = n, t = 0;
+  while (nn >= 1) {
+    let its = 0, l;
+    do {
+      for (l = nn; l >= 2; l--) { let s = Math.abs(a[l - 1][l - 1]) + Math.abs(a[l][l]); if (s === 0) s = anorm; if (Math.abs(a[l][l - 1]) + s === s) { a[l][l - 1] = 0; break; } }
+      let x = a[nn][nn];
+      if (l === nn) { wr[nn] = x + t; wi[nn--] = 0; }
+      else {
+        let y = a[nn - 1][nn - 1], w = a[nn][nn - 1] * a[nn - 1][nn];
+        if (l === nn - 1) {
+          const p = 0.5 * (y - x), q = p * p + w; let z = Math.sqrt(Math.abs(q)); x += t;
+          if (q >= 0) { z = p + SIGN(z, p); wr[nn - 1] = wr[nn] = x + z; if (z) wr[nn] = x - w / z; wi[nn - 1] = wi[nn] = 0; }
+          else { wr[nn - 1] = wr[nn] = x + p; wi[nn - 1] = -(wi[nn] = z); }
+          nn -= 2;
+        } else {
+          if (its === 60) throw new Error('eig: no convergence');
+          if (its === 10 || its === 20) { t += x; for (let i = 1; i <= nn; i++) a[i][i] -= x; const s = Math.abs(a[nn][nn - 1]) + Math.abs(a[nn - 1][nn - 2]); y = x = 0.75 * s; w = -0.4375 * s * s; }
+          ++its;
+          let m, p, q, r, z, s;
+          for (m = nn - 2; m >= l; m--) {
+            z = a[m][m]; r = x - z; s = y - z;
+            p = (r * s - w) / a[m + 1][m] + a[m][m + 1]; q = a[m + 1][m + 1] - z - r - s; r = a[m + 2][m + 1];
+            s = Math.abs(p) + Math.abs(q) + Math.abs(r); p /= s; q /= s; r /= s;
+            if (m === l) break;
+            const u = Math.abs(a[m][m - 1]) * (Math.abs(q) + Math.abs(r)), v = Math.abs(p) * (Math.abs(a[m - 1][m - 1]) + Math.abs(z) + Math.abs(a[m + 1][m + 1]));
+            if (u + v === v) break;
+          }
+          for (let i = m + 2; i <= nn; i++) { a[i][i - 2] = 0; if (i !== m + 2) a[i][i - 3] = 0; }
+          for (let k = m; k <= nn - 1; k++) {
+            if (k !== m) {
+              p = a[k][k - 1]; q = a[k + 1][k - 1]; r = 0;
+              if (k !== nn - 1) r = a[k + 2][k - 1];
+              if ((x = Math.abs(p) + Math.abs(q) + Math.abs(r)) !== 0) { p /= x; q /= x; r /= x; }
+            }
+            if ((s = SIGN(Math.sqrt(p * p + q * q + r * r), p)) !== 0) {
+              if (k === m) { if (l !== m) a[k][k - 1] = -a[k][k - 1]; }
+              else a[k][k - 1] = -s * x;
+              p += s; x = p / s; y = q / s; z = r / s; q /= p; r /= p;
+              for (let j = k; j <= nn; j++) { p = a[k][j] + q * a[k + 1][j]; if (k !== nn - 1) { p += r * a[k + 2][j]; a[k + 2][j] -= p * z; } a[k + 1][j] -= p * y; a[k][j] -= p * x; }
+              const mmin = nn < k + 3 ? nn : k + 3;
+              for (let i = l; i <= mmin; i++) { p = x * a[i][k] + y * a[i][k + 1]; if (k !== nn - 1) { p += z * a[i][k + 2]; a[i][k + 2] -= p * r; } a[i][k + 1] -= p * q; a[i][k] -= p; }
+            }
+          }
+        }
+      }
+    } while (l < nn - 1);
+  }
+  const out = []; for (let i = 1; i <= n; i++) out.push({ re: wr[i], im: wi[i] });
+  return out.sort((u, v) => u.re - v.re || u.im - v.im);
+}
+/* ---------- the algebraic Riccati equation A'P + PA - P B R^-1 B' P + Q = 0, by the matrix sign function ---------- */
+function care(A, B, Q, R) {
+  const n = A.length, Ri = minv(R), S = mmul(mmul(B, Ri), mT(B));
+  // Hamiltonian H = [A, -S; -Q, -A']
+  let Z = zeros(2 * n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { Z[i][j] = A[i][j]; Z[i][j + n] = -S[i][j]; Z[i + n][j] = -Q[i][j]; Z[i + n][j + n] = -A[j][i]; }
+  let it = 0;
+  for (; it < 100; it++) {
+    const { inv, logdet } = minvdet(Z), c = Math.exp(-logdet / (2 * n));
+    const Zn = Z.map((r, i) => r.map((v, j) => 0.5 * (c * v + inv[i][j] / c)));
+    const d = mnorm(madd(Zn, Z, -1)) / mnorm(Zn); Z = Zn;
+    if (d < 1e-13) break;
+  }
+  // the stable subspace [I; P] satisfies (sign(H) + I)[I; P] = 0
+  const M = zeros(2 * n, n), N = zeros(2 * n, n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    M[i][j] = Z[i][j + n]; M[i + n][j] = Z[i + n][j + n] + (i === j ? 1 : 0);
+    N[i][j] = -(Z[i][j] + (i === j ? 1 : 0)); N[i + n][j] = -Z[i + n][j];
+  }
+  let P = lstsq(M, N);
+  P = P.map((r, i) => r.map((v, j) => 0.5 * (v + P[j][i])));
+  const resOf = (Pm) => mnorm(madd(madd(madd(mmul(mT(A), Pm), mmul(Pm, A)), mmul(mmul(Pm, S), Pm), -1), Q));
+  let res = resOf(P), K = mmul(mmul(Ri, mT(B)), P);
+  // polish with Newton (Kleinman) steps: each solves a Lyapunov equation for the current closed loop
+  const scale = Math.max(1, mnorm(Q));
+  for (let k = 0; k < 8 && res > 1e-10 * scale; k++) {
+    const Ac = madd(A, mmul(B, K), -1), Mq = madd(Q, mmul(mmul(mT(K), R), K));
+    let Pn; try { Pn = lyap(Ac, Mq); } catch (e) { break; }
+    Pn = Pn.map((r, i) => r.map((v, j) => 0.5 * (v + Pn[j][i])));
+    const rn = resOf(Pn);
+    if (!(rn < res)) break;
+    P = Pn; res = rn; K = mmul(mmul(Ri, mT(B)), P);
+  }
+  return { P, K, res, it };
+}
+/* Ac' P + P Ac + M = 0, as one linear system in the n^2 entries of P */
+function lyap(Ac, M) {
+  const n = Ac.length, N = n * n, L = zeros(N, N + 1);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const row = i * n + j;
+    for (let k = 0; k < n; k++) { L[row][k * n + j] += Ac[k][i]; L[row][i * n + k] += Ac[k][j]; }
+    L[row][N] = -M[i][j];
+  }
+  for (let c = 0; c < N; c++) {
+    let p = c; for (let r = c + 1; r < N; r++) if (Math.abs(L[r][c]) > Math.abs(L[p][c])) p = r;
+    if (L[p][c] === 0) throw new Error('lyap: singular');
+    if (p !== c) { const t = L[p]; L[p] = L[c]; L[c] = t; }
+    const d = L[c][c];
+    for (let r = c + 1; r < N; r++) { const f = L[r][c] / d; if (f) for (let j = c; j <= N; j++) L[r][j] -= f * L[c][j]; }
+  }
+  const x = new Array(N).fill(0);
+  for (let r = N - 1; r >= 0; r--) { let s2 = L[r][N]; for (let j = r + 1; j < N; j++) s2 -= L[r][j] * x[j]; x[r] = s2 / L[r][r]; }
+  return Array.from({ length: n }, (_, i) => x.slice(i * n, i * n + n));
+}
+function lqr(A, B, Q, R) { const s = care(A, B, Q, R); s.e = eig(madd(A, mmul(B, s.K), -1)); return s; }
+
+
+/* =========================================================
+   Physics: the lab's pitch axis, its LQR designs, and the three-axis gain
+   ========================================================= */
+const MU = 3.986004418e14, RE = 6378.137e3, WC = Math.sqrt(MU / Math.pow(RE + 600e3, 3));
+const IP = 20, IR = 18, IY = 8, KGG = 3 * WC * WC * (IR - IY), ULIM = 0.02;
+let P = {};
+/* a design from the script's Section 1: state names, A, B, Q and the LQR gain */
+function design(r) {
+  const D = S.runs[r], useH = D.useH && !D.useInt;   // with integral action the wheel state cannot be stabilized (see the K pane)
+  const names = (D.useInt ? ['z'] : []).concat(['e', 'w'], useH ? ['h'] : []), n = names.length, ix = (k) => names.indexOf(k);
+  const A = zeros(n), B = zeros(n, 1), Q = zeros(n);
+  if (D.useInt) A[ix('z')][ix('e')] = 1;
+  A[ix('e')][ix('w')] = 1; A[ix('w')][ix('e')] = -KGG / IP; B[ix('w')][0] = 1 / IP;
+  if (useH) B[ix('h')][0] = -1;
+  if (D.useInt) Q[ix('z')][ix('z')] = 1 / (D.thmax * D.Ti) ** 2;
+  Q[ix('e')][ix('e')] = 1 / D.thmax ** 2;
+  Q[ix('w')][ix('w')] = D.wmax > 0 ? 1 / D.wmax ** 2 : 0;
+  if (useH) Q[ix('h')][ix('h')] = 1 / D.hmax ** 2;
+  const L = lqr(A, B, Q, [[1 / D.umaxR ** 2]]), K = L.K[0], g = (k) => (ix(k) >= 0 ? K[ix(k)] : 0);
+  return { names, K, kz: g('z'), ke: g('e'), kw: g('w'), kh: g('h'), e: L.e, res: L.res, hDropped: D.useH && D.useInt, thss: S.gd / (g('e') + KGG) };
+}
+/* the Lesson 34 nine-state model, analytic, for 18, 20, 8 kg m^2 and a -0.4 N m s pitch bias */
+function model9() {
+  const I = [IR, IP, IY], h = [0, -0.4, 0], wc = WC, A = zeros(9), B = zeros(9, 3), c = wc * (IR - IP + IY);
+  const s = [h[0], h[1] + c, h[2]], sx = [[0, -s[2], s[1]], [s[2], 0, -s[0]], [-s[1], s[0], 0]];
+  const Awq = [[8 * wc * wc * (IY - IP) + 2 * wc * h[1], 0, 0], [-2 * wc * h[0], 6 * wc * wc * (IY - IR), -2 * wc * h[2]], [0, 0, 2 * wc * wc * (IR - IP) + 2 * wc * h[1]]];
+  const Awh = [[0, 0, wc], [0, 0, 0], [-wc, 0, 0]];
+  for (let i = 0; i < 3; i++) { for (let j = 0; j < 3; j++) { A[i][j] = sx[i][j] / I[i]; A[i][3 + j] = Awq[i][j] / I[i]; A[i][6 + j] = Awh[i][j] / I[i]; } A[3 + i][i] = 0.5; B[i][i] = 1 / I[i]; B[6 + i][i] = -1; }
+  return { A, B };
+}
+/* the three-axis gain for the edited design's Bryson limits: x = [w, q, h~] or, with integral action, [w, q, z] */
+function gain3(r) {
+  const D = S.runs[r], { A, B } = model9(), n = 9, An = zeros(n), Bn = zeros(n, 3), Q = zeros(n), R = mscale(eye(3), 1 / D.umaxR ** 2);
+  const hm = D.useH ? D.hmax : 5;
+  for (let i = 0; i < 6; i++) { for (let j = 0; j < 6; j++) An[i][j] = A[i][j]; for (let j = 0; j < 3; j++) Bn[i][j] = B[i][j]; }
+  for (let i = 0; i < 3; i++) {
+    Q[i][i] = D.wmax > 0 ? 1 / D.wmax ** 2 : 0; Q[3 + i][3 + i] = 1 / (D.thmax / 2) ** 2;
+    if (D.useInt) { An[6 + i][3 + i] = 2; Q[6 + i][6 + i] = 1 / (D.thmax * D.Ti) ** 2; }   // z = integral of the angle, 2q
+    else { for (let j = 0; j < 9; j++) An[i][j] = A[i][j]; for (let j = 0; j < 9; j++) An[6 + i][j] = A[6 + i][j]; Bn[6 + i][i] = -1; Q[6 + i][6 + i] = 1 / hm ** 2; }
+  }
+  if (!D.useInt) for (let i = 0; i < 6; i++) for (let j = 6; j < 9; j++) An[i][j] = A[i][j];
+  const L = lqr(An, Bn, Q, R);
+  return { K: L.K, res: L.res, e: L.e, names: ['ω₁', 'ω₂', 'ω₃', 'q₁', 'q₂', 'q₃'].concat(D.useInt ? ['z₁', 'z₂', 'z₃'] : ['h̃₁', 'h̃₂', 'h̃₃']) };
+}
+/* the error quaternion of the notes, with the short-way sign flip */
+function errQuat(q, qc) {
+  const v = [q[1], q[2], q[3]], vc = [qc[1], qc[2], qc[3]], c = cross(vc, v);
+  let d = [qc[0] * q[0] + dot(vc, v), qc[0] * v[0] - q[0] * vc[0] - c[0], qc[0] * v[1] - q[0] * vc[1] - c[1], qc[0] * v[2] - q[0] * vc[2] - c[2]];
+  const raw = d.slice(), flipped = d[0] < 0;
+  if (flipped) d = d.map((x) => -x);
+  return { raw, d, flipped, angle: 2 * Math.atan2(norm([d[1], d[2], d[3]]), d[0]) };
+}
+const qFromEuler = (e) => qmul(qmul(qaa(1, 0, 0, e[0]), qaa(0, 1, 0, e[1])), qaa(0, 0, 1, e[2]));
+/* C(q) as the notes' Q_P/O, to check the error quaternion against C(q) C(qc)^T */
+function Cq(q) {
+  const [q0, q1, q2, q3] = q;
+  return [[2 * q0 * q0 - 1 + 2 * q1 * q1, 2 * q1 * q2 + 2 * q0 * q3, 2 * q1 * q3 - 2 * q0 * q2], [2 * q1 * q2 - 2 * q0 * q3, 2 * q0 * q0 - 1 + 2 * q2 * q2, 2 * q2 * q3 + 2 * q0 * q1], [2 * q1 * q3 + 2 * q0 * q2, 2 * q2 * q3 - 2 * q0 * q1, 2 * q0 * q0 - 1 + 2 * q3 * q3]];
+}
+
+/* ---------- three runs: the lab script's model ----------
+   y = [z, theta, theta_dot, h, M]: integrator, pitch, rate, wheel momentum, and the integral of the outside torques */
+const NY = 5;
+const Ys = [0, 1, 2].map(() => new Float64Array(NY));
+const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
+let simT = 0, hStep = 0.02;
+const slew = () => S.slew * D2R;
+function command(r, t) {
+  const D = S.runs[r];
+  if (D.ramp > 0 && t < D.ramp) return [slew() * t / D.ramp, slew() / D.ramp];
+  return [slew(), 0];
+}
+function ctrl(r, t, y) {
+  const D = S.runs[r], L = P.L[r], [thc, wcmd] = command(r, t), e = 2 * Math.sin((y[1] - thc) / 2);
+  let u = -(L.kz * y[0] + L.ke * e + L.kw * (y[2] - wcmd) + L.kh * y[3]);
+  if (D.useLim) u = clamp(u, -ULIM, ULIM);
+  return { u, e };
+}
+const dist = (t) => (t >= S.tOn && t < S.tOff ? S.gd : 0);
+function deriv(r, y, t, out) {
+  const D = S.runs[r], { u, e } = ctrl(r, t, y), gate = D.gate > 0 ? D.gate * D2R : Infinity;
+  out[0] = D.useInt && Math.abs(e) < gate ? e : 0;
+  out[1] = y[2];
+  const ext = dist(t) - KGG * Math.sin(y[1]) * Math.cos(y[1]);
+  out[2] = (u + ext) / IP;
+  out[3] = -u;
+  out[4] = ext;
+}
+function rk4(r, h, t) {
+  const Y = Ys[r];
+  deriv(r, Y, t, K1); for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K1[i];
+  deriv(r, YT, t + 0.5 * h, K2); for (let i = 0; i < NY; i++) YT[i] = Y[i] + 0.5 * h * K2[i];
+  deriv(r, YT, t + 0.5 * h, K3); for (let i = 0; i < NY; i++) YT[i] = Y[i] + h * K3[i];
+  deriv(r, YT, t + h, K4); for (let i = 0; i < NY; i++) Y[i] += h / 6 * (K1[i] + 2 * K2[i] + 2 * K3[i] + K4[i]);
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const mkRun = (o) => Object.assign({ thmax: 0.1, wmax: 0, umaxR: 0.02, useInt: false, Ti: 60, gate: 0, ramp: 0, useH: false, hmax: 5, useLim: true, name: '' }, o);
+const S = {
+  slew: 30, gd: 5e-4, tOn: 300, tOff: 900, T: 1200,
+  runs: [mkRun({}), mkRun({}), mkRun({})],
+  edit: 0, shown: [true, true, true], showSol: false,
+  speed: 60, playing: !reduceMotion,
+  pane: 'req', zoom: false,
+  dq: { a: [0, 10, 0], c: [0, 30, 0], flip: false },
+  show: { cmd: true, labels: true },
+};
+let currentPreset = 'lab';
+/* the script's requirement checks, kept as the run goes */
+const REC = [0, 1, 2].map(() => ({}));
+function resetRecords() { for (let r = 0; r < 3; r++) REC[r] = { ts: 0, ov: 0, hold: 0, hpk: 0, upk: 0, sat: 0, n: 0, M0: IP * Ys[r][2] + Ys[r][3], mErr: 0, pdErr: 0 }; }
+function trackRun(r) {
+  const R = REC[r], Y = Ys[r], err = (Y[1] - slew()) * R2D, { u } = ctrl(r, simT, Y);
+  if (simT < S.tOn) { if (Math.abs(err) > 0.5) R.ts = simT; R.ov = Math.max(R.ov, err * Math.sign(S.slew || 1)); }
+  else if (simT > S.tOn || S.tOn === 0) R.hold = Math.max(R.hold, Math.abs(err));
+  R.hpk = Math.max(R.hpk, Math.abs(Y[3])); R.upk = Math.max(R.upk, Math.abs(u));
+  R.n++; if (Math.abs(u) >= 0.999 * ULIM) R.sat++;
+  R.mErr = Math.max(R.mErr, Math.abs(IP * Y[2] + Y[3] - Y[4] - R.M0));
+}
+/* ---------- history ---------- */
+const HCAP = 12000;
+const Ht = new Float64Array(HCAP);
+const HK = ['err', 'u', 'h', 'z', 'cmd'];
+const HQ = {}; HK.forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
+let hN = 0, hLast = -Infinity, hDt = 0.5;
+function histCompact() {
+  let j = 0;
+  for (let i = 0; i < hN; i += 2, j++) { Ht[j] = Ht[i]; HK.forEach((k) => { for (let r = 0; r < 3; r++) HQ[k][r][j] = HQ[k][r][i]; }); }
+  hN = j; hDt *= 2;
+}
+function histPush(force) {
+  if (!force && simT - hLast < hDt - 1e-9) return;
+  if (hN >= HCAP) histCompact();
+  const i = hN++;
+  Ht[i] = simT; hLast = simT;
+  for (let r = 0; r < 3; r++) { const Y = Ys[r]; HQ.err[r][i] = (Y[1] - slew()) * R2D; HQ.u[r][i] = ctrl(r, simT, Y).u; HQ.h[r][i] = Y[3]; HQ.z[r][i] = Y[0]; HQ.cmd[r][i] = (command(r, simT)[0] - slew()) * R2D; }
+}
+function advance(dt) {
+  if (!(dt > 0)) return;
+  const n = Math.min(400000, Math.max(1, Math.ceil(dt / hStep))), h = dt / n;
+  for (let i = 0; i < n; i++) { for (let r = 0; r < 3; r++) rk4(r, h, simT); simT += h; for (let r = 0; r < 3; r++) trackRun(r); histPush(false); }
+}
+
+/* =========================================================
+   3D scene: three satellites slewing in pitch, with the command as a ghost
+   ========================================================= */
+const DQ = qaa(1, 0, 0, Math.PI);
+const vp = el('viewport');
+let G = null, vpW = 1, vpH = 1;
+const tmpV = HAS3D ? new THREE.Vector3() : null;
+const LANE = 2.6, BUS = 0.42;
+const wheelAng = [0, 0, 0];
+function initGL() {
+  const canvas = el('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  cam.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(cam, canvas);
+  controls.enableDamping = !reduceMotion; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
+  controls.minDistance = 0.6; controls.maxDistance = 120;
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9098a0, 0.62);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.68);
+  scene.add(hemi, sun, sun.target);
+  const M = {
+    hull: new THREE.MeshPhongMaterial({ shininess: 35 }), face: new THREE.MeshPhongMaterial({ shininess: 35 }), edge: new THREE.LineBasicMaterial(),
+    wheelA: new THREE.MeshPhongMaterial({ shininess: 60 }), wheelB: new THREE.MeshPhongMaterial({ shininess: 60 }), sat: new THREE.MeshPhongMaterial({ shininess: 60 }),
+    ghost: [0, 1, 2].map(() => new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.22, depthWrite: false })), ghostEdge: [0, 1, 2].map(() => new THREE.LineBasicMaterial({ transparent: true, opacity: 0.8 })),
+    vert: new THREE.LineDashedMaterial({ dashSize: 0.06, gapSize: 0.05 }),
+    earth: new THREE.MeshPhongMaterial({ shininess: 10 }), grid: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 }),
+  };
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1), edgeGeo = new THREE.EdgesGeometry(boxGeo), sphereGeo = new THREE.SphereGeometry(1, 64, 40);
+  const ground = new THREE.Group(); scene.add(ground);
+  ground.add(new THREE.Mesh(sphereGeo, M.earth));
+  { const pts = [];
+    for (let lat = -60; lat <= 60; lat += 30) for (let lo = 0; lo < 360; lo += 5) { const a = lat * D2R, b = lo * D2R, c = (lo + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(c), Math.cos(a) * Math.sin(c), Math.sin(a)); }
+    for (let lo = 0; lo < 360; lo += 30) for (let lat = -90; lat < 90; lat += 5) { const b = lo * D2R, a = lat * D2R, c = (lat + 5) * D2R; pts.push(Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(c) * Math.cos(b), Math.cos(c) * Math.sin(b), Math.sin(c)); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.map((x) => x * 1.002), 3));
+    ground.add(new THREE.LineSegments(geo, M.grid)); }
+  ground.scale.setScalar(40); ground.position.set(0, 0, -46.5);
+  const halfA = new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32, 1, false, 0, Math.PI), halfB = new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32, 1, false, Math.PI, Math.PI);
+  const lanes = [0, 1, 2].map((r) => {
+    const lane = new THREE.Group(); scene.add(lane);
+    const veh = new THREE.Group(); lane.add(veh);
+    const box = new THREE.Mesh(boxGeo, [M.hull, M.hull, M.hull, M.hull, M.face, M.hull]), edges = new THREE.LineSegments(edgeGeo, M.edge);
+    box.scale.set(2 * BUS, 2 * BUS, 2.6 * BUS); edges.scale.copy(box.scale); veh.add(box, edges);
+    const spin = new THREE.Group(), wa = new THREE.Mesh(halfA, M.wheelA); spin.add(wa, new THREE.Mesh(halfB, M.wheelB)); spin.position.set(0, BUS + 0.05, 0); veh.add(spin);
+    const ghost = new THREE.Group(); lane.add(ghost);
+    const gb = new THREE.Mesh(boxGeo, M.ghost[r]), ge = new THREE.LineSegments(edgeGeo, M.ghostEdge[r]); gb.scale.set(2.1 * BUS, 2.1 * BUS, 2.7 * BUS); ge.scale.copy(gb.scale); ghost.add(gb, ge);
+    const vert = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 1.1), new THREE.Vector3(0, 0, -1.25)]), M.vert); vert.computeLineDistances(); lane.add(vert);
+    return { lane, veh, spin, wa, ghost };
+  });
+  return { renderer, scene, cam, controls, hemi, sun, M, lanes };
+}
+function laneOffsets() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const off = [null, null, null];
+  vis.forEach((r, i) => { off[r] = (i - (vis.length - 1) / 2) * LANE; });
+  return { off, n: Math.max(1, vis.length) };
+}
+const laneGeo = [{}, {}, {}];
+function updateDynamic(dtReal) {
+  const { off } = laneOffsets();
+  for (let r = 0; r < 3; r++) {
+    const L = G.lanes[r], on = S.shown[r];
+    L.lane.visible = on; if (!on) continue;
+    L.lane.position.set(off[r], 0, 0);
+    const q = qmul(DQ, qaa(0, 1, 0, Ys[r][1])), qc = qmul(DQ, qaa(0, 1, 0, command(r, simT)[0]));
+    L.veh.quaternion.set(q[1], q[2], q[3], q[0]); L.ghost.quaternion.set(qc[1], qc[2], qc[3], qc[0]); L.ghost.visible = S.show.cmd;
+    if (S.playing && !reduceMotion) wheelAng[r] += 8 * Ys[r][3] * dtReal;
+    L.spin.rotation.y = wheelAng[r];
+    L.wa.material = Math.abs(ctrl(r, simT, Ys[r]).u) >= 0.999 * ULIM ? G.M.sat : G.M.wheelA;
+    laneGeo[r].off = off[r];
+  }
+}
+const labelsEl = el('labels');
+function mkLabel(html, color, cls) { const d = document.createElement('div'); d.className = 'vlabel' + (cls ? ' ' + cls : ''); if (color) d.style.setProperty('--c', color); d.innerHTML = html; d.hidden = true; labelsEl.appendChild(d); return d; }
+const LB = { lane: [0, 1, 2].map((r) => mkLabel('', `var(--run${r})`, 'lane')), down: mkLabel('to Earth ↓', 'var(--muted)', 'small') };
+const laneKey = ['', '', ''];
+function placeLabel(lab, v, dx = 0, dy = 0) {
+  tmpV.set(v[0], v[1], v[2]).project(G.cam);
+  if (tmpV.z > 1 || tmpV.z < -1 || Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1) { lab.hidden = true; return; }
+  lab.hidden = false;
+  const x = (tmpV.x + 1) * 0.5 * vpW + dx, y = (1 - tmpV.y) * 0.5 * vpH + dy;
+  lab.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+}
+function updateLabels() {
+  let first = -1;
+  for (let r = 0; r < 3; r++) {
+    const on = S.shown[r] && S.show.labels, html = `Design ${r + 1}<span class="ex">error ${fs((Ys[r][1] - slew()) * R2D, 2)}°</span>`;
+    if (html !== laneKey[r]) { LB.lane[r].innerHTML = html; laneKey[r] = html; }
+    if (on) { placeLabel(LB.lane[r], [laneGeo[r].off, 0, 1.45]); if (first < 0) first = r; } else LB.lane[r].hidden = true;
+  }
+  if (S.show.labels && first >= 0) placeLabel(LB.down, [laneGeo[first].off, 0, -1.4], 34, 0); else LB.down.hidden = true;
+}
+let COL = {};
+function readColors() {
+  const names = ['paper', 'panel', 'view', 'ink', 'muted', 'rule', 'run0', 'run1', 'run2', 'frame', 'hw', 'pos', 'neg', 'ax2', 'face', 'good', 'warn', 'bad', 'hull', 'hull-top', 'edge', 'earth', 'earth-line', 'accent'];
+  const o = {}; names.forEach((n) => { o[n] = css('--' + n); });
+  o.dark = css('--scheme') === 'dark';
+  return o;
+}
+function applyTheme() {
+  COL = readColors();
+  el('themeBtn').textContent = COL.dark ? 'Light' : 'Dark';
+  if (G) {
+    const Cc = (n) => new THREE.Color(COL[n]), M = G.M;
+    G.renderer.setClearColor(Cc('view'), 1);
+    G.hemi.intensity = COL.dark ? 0.5 : 0.62; G.sun.intensity = COL.dark ? 0.78 : 0.68;
+    G.hemi.groundColor = COL.dark ? new THREE.Color(0x30363e) : new THREE.Color(0x9098a0);
+    M.hull.color = Cc('hull'); M.face.color = Cc('face'); M.edge.color = Cc('edge');
+    M.wheelA.color = Cc('ax2'); M.wheelB.color = Cc('hull-top'); M.sat.color = Cc('bad'); M.sat.emissive = Cc('bad').multiplyScalar(0.35);
+    M.ghost.forEach((m, r) => { m.color = Cc('run' + r); }); M.ghostEdge.forEach((m, r) => { m.color = Cc('run' + r); });
+    M.vert.color = Cc('muted'); M.earth.color = Cc('earth'); M.grid.color = Cc('earth-line');
+  }
+  drawPlot(); drawPane();
+}
+function resize() {
+  if (!G) return;
+  const r = vp.getBoundingClientRect();
+  vpW = Math.max(1, Math.round(r.width)); vpH = Math.max(1, Math.round(r.height));
+  G.renderer.setSize(vpW, vpH, false); G.cam.aspect = vpW / vpH; G.cam.updateProjectionMatrix();
+}
+const ISO_L = HAS3D ? new THREE.Vector3(0.3, -1, 0.3).normalize() : null;
+function fit(dir) {
+  if (!G) return;
+  if (!dir) dir = new THREE.Vector3().subVectors(G.cam.position, G.controls.target).normalize();
+  if (!(dir.lengthSq() > 0.5)) dir = ISO_L.clone();
+  const n = laneOffsets().n, rho = 1.35 + 0.5 * LANE * (n - 1);
+  const a = vpW / vpH, vf = G.cam.fov * D2R, hf = 2 * Math.atan(Math.tan(vf / 2) * a);
+  const d = rho / Math.sin(Math.min(vf, hf) / 2), c = new THREE.Vector3(0, 0, -0.1);
+  G.controls.target.copy(c); G.cam.position.copy(c).addScaledVector(dir, d);
+  G.cam.near = d * 0.01; G.cam.far = d * 40; G.cam.updateProjectionMatrix(); G.controls.update();
+}
+function viewDir(w) {
+  if (w === 'top') return new THREE.Vector3(0.0001, -0.0001, 1).normalize();
+  if (w === 'side') return new THREE.Vector3(0.0001, -1, 0.0001).normalize();
+  return ISO_L.clone();
+}
+
+/* =========================================================
+   Second pane: the requirements, the three-axis gain, or the error quaternion
+   ========================================================= */
+const ppCv = el('pp'), pctx2 = ppCv.getContext('2d');
+let capH = 30;
+function canvasSetup(cv, ctx, bg) {
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg || '#fff'; ctx.fillRect(0, 0, W, H);
+  return { W, H };
+}
+const MONO = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+const UIF = (w, px) => `${w} ${px}px "Barlow Semi Condensed", Arial, sans-serif`;
+function niceStep(range, n) { const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function ticksOf(a, b, n) { const s = niceStep(b - a, n), out = []; for (let v = Math.ceil(a / s) * s; v <= b + 1e-9 * s; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v); return { v: out, d: Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)) }; }
+/* fill a paragraph a word at a time, returning the y below it */
+function wrapText(ctx, text, x, y, maxW, lh) {
+  const words = text.split(' '); let line = '';
+  for (const w of words) { const tryL = line ? line + ' ' + w : w; if (ctx.measureText(tryL).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = tryL; }
+  if (line) { ctx.fillText(line, x, y); y += lh; }
+  return y;
+}
+/* a gain in a heatmap cell: three figures, or a short power of ten */
+const kcell = (v) => { const a = Math.abs(v); if (a >= 0.01 && a < 1000) return fg(v, 3); const e = Math.floor(Math.log10(a)); return `${fx(v / Math.pow(10, e), 1)}e${e}`.replace('-', MINUS); };
+function drawPane() { if (S.pane === 'req') drawReq(); else if (S.pane === 'k3') drawK3(); else drawDq(); }
+const REQS = [
+  ['R1 settle', 'error within 0.5° of the command after', 120, 's', (R) => R.ts, () => simT >= S.tOn || simT >= S.T],
+  ['R2 overshoot', 'overshoot below', 3, '°', (R) => R.ov, () => simT >= S.tOn || simT >= S.T],
+  ['R3 hold', 'error within, once the disturbance starts,', 0.05, '°', (R) => R.hold, () => simT >= S.T - 1e-6],
+  ['R4 wheel', 'wheel momentum within ±', 1, 'N·m·s', (R) => R.hpk, () => simT >= S.T - 1e-6],
+];
+const reqState = (r, k) => { const [, , lim, , val, done] = REQS[k], v = val(REC[r]); return { v, lim, pass: v <= lim, done: done() || v > lim }; };   // every measure only grows, so a value past its limit is a final fail
+function drawReq() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), m = { l: 16, r: 16, t: 56, b: capH + 18 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  if (pw < 160 || ph < 120) return;
+  const rowH = ph / 4, barX = m.l + 110, barW = pw - 110 - 90, limX = barX + barW / 2;   // the limit sits at the middle; the bar runs to twice the limit
+  ctx.textBaseline = 'middle';
+  REQS.forEach(([name, desc, lim, unit], k) => {
+    const y0 = m.t + k * rowH;
+    ctx.font = UIF(700, 14); ctx.fillStyle = COL.ink; ctx.textAlign = 'left'; ctx.fillText(name, m.l, y0 + 12);
+    ctx.font = UIF(500, 12); ctx.fillStyle = COL.muted; ctx.fillText(`${desc} ${fn(lim)} ${unit}`, m.l, y0 + 28, 104 + barW);
+    ctx.strokeStyle = COL.ink; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(limX + 0.5, y0 + 36); ctx.lineTo(limX + 0.5, y0 + rowH - 6); ctx.stroke(); ctx.setLineDash([]);
+    const bh = Math.min(16, (rowH - 46) / Math.max(vis.length, 1) - 3);
+    vis.forEach((r, j) => {
+      const st = reqState(r, k), y = y0 + 40 + j * (bh + 3), frac = Math.min(st.v / lim, 2) / 2;
+      ctx.fillStyle = COL['run' + r]; ctx.globalAlpha = st.done ? 0.95 : 0.45; ctx.fillRect(barX, y, Math.max(1, frac * barW), bh); ctx.globalAlpha = 1;
+      ctx.font = MONO; ctx.fillStyle = COL.ink; ctx.textAlign = 'left';
+      ctx.fillText(`${fg(st.v, 3)}${st.v > 2 * lim ? ' ▸' : ''}`, barX + barW + 8, y + bh / 2);
+      ctx.font = UIF(700, 12); ctx.fillStyle = !st.done ? COL.muted : st.pass ? COL.good : COL.bad; ctx.textAlign = 'right';
+      ctx.fillText(!st.done ? (st.pass ? 'so far' : 'FAIL') : st.pass ? 'PASS' : 'FAIL', barX - 8, y + bh / 2);
+    });
+  });
+}
+function drawK3() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const g = P.g3, K = g.K, m = { l: 40, r: 12, t: 84, b: capH + 70 }, cs = Math.floor(Math.min((W - m.l - m.r) / 9, (H - m.t - m.b) / 3.4));
+  if (cs < 18) return;
+  const ox = m.l, oy = m.t, pos = hexRGB(COL.pos), neg = hexRGB(COL.neg), bg = hexRGB(COL.view), kmax = Math.max(...K.flat().map(Math.abs));
+  const fill = (v) => { const c = v > 0 ? pos : neg, a = v === 0 ? 0 : clamp((Math.log10(Math.abs(v) / kmax) + 6) / 6, 0.1, 1); return `rgb(${Math.round(bg[0] + (c[0] - bg[0]) * a)},${Math.round(bg[1] + (c[1] - bg[1]) * a)},${Math.round(bg[2] + (c[2] - bg[2]) * a)})`; };
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 9; j++) {
+    const v = Math.abs(K[i][j]) < 1e-9 * kmax ? 0 : K[i][j], x = ox + j * cs, y = oy + i * cs;
+    if (v) { ctx.fillStyle = fill(v); ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2); }
+    if (cs >= 44) { ctx.font = cs >= 58 ? MONO : '10px "IBM Plex Mono", monospace'; ctx.fillStyle = v && Math.abs(v) / kmax > 0.05 ? COL.view : COL.ink; ctx.fillText(v ? kcell(v) : '0', x + cs / 2, y + cs / 2, cs - 4); }
+  }
+  ctx.strokeStyle = COL.rule; ctx.lineWidth = 1;
+  for (let k = 0; k <= 9; k++) { ctx.beginPath(); ctx.moveTo(ox + k * cs + 0.5, oy); ctx.lineTo(ox + k * cs + 0.5, oy + 3 * cs); ctx.stroke(); }
+  for (let k = 0; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(ox, oy + k * cs + 0.5); ctx.lineTo(ox + 9 * cs, oy + k * cs + 0.5); ctx.stroke(); }
+  ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.6; [3, 6].forEach((k) => { ctx.beginPath(); ctx.moveTo(ox + k * cs, oy); ctx.lineTo(ox + k * cs, oy + 3 * cs); ctx.stroke(); }); ctx.strokeRect(ox, oy, 9 * cs, 3 * cs); ctx.lineWidth = 1;
+  ctx.font = UIF(600, 12.5); ctx.fillStyle = COL.muted;
+  g.names.forEach((n, j) => ctx.fillText(n, ox + j * cs + cs / 2, oy - 10));
+  ['g₁', 'g₂', 'g₃'].forEach((n, i) => { ctx.textAlign = 'right'; ctx.fillText(n, ox - 8, oy + i * cs + cs / 2); });
+  ctx.textAlign = 'left'; ctx.font = UIF(700, 13); ctx.fillStyle = COL.ink; ctx.fillText(`K, 3 × 9, design ${S.edit + 1}'s limits on the Lesson 34 model`, ox, oy - 32, W - 2 * ox);
+  ctx.font = UIF(500, 12.5); ctx.fillStyle = COL.muted;
+  const D = S.runs[S.edit], lines = [
+    'Row 2 (the pitch wheel) acts only on ω₂, q₂ and its own third column: pitch is its own loop.',
+    'Rows 1 and 3 share the roll–yaw states: a PD on each axis plus cross terms for the gyroscopic coupling.',
+    D.useInt ? 'With integral action the wheel states are left out: Ip ω₂ + h₂ + kgg z₂ never changes, whatever the torque, so no gain can steer it.' : `Wheel-momentum weight h_max = ${fn(D.useH ? D.hmax : 5)} N·m·s${D.useH ? '' : ' (light, by default)'}; its gains are tiny, as Section 4 explains.`,
+  ];
+  let ly = oy + 3 * cs + 22; lines.forEach((t) => { ly = wrapText(ctx, t, ox, ly, W - ox - 16, 16) + 6; });
+}
+function drawDq() {
+  const ctx = pctx2, { W, H } = canvasSetup(ppCv, ctx, COL.view);
+  if (!COL.ink) return;
+  const R = P.dq, x = 16; let y = 66;
+  const line = (lab, val, c) => { ctx.font = UIF(600, 13.5); ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.fillText(lab, x, y, 210); ctx.font = '13px "IBM Plex Mono", monospace'; ctx.fillStyle = c || COL.ink; ctx.fillText(val, x + 220, y, W - x - 236); y += 24; };
+  const qs = (q) => `[${q.map((v) => fs(v, 4)).join(', ')}]`;
+  ctx.textBaseline = 'middle';
+  line('q, now', qs(R.q)); line(`q_c, command${S.dq.flip ? ' (stored as −q_c)' : ''}`, qs(R.qc));
+  y += 8;
+  line('δq, as computed', qs(R.e.raw), R.e.flipped ? COL.warn : COL.ink);
+  if (R.e.flipped) line('δq₀ < 0: flipped to', qs(R.e.d), COL.good);
+  line('vector part fed back', `[${R.e.d.slice(1).map((v) => fs(v, 4)).join(', ')}]`, COL.good);
+  line('error angle 2 atan(|δq|/δq₀)', `${fx(R.e.angle * R2D, 2)}°`, COL.good);
+  y += 8;
+  line('q − q_c (vector part)', `[${R.diff.map((v) => fs(v, 4)).join(', ')}]`, COL.bad);
+  line('|q − q_c| as an "angle"', `${fx(2 * Math.asin(Math.min(1, norm(R.diff))) * R2D, 2)}°`, COL.bad);
+  y += 8;
+  line('check: C(δq) vs C(q)C(q_c)ᵀ', `differ by ${sci(R.cerr, 1)}`, R.cerr < 1e-12 ? COL.good : COL.bad);
+  ctx.font = UIF(500, 12.5); ctx.fillStyle = COL.muted;
+  const notes = [
+    'Appendix A: now 10°, command 30° in pitch → δq = [0.9848, 0, −0.1736, 0], a −20° rotation; q − q_c gives −0.1717.',
+    'Store q_c with the opposite sign and q − q_c is huge though nothing changed; δq only flips sign, and the short-way rule fixes it.',
+  ];
+  y += 8; notes.forEach((t) => { y = wrapText(ctx, t, x, y, W - 2 * x, 16) + 6; });
+}
+
+/* =========================================================
+   Time-history plot (2D canvas)
+   ========================================================= */
+const plotCv = el('plot'), pctx = plotCv.getContext('2d');
+const PL = { q: 'err', hoverX: null, m: { l: 66, r: 16, t: 20, b: 24 } };
+const QINFO = {
+  err: { unit: 'error from the final command, deg (dashed: command)', key: 'err', key2: 'cmd', bands: true },
+  u: { unit: 'wheel torque u, N·m', key: 'u', lim: ULIM },
+  h: { unit: 'wheel momentum h, N·m·s', key: 'h', lim: 1 },
+  z: { unit: 'integrator state z, rad·s', key: 'z' },
+};
+function setLegend() {
+  el('hlegs').innerHTML = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
+  el('zoomBtn').setAttribute('aria-pressed', String(S.zoom));
+}
+function drawPlot() {
+  const ctx = pctx, { W, H } = canvasSetup(plotCv, ctx, COL.panel);
+  if (!COL.ink) return;
+  const { l, r: mr, t, b } = PL.m, pw = W - l - mr, ph = H - t - b;
+  if (pw < 40 || ph < 30) return;
+  const info = QINFO[PL.q], key = info.key, zoom = S.zoom && S.tOn < S.T;
+  const x0 = zoom ? S.tOn : 0, x1 = Math.max(simT, S.T, x0 + 1);
+  let mn = Infinity, mx = -Infinity;
+  for (let k = 0; k < 3; k++) { if (!S.shown[k]) continue; const a = HQ[key][k]; for (let i = 0; i < hN; i++) { if (Ht[i] < x0) continue; const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; } }
+  if (info.bands && zoom) { mx = Math.max(mx, 0.06); mn = Math.min(mn, -0.06); }
+  if (info.lim && (mx > 0.5 * info.lim || mn < -0.5 * info.lim)) { mx = Math.max(mx, info.lim); mn = Math.min(mn, -info.lim); }
+  if (!isFinite(mn)) { mn = 0; mx = 1; }
+  let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
+  let y0 = mn - 0.08 * span, y1 = mx + 0.08 * span;
+  const X = (v) => l + (v - x0) / (x1 - x0) * pw, Yp = (v) => t + (y1 - v) / (y1 - y0) * ph;
+  ctx.font = MONO; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const e = Math.floor(Math.log10(Math.max(Math.abs(y0), Math.abs(y1), 1e-30))), ysc = e < -2 ? Math.pow(10, e) : 1, yt = ticksOf(y0 / ysc, y1 / ysc, ph / 30), yv = yt.v.map((v) => v * ysc), xt = ticksOf(x0, x1, pw / 70);
+  // the disturbance window
+  ctx.fillStyle = COL.warn; ctx.globalAlpha = 0.07; ctx.fillRect(X(Math.max(S.tOn, x0)), t, X(Math.min(S.tOff, x1)) - X(Math.max(S.tOn, x0)), ph); ctx.globalAlpha = 1;
+  ctx.strokeStyle = COL.rule; ctx.beginPath();
+  xt.v.forEach((v) => { const x = Math.round(X(v)) + 0.5; ctx.moveTo(x, t); ctx.lineTo(x, t + ph); });
+  yv.forEach((v) => { const y = Math.round(Yp(v)) + 0.5; ctx.moveTo(l, y); ctx.lineTo(l + pw, y); });
+  ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'center'; xt.v.forEach((v) => ctx.fillText(fx(v, xt.d), X(v), t + ph + 12));
+  ctx.textAlign = 'right'; yv.forEach((v) => ctx.fillText(fx(v / ysc, yt.d), l - 6, Yp(v)));
+  if (y0 < 0 && y1 > 0) { ctx.strokeStyle = COL.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(l, Math.round(Yp(0)) + 0.5); ctx.lineTo(l + pw, Math.round(Yp(0)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = COL.rule; ctx.strokeRect(l + 0.5, t + 0.5, pw - 1, ph - 1);
+  ctx.fillStyle = COL.muted; ctx.textAlign = 'left'; ctx.fillText(info.unit + (ysc !== 1 ? `, × ${pow10(Math.round(Math.log10(ysc)))}` : '') + (zoom ? ' · hold phase' : ''), 6, 9); ctx.fillText('t, s', 6, t + ph + 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(l, t, pw, ph); ctx.clip();
+  const hl = (v, c, x2) => { const y = Math.round(Yp(v)) + 0.5; ctx.strokeStyle = c; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x2 || l, y); ctx.lineTo(l + pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; };
+  if (info.lim) { hl(info.lim, COL.bad); hl(-info.lim, COL.bad); }
+  if (info.bands) {
+    // R1 band after 120 s, R2 line before the disturbance, R3 band once it starts
+    ctx.fillStyle = COL.good; ctx.globalAlpha = 0.1; if (S.tOn > 120) ctx.fillRect(X(Math.max(120, x0)), Yp(0.5), X(Math.min(S.tOn, x1)) - X(Math.max(120, x0)), Yp(-0.5) - Yp(0.5));
+    ctx.fillRect(X(Math.max(S.tOn, x0)), Yp(0.05), X(x1) - X(Math.max(S.tOn, x0)), Yp(-0.05) - Yp(0.05)); ctx.globalAlpha = 1;
+    if (!zoom && 3 < y1) { const y = Math.round(Yp(3)) + 0.5; ctx.strokeStyle = COL.warn; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(l, y); ctx.lineTo(X(S.tOn), y); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  for (let k = 0; k < 3; k++) {
+    if (!S.shown[k] || hN < 2) continue;
+    if (info.key2) { const a2 = HQ[info.key2][k]; ctx.strokeStyle = COL['run' + k]; ctx.globalAlpha = 0.6; ctx.setLineDash([5, 4]); ctx.beginPath(); let on = false; for (let i = 0; i < hN; i++) { if (Ht[i] < x0) continue; const xx = X(Ht[i]), yy = Yp(a2[i]); if (on) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); on = true; } ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    const a = HQ[key][k]; ctx.strokeStyle = COL['run' + k]; ctx.lineWidth = 1.8; ctx.beginPath(); let on = false;
+    for (let i = 0; i < hN; i++) { if (Ht[i] < x0) continue; const xx = X(Ht[i]), yy = Yp(a[i]); if (on) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); on = true; }
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
+  const xc = Math.round(X(simT)) + 0.5;
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xc, t); ctx.lineTo(xc, t + ph); ctx.stroke(); ctx.setLineDash([]);
+  if (PL.hoverX !== null && PL.hoverX >= l && PL.hoverX <= l + pw && hN > 0) {
+    const tv = x0 + (PL.hoverX - l) / pw * (x1 - x0);
+    let lo = 0, hi = hN; while (lo < hi) { const mid = (lo + hi) >> 1; if (Ht[mid] < tv) lo = mid + 1; else hi = mid; }
+    let i = Math.min(lo, hN - 1); if (i > 0 && Math.abs(Ht[i - 1] - tv) < Math.abs(Ht[i] - tv)) i--;
+    const x = X(Ht[i]);
+    ctx.strokeStyle = COL.muted; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, t); ctx.lineTo(Math.round(x) + 0.5, t + ph); ctx.stroke();
+    const lines = [[`t ${fx(Ht[i], 1)} s`, COL.ink]];
+    for (let k = 0; k < 3; k++) if (S.shown[k]) lines.push([`design ${k + 1}  ${fg(HQ[key][k][i], 4)}`, COL['run' + k]]);
+    ctx.font = MONO;
+    const bw = Math.max(...lines.map((s2) => ctx.measureText(s2[0]).width)) + 16, bh = lines.length * 15 + 8;
+    let bx = x + 10; if (bx + bw > l + pw) bx = x - 10 - bw;
+    ctx.fillStyle = COL.panel; ctx.globalAlpha = 0.94; ctx.fillRect(bx, t + 4, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = COL.rule; ctx.strokeRect(bx + 0.5, t + 4.5, bw - 1, bh - 1);
+    ctx.textAlign = 'left'; lines.forEach((s2, j) => { ctx.fillStyle = s2[1]; ctx.fillText(s2[0], bx + 8, t + 16 + j * 15); });
+  }
+  ctx.restore();
+}
+plotCv.addEventListener('pointermove', (e) => { PL.hoverX = e.offsetX; });
+plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
+
+/* =========================================================
+   Readouts
+   ========================================================= */
+function autoName(r) {
+  const D = S.runs[r], parts = [D.useInt ? `integral Ti ${fn(D.Ti)}` : 'PD'];
+  if (D.useInt && D.gate > 0) parts.push(`gate ${fn(D.gate)}°`);
+  if (D.ramp > 0) parts.push(`ramp ${fn(D.ramp)} s`);
+  if (D.thmax !== 0.1) parts.push(`θmax ${fn(D.thmax)}`);
+  if (D.useH) parts.push(`hmax ${fn(D.hmax)}`);
+  if (!D.useLim) parts.push('no limit');
+  return parts.join(', ');
+}
+const runName = (r) => S.runs[r].name || autoName(r);
+const runHTML = runName;
+const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
+const pole = (z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 4)}<br>±${fg(Math.abs(z.im), 3)}j` : fs(z.re, 4));
+function reqTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  let h = '';
+  REQS.forEach(([name, , lim, unit], k) => { h += row(`${name} <span class="u">${unit}, ≤ ${fn(lim)}</span>`, (r) => { const st = reqState(r, k); return cell(r, `${fg(st.v, 3)}${st.done ? (st.pass ? ' ✓' : ' ✕') : ''}`, !st.done ? '' : st.pass ? 'good' : 'bad'); }); });
+  h += row('Wheel saturated <span class="u">% of the time</span>', (r) => cell(r, fx(100 * REC[r].sat / Math.max(1, REC[r].n), 0)), true);
+  h += row('Peak torque asked <span class="u">N·m</span>', (r) => cell(r, fg(REC[r].upk, 3)));
+  el('reqBody').innerHTML = h;
+  el('reqNote').innerHTML = `As the lab script measures them: R1 is the last time before the disturbance (${fn(S.tOn)} s) that the error exceeds 0.5°; R2 the largest error past the command before then; R3 the largest error from ${fn(S.tOn)} s on; R4 the largest wheel momentum. Values in grey are still changing.`;
+}
+function desTable() {
+  const cell = (r, html, cls) => `<td${cls ? ` class="${cls}"` : ''}>${S.shown[r] ? html : ''}</td>`;
+  const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
+  const L = P.L;
+  let h = '';
+  h += row('θ<sub>max</sub>, ω<sub>max</sub>, u<sub>maxR</sub>', (r) => { const D = S.runs[r]; return cell(r, `${fn(D.thmax)}, ${D.wmax > 0 ? fn(D.wmax) : 'Inf'}, ${fn(D.umaxR)}`, 'wrap'); });
+  h += row('Integral, T<sub>i</sub>, gate, ramp', (r) => { const D = S.runs[r]; return cell(r, D.useInt ? `${fn(D.Ti)} s, ${D.gate > 0 ? fn(D.gate) + '°' : 'Inf'}, ${fn(D.ramp)} s` : `off, ramp ${fn(D.ramp)} s`, 'wrap'); });
+  h += row(`${SYM('k<sub>z</sub>')}`, (r) => cell(r, L[r].kz ? fg(L[r].kz, 4) : '—'), true);
+  h += row(`${SYM('k<sub>θ</sub>')} <span class="u">N·m/rad</span>`, (r) => cell(r, fg(L[r].ke, 4)));
+  h += row(`${SYM('k<sub>θ̇</sub>')} <span class="u">N·m·s/rad</span>`, (r) => cell(r, fg(L[r].kw, 4)));
+  h += row(`${SYM('k<sub>h</sub>')} <span class="u">1/s</span>`, (r) => cell(r, L[r].kh ? fg(L[r].kh, 4) : '—'));
+  h += row('Poles <span class="u">1/s</span>', (r) => cell(r, L[r].e.filter((z) => z.im >= -1e-12).map(pole).join('<br>'), 'wrap'), true);
+  h += row(`Offset under ${SYM('g<sub>d</sub>')}, g<sub>d</sub>/(k<sub>θ</sub> + k<sub>gg</sub>) <span class="u">°</span>`, (r) => cell(r, S.runs[r].useInt ? '0' : fg(L[r].thss * R2D, 3)), true);
+  el('desBody').innerHTML = h;
+}
+function card() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]);
+  const head = (r) => `<span class="sw" style="--sw:var(--run${r})"></span><span><span class="nm" style="--c:var(--run${r})">${runHTML(r)}:</span> `;
+  const passes = (r) => REQS.map((_, k) => reqState(r, k));
+  const labStd = S.slew === 30 && S.gd === 5e-4 && S.tOn === 300 && S.tOff === 900 && S.T === 1200;
+  const measures = (r) => { const R = REC[r]; return S.slew ? `${simT >= S.T - 1e-6 ? '' : 'so far: '}settles ${fg(R.ts, 3)} s, overshoot ${fg(R.ov, 3)}°, peak torque ${fg(R.upk, 3)} N·m.` : `${simT >= S.T - 1e-6 ? '' : 'so far: '}largest error ${fg(R.hold, 3)}°, wheel up to ${fg(R.hpk, 3)} N·m·s.`; };
+  const verdict0 = (r) => { const ps = passes(r), done = ps.every((p) => p.done); const fails = ps.map((p, k) => (p.done && !p.pass ? `R${k + 1}` : '')).filter(Boolean); return done ? (fails.length ? `fails ${fails.join(', ')}.` : 'passes all four.') : fails.length ? `already fails ${fails.join(', ')}.` : 'running…'; };
+  const verdict = (r) => (labStd ? verdict0(r) : measures(r));
+  const now = (r) => `<span class="now">error ${fs((Ys[r][1] - slew()) * R2D, 3)}° · u ${sci(ctrl(r, simT, Ys[r]).u, 2)} N·m · h ${fs(Ys[r][3], 3)} N·m·s</span></span>`;
+  let t, s, runs = vis.map((r) => head(r) + verdict(r) + now(r)), watch;
+  const sc = currentPreset;
+  if (sc === 'lab') {
+    t = 'Meet all four requirements: the in-class tuning lab';
+    s = `The lab script's test: a ${fn(S.slew)}° slew at t = 0, then a ${sci(S.gd, 0)} N·m disturbance from ${fn(S.tOn)} to ${fn(S.tOff)} s, on the nonlinear pitch axis with the wheel limited to 0.02 N·m. Design 1 is the script as supplied: Bryson's θ<sub>max</sub> = 0.1 rad, u<sub>max</sub> = 0.02 N·m, K = [0.20, 2.83]. It slews well but leaves an offset under the disturbance and fails R3. Design 2 only turns on integral action, and gets worse: the integrator winds up during the slew. ${S.showSol ? 'Design 3 is one setting that passes everything: three changes together, the integrator, a faster integral time scale and a ramped command (with a gate as well).' : 'Design 3 is yours: change its settings until all four pass. The script hints that it takes three changes together.'}`;
+    watch = 'The Requirements pane fills in as the run goes. "Zoom on hold" shows the R3 band after 300 s.';
+  } else if (sc === 'windup') {
+    t = 'Protecting the integrator from windup';
+    s = 'All three use integral action on the lab test, each with one fix. Gating (design 1) stops the integrator while the error is large, so it cannot pile up during the slew. A ramped command (design 2) keeps the error small throughout, so there is little to pile up. Both cure the windup, but with T<sub>i</sub> = 60 s the integral removes the disturbance offset too slowly for R3. A faster integrator alone (design 3, T<sub>i</sub> = 20 s) winds up even more: about 29° of overshoot. The lab needs a fast integrator and protection together.';
+    watch = 'The "Integrator z" history: how large z grows during the slew, and how fast it comes back.';
+  } else if (sc === 'sec3') {
+    t = 'A constant disturbance leaves an offset; integral action removes it';
+    const L0 = P.L[0];
+    s = `Holding still while a ${sci(S.gd, 0)} N·m torque pushes. With u = −k₁θ − k₂θ̇ the satellite settles where the controller balances it: θ<sub>ss</sub> = g<sub>d</sub>/(k₁ + k<sub>gg</sub>) = ${fg(L0.thss * R2D, 3)}°. Gravity gradient barely helps: k<sub>gg</sub> is about 6000 times smaller than k₁. Integral action adds a state z = ∫θ dt whose steady state forces the error to zero: design 2 (T<sub>i</sub> = 60 s) peaks at about 0.11° and then clears it; design 3 (T<sub>i</sub> = 20 s) clears it faster.`;
+    watch = 'The "Error" history: design 1 levels off at the predicted offset, the integral designs come back to zero.';
+  } else if (sc === 'sec4') {
+    t = 'Weighting wheel momentum cannot stop it growing';
+    s = 'The same disturbance, now with the wheel momentum fed back, weighted by h<sub>max</sub> = 0.05, 0.5 and 5 N·m·s. Torques between wheel and body never change the total momentum: d/dt(I<sub>p</sub>θ̇ + h) = g<sub>d</sub> − k<sub>gg</sub>θ, whatever the controller does. So h grows at g<sub>d</sub> regardless, and a heavy weight only makes the controller tilt the satellite to fight it: after 10 minutes, 32°, 3.5° and 0.5° of drift, with about 0.3 N·m·s in the wheel every time. Keep the weight light and plan on dumping momentum with an outside torque.';
+    watch = 'The "Wheel h" history: three almost identical ramps. The "Error" history: very different drifts.';
+  } else if (sc === 'sec5') {
+    t = 'Check the design on the nonlinear model, with the limits in place';
+    s = 'A 45° slew with the base gains. Without a torque limit (design 1) it settles in about 65 s with 1.9° of overshoot, but asks for 0.15 N·m, more than seven times what the wheel can give: a fictional response. With the 0.02 N·m limit (design 2) the wheel saturates early, settling takes about 82 s and the overshoot grows to 2.6°: slower, but well behaved, and the wheel stores up to 0.54 N·m·s. With integral action as well (design 3) the integrator winds up during the slew and the overshoot reaches about 27°.';
+    watch = 'The "Torque" history: design 1 far beyond the red limit, design 2 pinned against it.';
+  } else if (sc === 'shape') {
+    t = 'When a slew asks for too much torque: three options';
+    s = 'The 45° slew with the wheel limit. Design 1 steps the command with the base gains and spends its first seconds saturated. Design 2 shapes the command: a 120 s ramp keeps the error, and so the torque, small enough that the wheel never saturates, at the cost of time. Design 3 sizes the weights for the slew (θ<sub>max</sub> = 45° = 0.785 rad): k₁ = u<sub>max</sub>/θ<sub>max</sub> = 0.025 N·m/rad keeps the torque inside the limit, but the controller is slow and a disturbance would push it eight times further. The third option, switching gains between slewing and holding, combines the two.';
+    watch = 'The "Torque" history: only design 1 rides the limit.';
+  } else {
+    t = 'Your own designs';
+    s = 'Each design is the lab script\'s Section 1. The Requirements pane and table score them as the script does.';
+    watch = 'Turn off the wheel limit on a design to see what the linear design alone would do.';
+  }
+  return { t, s, runs, watch };
+}
+let lastV = '';
+function updateReadouts() {
+  el('tOut').textContent = `${fx(simT, 1)} s`;
+  el('phaseChip').textContent = simT < S.tOn ? 'Slewing' : simT < S.tOff ? 'Disturbance on' : 'Disturbance off';
+  const v = card(), key = v.t + v.s + v.runs.join('') + v.watch;
+  if (key !== lastV) {
+    el('vTitle').innerHTML = v.t; el('vSub').innerHTML = v.s;
+    el('vRuns').innerHTML = v.runs.map((x) => `<li>${x}</li>`).join(''); el('vRuns').hidden = !v.runs.length;
+    el('vWatch').innerHTML = v.watch ? `<span class="lbl">Watch</span>${v.watch}` : ''; el('vWatch').hidden = !v.watch;
+    lastV = key;
+  }
+  reqTable(); desTable(); checks();
+  if (S.pane === 'req') drawPane();
+}
+const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.max(Math.abs(b), 1e-300);
+function checks() {
+  const vis = [0, 1, 2].filter((r) => S.shown[r]), L = P.L, items = [], done = simT >= S.T - 1e-6, pat = (r) => REQS.map((_, k) => (reqState(r, k).pass ? 'P' : 'F')).join('');
+  const labStd = S.slew === 30 && S.gd === 5e-4 && S.tOn === 300 && S.tOff === 900 && S.T === 1200;
+  if (currentPreset === 'lab' && labStd && done) {
+    const want = ['PPFP', 'FFFP', S.showSol ? 'PPPP' : null];
+    want.forEach((w, r) => { if (!w || !S.shown[r]) return; items.push({ s: pat(r) === w ? 'ok' : 'bad', t: `Design ${r + 1} scores ${w.split('').map((c, k) => `R${k + 1} ${c === 'P' ? 'pass' : 'fail'}`).join(', ')}, as the script says`, sub: `simulated ${pat(r)}: settle ${fg(REC[r].ts, 3)} s, overshoot ${fg(REC[r].ov, 3)}°, hold ${fg(REC[r].hold, 3)}°, wheel ${fg(REC[r].hpk, 3)} N·m·s` }); });
+  }
+  vis.forEach((r) => {
+    const D = S.runs[r];
+    if (D.useInt && D.thmax === 0.1 && D.Ti === 60 && !(D.wmax > 0) && D.umaxR === 0.02) items.push({ s: near(L[r].kz, 0.003333, 2e-3) && near(L[r].ke, 0.2468, 2e-3) && near(L[r].kw, 3.142, 2e-3) ? 'ok' : 'bad', t: `Design ${r + 1}: §3 integral gains [0.0033, 0.247, 3.14]`, sub: `computed [${fg(L[r].kz, 3)}, ${fg(L[r].ke, 4)}, ${fg(L[r].kw, 4)}], poles ${L[r].e.filter((z) => z.im >= -1e-12).map((z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 4)} ± ${fg(z.im, 3)}j` : fs(z.re, 4))).join(', ')}` });
+  });
+  if (currentPreset === 'sec3' && done && S.shown[0]) {
+    const err = Math.abs(Ys[0][1] - slew()), want = L[0].thss;
+    items.push({ s: near(err, want, 0.01) ? 'ok' : 'bad', t: 'PD offset under the disturbance is g<sub>d</sub>/(k₁ + k<sub>gg</sub>) = 0.14°', sub: `simulated ${fg(err * R2D, 4)}° vs ${fg(want * R2D, 4)}°` });
+    if (S.shown[1]) items.push({ s: Math.abs(Ys[1][1] - slew()) < 0.1 * want ? 'ok' : 'bad', t: 'Integral action takes the offset out', sub: `design 2 ends at ${sci((Ys[1][1] - slew()) * R2D, 1)}°` });
+  }
+  if (currentPreset === 'sec4' && done) {
+    const want = [31.9, 3.49, 0.48];
+    vis.forEach((r) => { const d = Math.abs(Ys[r][1]) * R2D; items.push({ s: near(d, want[r], 0.05) ? 'ok' : 'bad', t: `h<sub>max</sub> = ${fn(S.runs[r].hmax)}: ${want[r]}° drift after 10 min, wheel still +0.3`, sub: `drift ${fg(d, 3)}°, wheel ${fg(Ys[r][3], 3)} N·m·s` }); });
+    const worst = Math.max(...vis.map((r) => Math.min(...L[r].e.map((z) => Math.hypot(z.re, z.im)))));
+    items.push({ s: worst < 1e-4 ? 'ok' : 'bad', t: 'The wheel-momentum eigenvalue stays within 10⁻⁴ s⁻¹ of zero', sub: `slowest pole of each design: ${vis.map((r) => sci(Math.min(...L[r].e.map((z) => Math.hypot(z.re, z.im))), 1)).join(', ')} s⁻¹` });
+  }
+  if (currentPreset === 'sec5' && done) {
+    const want = [[65, 1.9, 0.15], [82, 2.6, null], [null, 27, null]];
+    vis.forEach((r) => { const [ts, ov, up] = want[r], ok = (ts === null || Math.abs(REC[r].ts - ts) < 2) && Math.abs(REC[r].ov - ov) < 0.05 * ov + 0.05 && (up === null || near(REC[r].upk, up, 0.05)); items.push({ s: ok ? 'ok' : 'bad', t: `§5 design ${r + 1}: ${ts ? `settles in ${ts} s, ` : ''}overshoot ${ov}°${up ? `, peak torque ${up} N·m` : ''}`, sub: `simulated ${fg(REC[r].ts, 3)} s, ${fg(REC[r].ov, 3)}°, ${fg(REC[r].upk, 3)} N·m, wheel ${fg(REC[r].hpk, 3)} N·m·s` }); });
+  }
+  if (currentPreset === 'shape' && done) vis.filter((r) => r > 0).forEach((r) => { items.push({ s: REC[r].upk < ULIM ? 'ok' : 'bad', t: `Design ${r + 1} never asks for more than the wheel's 0.02 N·m`, sub: `peak ${fg(REC[r].upk, 3)} N·m, settles in ${fg(REC[r].ts, 3)} s (design 1: ${fg(REC[0].ts, 3)} s)` }); });
+  if (simT > 0) { const e = Math.max(...vis.map((r) => REC[r].mErr)); items.push({ s: e < 1e-9 ? 'ok' : 'bad', t: 'Only outside torques change the total momentum Ipθ̇ + h', sub: `largest mismatch ${sci(e, 1)} N·m·s, whatever the controller did` }); }
+  const dqd = P.dq;
+  items.push({ s: dqd.cerr < 1e-12 ? 'ok' : 'bad', t: 'The error quaternion equals C(q)C(q<sub>c</sub>)ᵀ', sub: `difference ${sci(dqd.cerr, 1)}${S.dq.a[1] === 10 && S.dq.c[1] === 30 && !S.dq.a[0] && !S.dq.c[0] && !S.dq.a[2] && !S.dq.c[2] ? `; Appendix A: δq₂ ${fs(dqd.e.d[2], 4)}, angle ${fx(dqd.e.angle * R2D, 2)}°` : ''}` });
+  const K = P.g3.K, kmax = Math.max(...K.flat().map(Math.abs)), off = Math.max(...[0, 2, 3, 5, 6, 8].map((j) => Math.abs(K[1][j]))) / kmax;
+  items.push({ s: off < 1e-6 ? 'ok' : 'bad', t: 'Three-axis K: the pitch row acts only on pitch states', sub: `largest off-pitch entry ${sci(off, 1)} of the largest gain; Riccati residual ${sci(P.g3.res, 1)}` });
+  el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
+}
+
+/* =========================================================
+   Rebuild pipeline
+   ========================================================= */
+function deriveDq() {
+  const q = qFromEuler(S.dq.a.map((v) => v * D2R)); let qc = qFromEuler(S.dq.c.map((v) => v * D2R));
+  if (S.dq.flip) qc = qc.map((v) => -v);
+  const e = errQuat(q, qc), Ce = Cq(e.d), Cr = mmul(Cq(q), mT(Cq(qc)));
+  const cerr = Math.max(...Ce.flat().map((v, k) => Math.abs(v - Cr[Math.floor(k / 3)][k % 3])));
+  P.dq = { q, qc, e, diff: [q[1] - qc[1], q[2] - qc[2], q[3] - qc[3]], cerr };
+}
+function resetRuns() {
+  P = { L: [0, 1, 2].map(design) };
+  P.g3 = gain3(S.edit); deriveDq();
+  for (let r = 0; r < 3; r++) { Ys[r].fill(0); wheelAng[r] = 0; }
+  simT = 0;
+  const fast = Math.max(...P.L.map((L) => Math.max(...L.e.map((z) => Math.hypot(z.re, z.im)))), 0.01);
+  hStep = Math.min(0.05, 0.05 / fast);
+  hN = 0; hLast = -Infinity; hDt = S.T / 4000;
+  resetRecords(); histPush(true);
+}
+function rebuild() { pastEnd = false; resetRuns(); syncInputs(); setLegend(); lastV = ''; updateReadouts(); drawPane(); drawPlot(); }
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+const fmt = (v) => (!Number.isFinite(v) ? '' : v !== 0 && Math.abs(v) < 1e-3 ? Number(v.toPrecision(3)).toExponential() : String(+v.toPrecision(5)));
+const PAIRS = [
+  ['slewR', 'slewN', (v) => { S.slew = v; }, () => S.slew, 0, false],
+  ['gdR', 'gdN', (v) => { S.gd = v; }, () => S.gd, 0, true],
+  ['hmR', 'hmN', (v) => { S.runs[S.edit].hmax = v; S.runs[S.edit].name = ''; }, () => S.runs[S.edit].hmax, 1e-3, true],
+];
+const toRange = (v, log) => (log ? (v > 0 ? Math.log10(v) : -5) : v);
+const fromRange = (x, log) => (log ? +Math.pow(10, x).toPrecision(3) : x);
+const setBox = (id, v) => { const b = el(id); if (document.activeElement !== b) b.value = v; };
+function syncInputs() {
+  PAIRS.forEach(([rid, nid, , get, , log]) => { el(rid).value = toRange(get(), log); setBox(nid, fmt(get())); });
+  setBox('tOn', fmt(S.tOn)); setBox('tOff', S.tOff > 1e8 ? '' : fmt(S.tOff)); el('tOff').placeholder = 'none'; setBox('tEnd', fmt(S.T));
+  const D = S.runs[S.edit];
+  setBox('thmax', fmt(D.thmax)); setBox('wmax', D.wmax > 0 ? fmt(D.wmax) : ''); setBox('umaxR', fmt(D.umaxR));
+  setBox('Ti', fmt(D.Ti)); setBox('gate', D.gate > 0 ? fmt(D.gate) : ''); setBox('ramp', fmt(D.ramp));
+  el('useInt').checked = D.useInt; el('useH').checked = D.useH; el('useLim').checked = D.useLim;
+  for (let i = 0; i < 3; i++) { setBox('qa' + i, fmt(S.dq.a[i])); setBox('qc' + i, fmt(S.dq.c[i])); }
+  el('chkFlip').checked = S.dq.flip; el('chkSol').checked = S.showSol; el('chkCmd').checked = S.show.cmd; el('chkLabels').checked = S.show.labels;
+  const L = P.L[S.edit];
+  el('runNote').innerHTML = `K = [${L.names.map((n, i) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.K[i], 3)}`).join(', ')}]${L.hDropped ? `. ${ST('warn', 'h not fed back')} with integral action the wheel state cannot be stabilized (see the Three-axis K pane).` : ''}`;
+  el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
+  $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
+  $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
+  $$('#paneSeg [data-pane]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === S.pane)));
+  $$('#histTabs [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === PL.q)));
+  el('paneTitle').textContent = S.pane === 'req' ? 'Scores' : S.pane === 'k3' ? 'Gain' : 'δq';
+  el('paneCap').innerHTML = S.pane === 'req'
+    ? 'Each bar is a design\'s value against its requirement: the dashed line is the limit, the right end twice the limit. Pale bars are still changing.'
+    : S.pane === 'k3' ? 'The 3 × 9 gain for the full satellite from the edited design\'s Bryson limits: teal positive, magenta negative, darker for larger. Its pitch row is the one-axis design above.'
+      : 'The rotation from where the satellite is to where it should be, from the attitudes in the rail. Compare it with the naive difference q − q<sub>c</sub>.';
+  syncSpeed();
+}
+function speedText() { return `${fg(S.speed, 2)}× · ${fn(S.T)} s in ${fg(S.T / S.speed, 2)} s`; }
+function syncSpeed() { el('speedR').value = Math.log10(S.speed); el('speedOut').textContent = speedText(); }
+function edited() { currentPreset = 'custom'; }
+PAIRS.forEach(([rid, nid, set, get, mn, log]) => {
+  const r = el(rid), n = el(nid);
+  r.addEventListener('input', () => { const v = fromRange(+r.value, log); n.value = fmt(v); set(v); edited(); rebuild(); });
+  n.addEventListener('change', () => { let v = parseFloat(n.value); if (!Number.isFinite(v)) { n.value = fmt(get()); return; } if (mn != null) v = Math.max(mn, v); n.value = fmt(v); r.value = toRange(v, log); set(v); edited(); rebuild(); });
+});
+const numBox = (id, apply) => el(id).addEventListener('change', (e) => { const v = parseFloat(e.target.value); apply(Number.isFinite(v) ? v : NaN); edited(); rebuild(); });
+numBox('tOn', (v) => { if (v >= 0) S.tOn = v; });
+numBox('tOff', (v) => { S.tOff = v >= 0 ? v : 1e9; });
+numBox('tEnd', (v) => { if (v >= 10) S.T = v; });
+numBox('thmax', (v) => { if (v > 0) S.runs[S.edit].thmax = v; S.runs[S.edit].name = ''; });
+numBox('wmax', (v) => { S.runs[S.edit].wmax = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
+numBox('umaxR', (v) => { if (v > 0) S.runs[S.edit].umaxR = v; S.runs[S.edit].name = ''; });
+numBox('Ti', (v) => { if (v > 0) S.runs[S.edit].Ti = v; S.runs[S.edit].name = ''; });
+numBox('gate', (v) => { S.runs[S.edit].gate = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
+numBox('ramp', (v) => { S.runs[S.edit].ramp = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
+[['useInt', 'useInt'], ['useH', 'useH'], ['useLim', 'useLim']].forEach(([id, k]) => el(id).addEventListener('change', (e) => { S.runs[S.edit][k] = e.target.checked; S.runs[S.edit].name = ''; edited(); rebuild(); }));
+for (let i = 0; i < 3; i++) {
+  el('qa' + i).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) S.dq.a[i] = v; deriveDq(); syncInputs(); checks(); drawPane(); });
+  el('qc' + i).addEventListener('change', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) S.dq.c[i] = v; deriveDq(); syncInputs(); checks(); drawPane(); });
+}
+el('chkFlip').addEventListener('change', (e) => { S.dq.flip = e.target.checked; deriveDq(); checks(); drawPane(); });
+el('randBtn').addEventListener('click', () => { const rnd = () => +(Math.random() * 360 - 180).toFixed(1); S.dq.a = [rnd(), +(Math.random() * 160 - 80).toFixed(1), rnd()]; S.dq.c = [rnd(), +(Math.random() * 160 - 80).toFixed(1), rnd()]; deriveDq(); syncInputs(); checks(); setPane('dq'); });
+el('appBtn').addEventListener('click', () => { S.dq = { a: [0, 10, 0], c: [0, 30, 0], flip: false }; deriveDq(); syncInputs(); checks(); setPane('dq'); });
+el('chkSol').addEventListener('change', (e) => { S.showSol = e.target.checked; if (currentPreset === 'lab') applyPreset('lab'); });
+el('chkCmd').addEventListener('change', (e) => { S.show.cmd = e.target.checked; });
+el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
+function setEdit(r) { S.edit = r; P.g3 = gain3(r); syncInputs(); drawPane(); }
+$$('#runSeg [data-edit]').forEach((b) => b.addEventListener('click', () => setEdit(+b.dataset.edit)));
+$$('#runChips [data-run]').forEach((b) => b.addEventListener('click', () => { const r = +b.dataset.run; S.shown[r] = !S.shown[r]; if (!S.shown.some(Boolean)) S.shown[r] = true; syncInputs(); setLegend(); fit(); lastV = ''; updateReadouts(); }));
+const PANES = ['req', 'k3', 'dq'];
+function setPane(p) { S.pane = p; syncInputs(); drawPane(); }
+$$('#paneSeg [data-pane]').forEach((b) => b.addEventListener('click', () => setPane(b.dataset.pane)));
+function setTab(q) { PL.q = q; syncInputs(); setLegend(); drawPlot(); }
+$$('#histTabs [data-q]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.q)));
+el('zoomBtn').addEventListener('click', () => { S.zoom = !S.zoom; setLegend(); drawPlot(); });
+el('speedR').addEventListener('input', () => { S.speed = Math.pow(10, +el('speedR').value); el('speedOut').textContent = speedText(); });
+
+/* the lab script's test, and the sections of Lesson 36 */
+const LABT = { slew: 30, gd: 5e-4, tOn: 300, tOff: 900, T: 1200 };
+const PRESETS = {
+  lab: { test: LABT, tab: 'err', runs: () => [{ name: 'as supplied' }, { useInt: true, name: 'integral alone' }, S.showSol ? { useInt: true, Ti: 8, gate: 1, ramp: 60, name: 'solved: Ti 8 s, gate 1°, ramp 60 s' } : { name: 'your design' }] },
+  windup: { test: LABT, tab: 'z', runs: () => [{ useInt: true, gate: 1 }, { useInt: true, ramp: 60 }, { useInt: true, Ti: 20 }] },
+  sec3: { test: { slew: 0, gd: 5e-4, tOn: 0, tOff: 1e9, T: 600 }, tab: 'err', runs: () => [{ name: 'PD' }, { useInt: true, name: 'integral, Ti 60 s' }, { useInt: true, Ti: 20, name: 'integral, Ti 20 s' }] },
+  sec4: { test: { slew: 0, gd: 5e-4, tOn: 0, tOff: 1e9, T: 600 }, tab: 'err', runs: () => [{ useH: true, hmax: 0.05 }, { useH: true, hmax: 0.5 }, { useH: true, hmax: 5 }] },
+  sec5: { test: { slew: 45, gd: 0, tOn: 300, tOff: 1e9, T: 300 }, tab: 'u', runs: () => [{ useLim: false, name: 'no torque limit' }, { name: 'limited to 0.02 N·m' }, { useInt: true, name: 'limited, with integral' }] },
+  shape: { test: { slew: 45, gd: 0, tOn: 300, tOff: 1e9, T: 300 }, tab: 'u', runs: () => [{ name: 'step command' }, { ramp: 120, name: 'ramped over 120 s' }, { thmax: 0.785, name: 'θmax sized for 45°' }] },
+};
+function applyPreset(name) {
+  currentPreset = name;
+  const p = PRESETS[name];
+  Object.assign(S, p.test);
+  S.runs = p.runs().map((o) => mkRun(o));
+  S.shown = [true, true, true];
+  S.speed = +(S.T / 20).toPrecision(2);
+  PL.q = p.tab; S.zoom = false;
+  rebuild(); fit();
+  if (!reduceMotion) setPlaying(true);
+}
+$$('[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+function setPlaying(on) {
+  S.playing = on;
+  el('playBtn').innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2h3v12h-3zM9.5 2h3v12h-3z"/></svg> Pause' : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg> Play';
+}
+let pastEnd = false;
+el('playBtn').addEventListener('click', () => { if (!S.playing && simT >= S.T - 1e-9) pastEnd = true; setPlaying(!S.playing); });
+el('resetBtn').addEventListener('click', () => { pastEnd = false; rebuild(); });
+el('fitBtn').addEventListener('click', () => fit());
+$$('.viewbar [data-view]').forEach((b) => b.addEventListener('click', () => fit(viewDir(b.dataset.view))));
+el('themeBtn').addEventListener('click', () => root.setAttribute('data-theme', COL.dark ? 'light' : 'dark'));
+const fsBtn = el('fsBtn');
+if (!document.fullscreenEnabled) fsBtn.hidden = true;
+fsBtn.addEventListener('click', () => { const pr = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen(); if (pr && pr.catch) pr.catch(() => { fsBtn.hidden = true; }); });
+document.addEventListener('fullscreenchange', () => { fsBtn.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { if (tag === 'button' || tag === 'summary') return; e.preventDefault(); el('playBtn').click(); }
+  else if (k === 'r') el('resetBtn').click();
+  else if (k === 'f') fit();
+  else if (k === 'p') setPane(PANES[(PANES.indexOf(S.pane) + 1) % 3]);
+  else if (k === 'z') el('zoomBtn').click();
+  else if (k === '1' || k === '2' || k === '3') setEdit(+k - 1);
+  else if (k === '0') fit(viewDir('iso'));
+  else if (k === 't') fit(viewDir('top'));
+  else if (k === 's') fit(viewDir('side'));
+});
+document.addEventListener('click', (e) => { const d = el('keys'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* =========================================================
+   Boot
+   ========================================================= */
+if (HAS3D) {
+  try { G = initGL(); new ResizeObserver(() => resize()).observe(vp); resize(); el('gl').addEventListener('dblclick', () => fit()); } catch (err) { G = null; }
+}
+if (!G) {
+  const d = document.createElement('div'); d.className = 'glfail';
+  d.textContent = 'The 3D view could not start. The requirements, the gains, the plots and the analysis still work.';
+  vp.appendChild(d);
+  $$('.viewport .viewbar, #runChips, .viewport .exag').forEach((x) => { x.hidden = true; });
+}
+COL = readColors();
+new ResizeObserver(() => drawPane()).observe(el('paneWrap'));
+new ResizeObserver(() => { capH = el('paneCap').offsetHeight; drawPane(); }).observe(el('paneCap'));
+S.playing = false;
+applyPreset('lab');
+setPlaying(!reduceMotion);
+applyTheme();
+if (G) fit(ISO_L.clone());
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawPlot(); drawPane(); });
+
+let last = performance.now(), roAcc = 0;
+function frame(now) {
+  const dtReal = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) {
+    let dt = dtReal * S.speed;
+    if (!pastEnd && simT + dt >= S.T) { dt = Math.max(0, S.T - simT); setPlaying(false); pastEnd = true; }
+    if (dt > 0) advance(dt);
+  }
+  if (G) { updateDynamic(dtReal); G.sun.position.copy(G.cam.position); G.sun.target.position.copy(G.controls.target); G.controls.update(); G.renderer.render(G.scene, G.cam); updateLabels(); }
+  drawPlot();
+  roAcc += dtReal; if (roAcc > 0.12) { roAcc = 0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.__tune = { S, P: () => P, Ys, REC, advance, rebuild, applyPreset, updateReadouts, design, gain3, errQuat, lqr, eig, reqState, t: () => simT, hist: () => ({ hN, Ht, HQ }), setPlaying, setPane, setTab, setEdit, G: () => G };
+})();
+</script>
+</body>
+</html>
