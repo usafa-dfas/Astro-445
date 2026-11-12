@@ -23,6 +23,7 @@ This repo is the private working copy. On every push to `main`, the workflow in 
 | `reaction-wheel-dynamics-explorer/` | Lesson 33 reaction-wheel plant model: the notes' nonlinear equations in the LVLH frame, a live torque budget, roll-to-yaw momentum migration (Appendix A), saturation and momentum dumping, and the three classic simulation mistakes |
 | `linearization-explorer/` | Lesson 34 linearization: the nonlinear satellite beside its linear model, the 9×9 A and B as a heatmap with the pitch / roll–yaw split, the eigenvalues named by mode, a numerical-Jacobian check, and an operating point that is not an equilibrium |
 | `lqr-design-explorer/` | Lesson 35 LQR: three one-axis designs by Bryson's rule or by hand, poles and root locus as Q/R sweeps, the Riccati solution beside the Appendix A closed forms, where the cost goes, units, ratio and robustness |
+| `lqr-tuning-lab/` | Lesson 36 LQR tuning lab: the MATLAB script's 30° slew and disturbance on the nonlinear, torque-limited pitch axis, three designs scored against R1–R4, integral action and windup fixes, wheel-momentum weighting, the 3 × 9 gain and an error-quaternion calculator |
 
 ## Adding a lesson
 1. Create a folder, e.g. `nutation-demo/`, and put the app in `nutation-demo/index.html`.
