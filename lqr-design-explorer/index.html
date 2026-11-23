@@ -512,6 +512,7 @@ table.modes td { white-space: normal; }
           <button class="btn" type="button" data-q="u">Torque u</button>
           <button class="btn" type="button" data-q="w">Rate θ̇</button>
           <button class="btn" type="button" data-q="J">Cost J(t)</button>
+          <button class="btn" type="button" data-q="E">Effort ∫<span class="sym">u</span>²</button>
         </div>
         <span class="hlegs" id="hlegs"></span>
       </div>
@@ -535,6 +536,8 @@ table.modes td { white-space: normal; }
           <dd>The controller measures every state, here the angle and the rate, and sets the torque to a fixed combination of them, u = −Kx.</dd>
           <dt>Cost J</dt>
           <dd>A score for the whole response: the integral of the weighted squared error plus the weighted squared torque. LQR finds the K with the smallest score.</dd>
+          <dt>Control effort</dt>
+          <dd>How hard the wheel works over the whole response, measured here as ∫u² dt. Unlike J it does not depend on R, so it compares designs fairly: a larger R raises J but lowers the effort.</dd>
           <dt>Q and R</dt>
           <dd>How much you care about each state error and about effort. Raise Q to tighten a state; raise R to calm the actuator. Only their ratio matters.</dd>
           <dt>Bryson's rule</dt>
@@ -834,7 +837,16 @@ function solve(r) {
   const k1h = Math.sqrt(Q[0][0] / R), k2h = Math.sqrt(2 * S.Ip * k1h + Q[1][1] / R);
   // the same weights on the plant without its gravity-gradient spring, to show how little the spring moves the gain
   const K0 = S.gg ? lqr([[0, 1], [0, 0]], B, Q, [[R]]).K[0] : K;
-  return { K0, Q, R, K, P: L.P, res: L.res, e: L.e, eg, ts: -4 / slow, wn: Math.sqrt((K[0] + (S.gg ? KGG : 0)) / S.Ip), zeta: K[1] / (2 * Math.sqrt((K[0] + (S.gg ? KGG : 0)) * S.Ip)), k1h, k2h, Jstar: P_quad(L.P, [S.th0 * D2R, 0]) };
+  return { K0, Q, R, K, P: L.P, res: L.res, e: L.e, eg, ts: -4 / slow, wn: Math.sqrt((K[0] + (S.gg ? KGG : 0)) / S.Ip), zeta: K[1] / (2 * Math.sqrt((K[0] + (S.gg ? KGG : 0)) * S.Ip)), k1h, k2h, Jstar: P_quad(L.P, [S.th0 * D2R, 0]), Einf: effortInf(K, S.runs[r].gf) };
+}
+/* the whole effort to t = infinity, x0' X x0, from the Lyapunov equation Ac' X + X Ac + g^2 K'K = 0 for the linear closed loop with the actual gain g.
+   With Ac = [0 1; -p -d] and X = [a b; b c] it solves by hand: b = M11/2p, c = (2b + M22)/2d, a = d b + p c - M12 */
+function effortInf(K, g) {
+  const p = (g * K[0] + (S.gg ? KGG : 0)) / S.Ip, d = g * K[1] / S.Ip;
+  if (!(p > 0 && d > 0)) return Infinity;
+  const M11 = g * g * K[0] * K[0], M12 = g * g * K[0] * K[1], M22 = g * g * K[1] * K[1];
+  const b = M11 / (2 * p), c = (2 * b + M22) / (2 * d), a = d * b + p * c - M12, th0 = S.th0 * D2R;
+  return a * th0 * th0;
 }
 const P_quad = (Pm, x) => x[0] * (Pm[0][0] * x[0] + Pm[0][1] * x[1]) + x[1] * (Pm[1][0] * x[0] + Pm[1][1] * x[1]);
 /* the root locus of one design: its poles as both Q entries are scaled from 1/100 to 100 times */
@@ -845,8 +857,8 @@ function locus(r) {
 }
 
 /* ---------- three runs ----------
-   y = [theta, theta_dot, J_state, J_effort, h_wheel] */
-const NY = 5;
+   y = [theta, theta_dot, J_state, J_effort, h_wheel, effort]: J_effort is R times the torque asked for, squared; effort is the torque the wheel gave, squared */
+const NY = 6;
 const Ys = [0, 1, 2].map(() => new Float64Array(NY));
 const K1 = new Float64Array(NY), K2 = new Float64Array(NY), K3 = new Float64Array(NY), K4 = new Float64Array(NY), YT = new Float64Array(NY);
 let simT = 0, hStep = 0.05;
@@ -863,6 +875,7 @@ function deriv(r, y, out) {
   out[2] = L.Q[0][0] * y[0] * y[0] + L.Q[1][1] * y[1] * y[1];
   out[3] = L.R * uc * uc;
   out[4] = -u;
+  out[5] = u * u;
 }
 function rk4(r, h) {
   const Y = Ys[r];
@@ -897,7 +910,7 @@ function trackRun(r) {
 /* ---------- history ---------- */
 const HCAP = 12000;
 const Ht = new Float64Array(HCAP);
-const HK = ['th', 'u', 'w', 'J'];
+const HK = ['th', 'u', 'w', 'J', 'E'];
 const HQ = {}; HK.forEach((k) => { HQ[k] = [0, 1, 2].map(() => new Float32Array(HCAP)); });
 let hN = 0, hLast = -Infinity, hDt = 0.1;
 function histCompact() {
@@ -910,7 +923,7 @@ function histPush(force) {
   if (hN >= HCAP) histCompact();
   const i = hN++;
   Ht[i] = simT; hLast = simT;
-  for (let r = 0; r < 3; r++) { const Y = Ys[r]; HQ.th[r][i] = Y[0] * R2D; HQ.u[r][i] = uOf(r, Y); HQ.w[r][i] = Y[1] * R2D; HQ.J[r][i] = Y[2] + Y[3]; }
+  for (let r = 0; r < 3; r++) { const Y = Ys[r]; HQ.th[r][i] = Y[0] * R2D; HQ.u[r][i] = uOf(r, Y); HQ.w[r][i] = Y[1] * R2D; HQ.J[r][i] = Y[2] + Y[3]; HQ.E[r][i] = Y[5]; }
 }
 function advance(dt) {
   if (!(dt > 0)) return;
@@ -1171,7 +1184,8 @@ const QINFO = {
   th: { unit: 'pitch error θ, deg', key: 'th' },
   u: { unit: 'commanded torque u, N·m', key: 'u', lim: true },
   w: { unit: 'pitch rate θ̇, deg/s', key: 'w' },
-  J: { unit: 'running cost J(t) (dashed: J* = x₀ᵀPx₀)', key: 'J', jstar: true },
+  J: { unit: 'running cost J(t) (dashed: J* = x₀ᵀPx₀)', key: 'J', ref: 'Jstar' },
+  E: { unit: 'control effort ∫u² dt, N²·m²·s (dashed: the total, to t = ∞)', key: 'E', ref: 'Einf' },
 };
 function setLegend() {
   el('hlegs').innerHTML = [0, 1, 2].filter((r) => S.shown[r]).map((r) => `<span class="hleg"><span class="ln" style="--c:var(--run${r})"></span>${runHTML(r)}</span>`).join('');
@@ -1183,7 +1197,7 @@ function drawPlot() {
   if (pw < 40 || ph < 30) return;
   const info = QINFO[PL.q], key = info.key, x0 = 0, x1 = Math.max(simT, S.dur, 1e-3);
   let mn = Infinity, mx = -Infinity;
-  for (let k = 0; k < 3; k++) { if (!S.shown[k]) continue; const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; } if (info.jstar) mx = Math.max(mx, P.L[k].Jstar); }
+  for (let k = 0; k < 3; k++) { if (!S.shown[k]) continue; const a = HQ[key][k]; for (let i = 0; i < hN; i++) { const v = a[i]; if (!isFinite(v)) continue; if (v < mn) mn = v; if (v > mx) mx = v; } if (info.ref && !(info.key === 'E' && S.lim) && isFinite(P.L[k][info.ref])) mx = Math.max(mx, P.L[k][info.ref]); }
   if (info.lim && S.lim) { mx = Math.max(mx, ULIM); mn = Math.min(mn, -ULIM); }
   if (!isFinite(mn)) { mn = 0; mx = 1; }
   let span = mx - mn; if (span < 1e-12) span = Math.max(Math.abs(mx) * 0.1, 1e-6);
@@ -1206,7 +1220,7 @@ function drawPlot() {
   if (PL.q === 'th') { const b2 = 0.02 * S.th0; ctx.fillStyle = COL.good; ctx.globalAlpha = 0.08; ctx.fillRect(l, Yp(b2), pw, Yp(-b2) - Yp(b2)); ctx.globalAlpha = 1; }
   for (let k = 0; k < 3; k++) {
     if (!S.shown[k] || hN < 2) continue;
-    if (info.jstar) hl(P.L[k].Jstar, COL['run' + k]);
+    if (info.ref && !(info.key === 'E' && S.lim) && isFinite(P.L[k][info.ref])) hl(P.L[k][info.ref], COL['run' + k]);
     const a = HQ[key][k]; ctx.strokeStyle = COL['run' + k]; ctx.lineWidth = 1.8; ctx.beginPath();
     for (let i = 0; i < hN; i++) { const x = X(Ht[i]), y = Yp(a[i]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
     ctx.stroke(); ctx.lineWidth = 1;
@@ -1263,6 +1277,8 @@ function runTable() {
   h += row('Settling ≈ 4/σ <span class="u">s</span>', (r) => cell(r, fg(L[r].ts, 3)));
   h += row(`${SYM('J')}* = ${SYM('x')}₀ᵀ${SYM('Px')}₀`, (r) => cell(r, fg(L[r].Jstar, 4)), true);
   h += row('Cost so far', (r) => cell(r, fg(Ys[r][2] + Ys[r][3], 4)));
+  h += row(`Effort ∫${SYM('u')}² d${SYM('t')}, to ∞ <span class="u">N²·m²·s</span>`, (r) => cell(r, S.lim ? '—' : fg(L[r].Einf, 3)), true);
+  h += row('Effort so far', (r) => cell(r, fg(Ys[r][5], 3)));
   h += row('Peak torque <span class="u">N·m</span>', (r) => cell(r, fg(REC[r].uPk, 3), REC[r].uPk > ULIM * 1.001 ? 'bad' : ''), true);
   h += row('Overshoot <span class="u">°</span>', (r) => cell(r, fg(REC[r].ov * R2D, 3)));
   h += row('Inside 2% after <span class="u">s</span>', (r) => cell(r, Math.abs(Ys[r][0]) <= 0.02 * S.th0 * D2R ? fg(REC[r].tIn, 3) : '—'));
@@ -1277,7 +1293,7 @@ function card() {
   const sc = currentPreset;
   if (sc === 'app') {
     t = 'LQR on one axis is a PD controller, and the weights set its speed';
-    s = `Lesson 35's appendix: θ̈ = u/I<sub>p</sub> with I<sub>p</sub> = 20 kg·m². Bryson's rule with θ<sub>max</sub> = 0.1 rad and u<sub>max</sub> = 0.02 N·m gives Q = diag(100, 0), R = 2500 and K = [0.20, 2.83]: u = −0.20θ − 2.83θ̇, a PD controller with ζ = 0.707 exactly, the value any angle-only weighting gives a double integrator. Bryson makes the limits meet: a 0.1 rad error asks for k₁θ<sub>max</sub> = 0.02 N·m, exactly u<sub>max</sub>. Design 2 quadruples R (u<sub>max</sub> = 0.01): half the angle gain, but only √2 slower, because ω<sub>n</sub> goes as (Q₁₁/R)<sup>¼</sup>. Design 3 adds a rate weight: no overshoot, but a slow real pole sets a longer settling time.`;
+    s = `Lesson 35's appendix: θ̈ = u/I<sub>p</sub> with I<sub>p</sub> = 20 kg·m². Bryson's rule with θ<sub>max</sub> = 0.1 rad and u<sub>max</sub> = 0.02 N·m gives Q = diag(100, 0), R = 2500 and K = [0.20, 2.83]: u = −0.20θ − 2.83θ̇, a PD controller with ζ = 0.707 exactly, the value any angle-only weighting gives a double integrator. Bryson makes the limits meet: a 0.1 rad error asks for k₁θ<sub>max</sub> = 0.02 N·m, exactly u<sub>max</sub>. Design 2 quadruples R (u<sub>max</sub> = 0.01): half the angle gain, but only √2 slower, because ω<sub>n</sub> goes as (Q₁₁/R)<sup>¼</sup>. Design 3 adds a rate weight: no overshoot, but a slow real pole sets a longer settling time. Design 2 scores a higher cost than design 1 (J* = 20 against 14) yet uses about a third of the effort: J counts torque at R's exchange rate, so compare designs with different R on the Effort tab, not by J.`;
     watch = 'The poles pane: designs 1 and 2 sit on the dashed ζ = 0.707 rays, design 3 on the real axis. Settling 57, 80 and 77 s in the table.';
   } else if (sc === 'ratio') {
     t = 'Only the ratio of Q to R matters';
@@ -1346,6 +1362,7 @@ function checks() {
   if (simT >= 0.98 * S.dur && !S.lim) vis.filter((r) => S.runs[r].gf === 1 && !S.gg).forEach((r) => {
     const J = Ys[r][2] + Ys[r][3];
     items.push({ s: near(J, L[r].Jstar, 5e-3) ? 'ok' : 'warn', t: `Design ${r + 1}: the response costs exactly J* = x₀ᵀPx₀`, sub: `integrated ${fg(J, 6)} vs ${fg(L[r].Jstar, 6)}` });
+    items.push({ s: near(Ys[r][5], L[r].Einf, 5e-3) ? 'ok' : 'warn', t: `Design ${r + 1}: the effort ∫u² dt matches the Lyapunov solution`, sub: `integrated ${sci(Ys[r][5], 3)} vs ${sci(L[r].Einf, 3)} N²·m²·s` });
   });
   el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
 }
