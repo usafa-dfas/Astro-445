@@ -140,6 +140,8 @@ input[type=number] {
 .trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
 .trio label .sym { color: var(--ink); }
 .trio label.idle { opacity: 0.55; }
+.trio label .nu { display: none; font-size: 10.5px; font-style: italic; }
+.trio label.idle .nu { display: block; }
 
 /* buttons */
 .btn {
@@ -432,13 +434,13 @@ table.modes td { white-space: normal; }
         <div id="rawBox" class="runedit-in">
           <div class="trio">
             <div class="lab">Q<span class="u" id="rawUnits">rad units</span></div>
-            <label title="Weight on the integrator state z = ∫e dt; used only with integral action"><span><span class="sym">Q</span><sub>z</sub></span><input type="number" id="qz" min="0" step="any" aria-label="Q_z, weight on the integrator state"></label>
+            <label title="Weight on the integrator state z = ∫e dt; used only with integral action"><span><span class="sym">Q</span><sub>z</sub><span class="nu">not used</span></span><input type="number" id="qz" min="0" step="any" aria-label="Q_z, weight on the integrator state"></label>
             <label title="Weight on the attitude error"><span><span class="sym">Q</span><sub>θ</sub></span><input type="number" id="qe" min="0" step="any" aria-label="Q_theta, weight on the attitude error"></label>
             <label title="Weight on the rate error, θ̇ − θ̇c"><span><span class="sym">Q</span><sub>ω</sub></span><input type="number" id="qw" min="0" step="any" aria-label="Q_omega, weight on the rate error"></label>
           </div>
           <div class="trio">
             <div class="lab">and R<span class="u">N·m·s, N·m</span></div>
-            <label title="Weight on the wheel momentum; used only when it is fed back, without integral action"><span><span class="sym">Q</span><sub>h</sub></span><input type="number" id="qh" min="0" step="any" aria-label="Q_h, weight on the wheel momentum"></label>
+            <label title="Weight on the wheel momentum; used only when it is fed back, without integral action"><span><span class="sym">Q</span><sub>h</sub><span class="nu">not used</span></span><input type="number" id="qh" min="0" step="any" aria-label="Q_h, weight on the wheel momentum"></label>
             <label><span class="sym">R</span><input type="number" id="rr" min="1e-12" step="any" aria-label="R, weight on the torque"></label>
             <span></span>
           </div>
