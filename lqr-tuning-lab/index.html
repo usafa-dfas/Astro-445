@@ -166,6 +166,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .seg.wrap { flex-wrap: wrap; row-gap: 4px; }
 .runedit .seg .btn { padding: 3px 8px; font-size: 13px; }
 .runedit { display: grid; gap: 9px; padding-left: 8px; border-left: 3px solid var(--sw); }
+.runedit [hidden] { display: none !important; }
 #runSeg .btn { padding: 4px 10px; }
 #runSeg .btn .sw { width: 9px; height: 9px; margin-right: 5px; }
 .swaps .btn { padding: 3px 8px; font-size: 12.5px; }
@@ -414,11 +415,37 @@ table.modes td { white-space: normal; }
         <button class="btn" type="button" data-edit="2"><span class="sw" style="--sw:var(--run2)"></span>Design 3</button>
       </div>
       <div class="runedit" id="runEdit" style="--sw:var(--run0)">
-        <div class="trio">
+        <div class="row"><span class="lbl">weights</span>
+          <div class="seg" role="group" aria-label="How the weights are set" id="modeSeg">
+            <button class="btn" type="button" data-mode="bryson">Bryson's rule</button>
+            <button class="btn" type="button" data-mode="raw">by hand</button>
+          </div>
+        </div>
+        <div class="trio" id="brysonBox">
           <div class="lab">Bryson<span class="u">limits</span></div>
           <label>θmax, rad<input type="number" id="thmax" min="1e-4" step="any" aria-label="thmax, rad: Bryson attitude limit"></label>
           <label>ωmax, rad/s<input type="number" id="wmax" min="0" step="any" placeholder="Inf" aria-label="wmax, rad/s: Bryson rate limit; empty means no rate weight"></label>
           <label>umaxR, N·m<input type="number" id="umaxR" min="1e-6" step="any" aria-label="umaxR, N·m: torque used in Bryson's R"></label>
+        </div>
+        <div id="rawBox" class="runedit-in">
+          <div class="trio">
+            <div class="lab">Q<span class="u" id="rawUnits">rad units</span></div>
+            <label title="Weight on the integrator state z = ∫e dt; used only with integral action"><span><span class="sym">Q</span><sub>z</sub></span><input type="number" id="qz" min="0" step="any" aria-label="Q_z, weight on the integrator state"></label>
+            <label title="Weight on the attitude error"><span><span class="sym">Q</span><sub>θ</sub></span><input type="number" id="qe" min="0" step="any" aria-label="Q_theta, weight on the attitude error"></label>
+            <label title="Weight on the rate error, θ̇ − θ̇c"><span><span class="sym">Q</span><sub>ω</sub></span><input type="number" id="qw" min="0" step="any" aria-label="Q_omega, weight on the rate error"></label>
+          </div>
+          <div class="trio">
+            <div class="lab">and R<span class="u">N·m·s, N·m</span></div>
+            <label title="Weight on the wheel momentum; used only when it is fed back, without integral action"><span><span class="sym">Q</span><sub>h</sub></span><input type="number" id="qh" min="0" step="any" aria-label="Q_h, weight on the wheel momentum"></label>
+            <label><span class="sym">R</span><input type="number" id="rr" min="1e-12" step="any" aria-label="R, weight on the torque"></label>
+            <span></span>
+          </div>
+          <div class="row"><span class="lbl">state in</span>
+            <div class="seg" role="group" aria-label="Units the weights are written in" id="unitSeg">
+              <button class="btn" type="button" data-unit="rad">rad, rad/s</button>
+              <button class="btn" type="button" data-unit="deg">deg, deg/s</button>
+            </div>
+          </div>
         </div>
         <label class="check"><input type="checkbox" id="useInt"> Integral action (useInt)</label>
         <div class="trio">
@@ -428,7 +455,7 @@ table.modes td { white-space: normal; }
           <label>ramp, s<input type="number" id="ramp" min="0" step="any" aria-label="ramp, s: ramp the command over this time; 0 means a step"></label>
         </div>
         <label class="check"><input type="checkbox" id="useH"> Feed back wheel momentum, weight below</label>
-        <div class="slider"><label for="hmR"><span class="sym">h</span><sub class="n">max</sub><span class="u">N·m·s</span></label><input type="range" id="hmR" min="-2" max="1" step="0.01" aria-label="Wheel momentum weight slider, logarithmic"><input type="number" id="hmN" min="1e-3" step="any" aria-label="hmax, N·m·s"></div>
+        <div class="slider" id="hmRow"><label for="hmR"><span class="sym">h</span><sub class="n">max</sub><span class="u">N·m·s</span></label><input type="range" id="hmR" min="-2" max="1" step="0.01" aria-label="Wheel momentum weight slider, logarithmic"><input type="number" id="hmN" min="1e-3" step="any" aria-label="hmax, N·m·s"></div>
         <label class="check"><input type="checkbox" id="useLim"> Wheel torque limited to 0.02 N·m</label>
         <p class="note" id="runNote"></p>
       </div>
@@ -586,7 +613,7 @@ table.modes td { white-space: normal; }
         <div>
           <div class="lab">Design model (one axis)</div>
           <div><i>x</i> = [<i>z</i>, <i>θ</i>, <i>θ̇</i>, <i>h</i>] (z and h when chosen), &nbsp;<i>ż</i> = <i>θ</i>, &nbsp;<i>I</i><sub>p</sub><i>θ̈</i> = <i>u</i> − <i>k</i><sub>gg</sub><i>θ</i>, &nbsp;<i>ḣ</i> = −<i>u</i></div>
-          <div><i>Q</i> = diag(1/(θ<sub>max</sub><i>T</i><sub>i</sub>)², 1/θ<sub>max</sub>², 1/ω<sub>max</sub>², 1/<i>h</i><sub>max</sub>²), &nbsp;<i>R</i> = 1/<i>u</i><sub>maxR</sub>²</div>
+          <div><i>Q</i> = diag(1/(θ<sub>max</sub><i>T</i><sub>i</sub>)², 1/θ<sub>max</sub>², 1/ω<sub>max</sub>², 1/<i>h</i><sub>max</sub>²), &nbsp;<i>R</i> = 1/<i>u</i><sub>maxR</sub>² by Bryson's rule, or Q<sub>z</sub>, Q<sub>θ</sub>, Q<sub>ω</sub> (on θ̇), Q<sub>h</sub> and R typed by hand</div>
         </div>
         <div class="box">
           <div class="lab">Controller, as in the lab script</div>
@@ -873,6 +900,14 @@ const MU = 3.986004418e14, RE = 6378.137e3, WC = Math.sqrt(MU / Math.pow(RE + 60
 const IP = 20, IR = 18, IY = 8, KGG = 3 * WC * WC * (IR - IY), ULIM = 0.02;
 let P = {};
 /* a design from the script's Section 1: state names, A, B, Q and the LQR gain */
+/* a design's diagonal weights in radians: from Bryson's limits, or as typed (per deg² converted to per rad²) */
+function weights(r) {
+  const D = S.runs[r];
+  if (D.mode === 'raw') { const s = D.unit === 'deg' ? R2D * R2D : 1; return { Qz: D.qz * s, Qe: D.qe * s, Qw: D.qw * s, Qh: D.qh, R: D.rr }; }
+  return { Qz: 1 / (D.thmax * D.Ti) ** 2, Qe: 1 / D.thmax ** 2, Qw: D.wmax > 0 ? 1 / D.wmax ** 2 : 0, Qh: 1 / D.hmax ** 2, R: 1 / D.umaxR ** 2 };
+}
+/* the same weights written in the unit the boxes use, to seed "by hand" from the Bryson design */
+function seedRaw(D, W) { const s = D.unit === 'deg' ? D2R * D2R : 1, r3 = (v) => +v.toPrecision(6); D.qz = r3(W.Qz * s); D.qe = r3(W.Qe * s); D.qw = r3(W.Qw * s); D.qh = r3(W.Qh); D.rr = r3(W.R); }
 function design(r) {
   const D = S.runs[r], useH = D.useH && !D.useInt;   // with integral action the wheel state cannot be stabilized (see the K pane)
   const names = (D.useInt ? ['z'] : []).concat(['e', 'w'], useH ? ['h'] : []), n = names.length, ix = (k) => names.indexOf(k);
@@ -880,12 +915,16 @@ function design(r) {
   if (D.useInt) A[ix('z')][ix('e')] = 1;
   A[ix('e')][ix('w')] = 1; A[ix('w')][ix('e')] = -KGG / IP; B[ix('w')][0] = 1 / IP;
   if (useH) B[ix('h')][0] = -1;
-  if (D.useInt) Q[ix('z')][ix('z')] = 1 / (D.thmax * D.Ti) ** 2;
-  Q[ix('e')][ix('e')] = 1 / D.thmax ** 2;
-  Q[ix('w')][ix('w')] = D.wmax > 0 ? 1 / D.wmax ** 2 : 0;
-  if (useH) Q[ix('h')][ix('h')] = 1 / D.hmax ** 2;
-  const L = lqr(A, B, Q, [[1 / D.umaxR ** 2]]), K = L.K[0], g = (k) => (ix(k) >= 0 ? K[ix(k)] : 0);
-  return { names, K, kz: g('z'), ke: g('e'), kw: g('w'), kh: g('h'), e: L.e, res: L.res, hDropped: D.useH && D.useInt, thss: S.gd / (g('e') + KGG) };
+  const W = weights(r);
+  if (D.useInt) Q[ix('z')][ix('z')] = W.Qz;
+  Q[ix('e')][ix('e')] = W.Qe;
+  Q[ix('w')][ix('w')] = W.Qw;
+  if (useH) Q[ix('h')][ix('h')] = W.Qh;
+  let L, ok = true;
+  try { L = lqr(A, B, Q, [[W.R]]); ok = L.K[0].every(Number.isFinite) && L.e.every((z) => z.re < 0); } catch (err) { ok = false; }
+  if (!ok) L = { K: [new Array(n).fill(0)], e: [], res: NaN };   // no stabilizing solution: a zero weight left a state the cost cannot see
+  const K = L.K[0], g = (k) => (ix(k) >= 0 ? K[ix(k)] : 0);
+  return { ok, W, Q, names, K, kz: g('z'), ke: g('e'), kw: g('w'), kh: g('h'), e: L.e, res: L.res, hDropped: D.useH && D.useInt, thss: S.gd / (g('e') + KGG) };
 }
 /* the Lesson 34 nine-state model, analytic, for 18, 20, 8 kg m^2 and a -0.4 N m s pitch bias */
 function model9() {
@@ -896,19 +935,21 @@ function model9() {
   for (let i = 0; i < 3; i++) { for (let j = 0; j < 3; j++) { A[i][j] = sx[i][j] / I[i]; A[i][3 + j] = Awq[i][j] / I[i]; A[i][6 + j] = Awh[i][j] / I[i]; } A[3 + i][i] = 0.5; B[i][i] = 1 / I[i]; B[6 + i][i] = -1; }
   return { A, B };
 }
-/* the three-axis gain for the edited design's Bryson limits: x = [w, q, h~] or, with integral action, [w, q, z] */
+/* the three-axis gain for the edited design's weights: x = [w, q, h~] or, with integral action, [w, q, z] */
 function gain3(r) {
-  const D = S.runs[r], { A, B } = model9(), n = 9, An = zeros(n), Bn = zeros(n, 3), Q = zeros(n), R = mscale(eye(3), 1 / D.umaxR ** 2);
-  const hm = D.useH ? D.hmax : 5;
+  const D = S.runs[r], W = weights(r), { A, B } = model9(), n = 9, An = zeros(n), Bn = zeros(n, 3), Q = zeros(n), R = mscale(eye(3), W.R);
+  const Qh = D.useH ? W.Qh : 1 / 25;   // a light default weight, h_max = 5 N m s, when the one-axis design does not feed h back
   for (let i = 0; i < 6; i++) { for (let j = 0; j < 6; j++) An[i][j] = A[i][j]; for (let j = 0; j < 3; j++) Bn[i][j] = B[i][j]; }
   for (let i = 0; i < 3; i++) {
-    Q[i][i] = D.wmax > 0 ? 1 / D.wmax ** 2 : 0; Q[3 + i][3 + i] = 1 / (D.thmax / 2) ** 2;
-    if (D.useInt) { An[6 + i][3 + i] = 2; Q[6 + i][6 + i] = 1 / (D.thmax * D.Ti) ** 2; }   // z = integral of the angle, 2q
-    else { for (let j = 0; j < 9; j++) An[i][j] = A[i][j]; for (let j = 0; j < 9; j++) An[6 + i][j] = A[6 + i][j]; Bn[6 + i][i] = -1; Q[6 + i][6 + i] = 1 / hm ** 2; }
+    Q[i][i] = W.Qw; Q[3 + i][3 + i] = 4 * W.Qe;   // q is half the angle, so a weight per rad² of angle is 4 times that per unit q²
+    if (D.useInt) { An[6 + i][3 + i] = 2; Q[6 + i][6 + i] = W.Qz; }   // z = integral of the angle, 2q
+    else { for (let j = 0; j < 9; j++) An[i][j] = A[i][j]; for (let j = 0; j < 9; j++) An[6 + i][j] = A[6 + i][j]; Bn[6 + i][i] = -1; Q[6 + i][6 + i] = Qh; }
   }
   if (!D.useInt) for (let i = 0; i < 6; i++) for (let j = 6; j < 9; j++) An[i][j] = A[i][j];
-  const L = lqr(An, Bn, Q, R);
-  return { K: L.K, res: L.res, e: L.e, names: ['ω₁', 'ω₂', 'ω₃', 'q₁', 'q₂', 'q₃'].concat(D.useInt ? ['z₁', 'z₂', 'z₃'] : ['h̃₁', 'h̃₂', 'h̃₃']) };
+  let L, ok = true;
+  try { L = lqr(An, Bn, Q, R); ok = L.K.flat().every(Number.isFinite) && L.e.every((z) => z.re < 0); } catch (err) { ok = false; }
+  if (!ok) L = { K: zeros(3, 9), res: NaN, e: [] };
+  return { ok, Qh, K: L.K, res: L.res, e: L.e, names: ['ω₁', 'ω₂', 'ω₃', 'q₁', 'q₂', 'q₃'].concat(D.useInt ? ['z₁', 'z₂', 'z₃'] : ['h̃₁', 'h̃₂', 'h̃₃']) };
 }
 /* the error quaternion of the notes, with the short-way sign flip */
 function errQuat(q, qc) {
@@ -964,7 +1005,7 @@ function rk4(r, h, t) {
 /* =========================================================
    State
    ========================================================= */
-const mkRun = (o) => Object.assign({ thmax: 0.1, wmax: 0, umaxR: 0.02, useInt: false, Ti: 60, gate: 0, ramp: 0, useH: false, hmax: 5, useLim: true, name: '' }, o);
+const mkRun = (o) => Object.assign({ mode: 'bryson', thmax: 0.1, wmax: 0, umaxR: 0.02, unit: 'rad', qz: 1 / 36, qe: 100, qw: 0, qh: 0.04, rr: 2500, useInt: false, Ti: 60, gate: 0, ramp: 0, useH: false, hmax: 5, useLim: true, name: '' }, o);
 const S = {
   slew: 30, gd: 5e-4, tOn: 300, tOff: 900, T: 1200,
   runs: [mkRun({}), mkRun({}), mkRun({})],
@@ -1211,6 +1252,7 @@ function drawK3() {
   if (!COL.ink) return;
   const g = P.g3, K = g.K, m = { l: 40, r: 12, t: 84, b: capH + 70 }, cs = Math.floor(Math.min((W - m.l - m.r) / 9, (H - m.t - m.b) / 3.4));
   if (cs < 18) return;
+  if (!g.ok) { ctx.font = UIF(500, 14); ctx.fillStyle = COL.bad; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; wrapText(ctx, `No stabilizing three-axis gain for design ${S.edit + 1}'s weights: a zero weight leaves a state the cost cannot see (Q_θ must be positive, and so must Q_h when the wheel is fed back). Raise it and the gain returns.`, m.l, m.t, W - 2 * m.l, 20); return; }
   const ox = m.l, oy = m.t, pos = hexRGB(COL.pos), neg = hexRGB(COL.neg), bg = hexRGB(COL.view), kmax = Math.max(...K.flat().map(Math.abs));
   const fill = (v) => { const c = v > 0 ? pos : neg, a = v === 0 ? 0 : clamp((Math.log10(Math.abs(v) / kmax) + 6) / 6, 0.1, 1); return `rgb(${Math.round(bg[0] + (c[0] - bg[0]) * a)},${Math.round(bg[1] + (c[1] - bg[1]) * a)},${Math.round(bg[2] + (c[2] - bg[2]) * a)})`; };
   ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
@@ -1226,12 +1268,13 @@ function drawK3() {
   ctx.font = UIF(600, 12.5); ctx.fillStyle = COL.muted;
   g.names.forEach((n, j) => ctx.fillText(n, ox + j * cs + cs / 2, oy - 10));
   ['g₁', 'g₂', 'g₃'].forEach((n, i) => { ctx.textAlign = 'right'; ctx.fillText(n, ox - 8, oy + i * cs + cs / 2); });
-  ctx.textAlign = 'left'; ctx.font = UIF(700, 13); ctx.fillStyle = COL.ink; ctx.fillText(`K, 3 × 9, design ${S.edit + 1}'s limits on the Lesson 34 model`, ox, oy - 32, W - 2 * ox);
+  ctx.textAlign = 'left'; ctx.font = UIF(700, 13); ctx.fillStyle = COL.ink; ctx.fillText(`K, 3 × 9, design ${S.edit + 1}'s weights on the Lesson 34 model`, ox, oy - 32, W - 2 * ox);
   ctx.font = UIF(500, 12.5); ctx.fillStyle = COL.muted;
   const D = S.runs[S.edit], lines = [
     'Row 2 (the pitch wheel) acts only on ω₂, q₂ and its own third column: pitch is its own loop.',
     'Rows 1 and 3 share the roll–yaw states: a PD on each axis plus cross terms for the gyroscopic coupling.',
-    D.useInt ? 'With integral action the wheel states are left out: Ip ω₂ + h₂ + kgg z₂ never changes, whatever the torque, so no gain can steer it.' : `Wheel-momentum weight h_max = ${fn(D.useH ? D.hmax : 5)} N·m·s${D.useH ? '' : ' (light, by default)'}; its gains are tiny, as Section 4 explains.`,
+    D.useInt ? 'With integral action the wheel states are left out: Ip ω₂ + h₂ + kgg z₂ never changes, whatever the torque, so no gain can steer it.' : `Wheel-momentum weight Q_h = ${fn(g.Qh)} per (N·m·s)²${D.useH ? '' : ' (light, by default: h_max = 5 N·m·s)'}; its gains are tiny, as Section 4 explains.`,
+    'The same weights per axis: Q_q = 4 Q_θ, since q is half the angle.',
   ];
   let ly = oy + 3 * cs + 22; lines.forEach((t) => { ly = wrapText(ctx, t, ox, ly, W - ox - 16, 16) + 6; });
 }
@@ -1346,11 +1389,12 @@ plotCv.addEventListener('pointerleave', () => { PL.hoverX = null; });
    Readouts
    ========================================================= */
 function autoName(r) {
-  const D = S.runs[r], parts = [D.useInt ? `integral Ti ${fn(D.Ti)}` : 'PD'];
+  const D = S.runs[r], parts = [D.useInt ? (D.mode === 'raw' ? 'integral' : `integral Ti ${fn(D.Ti)}`) : 'PD'];
   if (D.useInt && D.gate > 0) parts.push(`gate ${fn(D.gate)}°`);
   if (D.ramp > 0) parts.push(`ramp ${fn(D.ramp)} s`);
-  if (D.thmax !== 0.1) parts.push(`θmax ${fn(D.thmax)}`);
-  if (D.useH) parts.push(`hmax ${fn(D.hmax)}`);
+  if (D.mode === 'raw') parts.push(`by hand, R ${fn(D.rr)}${D.unit === 'deg' ? ' (deg)' : ''}`);
+  else if (D.thmax !== 0.1) parts.push(`θmax ${fn(D.thmax)}`);
+  if (D.useH) parts.push(D.mode === 'raw' ? `Qh ${fn(D.qh)}` : `hmax ${fn(D.hmax)}`);
   if (!D.useLim) parts.push('no limit');
   return parts.join(', ');
 }
@@ -1373,8 +1417,10 @@ function desTable() {
   const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
   const L = P.L;
   let h = '';
-  h += row('θ<sub>max</sub>, ω<sub>max</sub>, u<sub>maxR</sub>', (r) => { const D = S.runs[r]; return cell(r, `${fn(D.thmax)}, ${D.wmax > 0 ? fn(D.wmax) : 'Inf'}, ${fn(D.umaxR)}`, 'wrap'); });
-  h += row('Integral, T<sub>i</sub>, gate, ramp', (r) => { const D = S.runs[r]; return cell(r, D.useInt ? `${fn(D.Ti)} s, ${D.gate > 0 ? fn(D.gate) + '°' : 'Inf'}, ${fn(D.ramp)} s` : `off, ramp ${fn(D.ramp)} s`, 'wrap'); });
+  h += row('Weights from', (r) => { const D = S.runs[r]; return cell(r, D.mode === 'raw' ? `by hand${D.unit === 'deg' ? ', deg' : ''}` : `θ<sub>max</sub> ${fn(D.thmax)}, ω<sub>max</sub> ${D.wmax > 0 ? fn(D.wmax) : 'Inf'}, u<sub>maxR</sub> ${fn(D.umaxR)}`, 'wrap'); });
+  h += row(`${SYM('Q')} diagonal <span class="u">per rad², (rad/s)², (rad·s)², (N·m·s)²</span>`, (r) => cell(r, L[r].names.map((n) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L[r].W[n === 'z' ? 'Qz' : n === 'e' ? 'Qe' : n === 'w' ? 'Qw' : 'Qh'], 3)}`).join('<br>'), 'wrap'));
+  h += row(`${SYM('R')} <span class="u">1/(N·m)²</span>`, (r) => cell(r, fg(L[r].W.R, 3)));
+  h += row('Integral, T<sub>i</sub>, gate, ramp', (r) => { const D = S.runs[r]; return cell(r, D.useInt ? `${D.mode === 'raw' ? 'Q<sub>z</sub>' : fn(D.Ti) + ' s'}, ${D.gate > 0 ? fn(D.gate) + '°' : 'Inf'}, ${fn(D.ramp)} s` : `off, ramp ${fn(D.ramp)} s`, 'wrap'); });
   h += row(`${SYM('k<sub>z</sub>')}`, (r) => cell(r, L[r].kz ? fg(L[r].kz, 4) : '—'), true);
   h += row(`${SYM('k<sub>θ</sub>')} <span class="u">N·m/rad</span>`, (r) => cell(r, fg(L[r].ke, 4)));
   h += row(`${SYM('k<sub>θ̇</sub>')} <span class="u">N·m·s/rad</span>`, (r) => cell(r, fg(L[r].kw, 4)));
@@ -1450,7 +1496,9 @@ function checks() {
   }
   vis.forEach((r) => {
     const D = S.runs[r];
-    if (D.useInt && D.thmax === 0.1 && D.Ti === 60 && !(D.wmax > 0) && D.umaxR === 0.02) items.push({ s: near(L[r].kz, 0.003333, 2e-3) && near(L[r].ke, 0.2468, 2e-3) && near(L[r].kw, 3.142, 2e-3) ? 'ok' : 'bad', t: `Design ${r + 1}: §3 integral gains [0.0033, 0.247, 3.14]`, sub: `computed [${fg(L[r].kz, 3)}, ${fg(L[r].ke, 4)}, ${fg(L[r].kw, 4)}], poles ${L[r].e.filter((z) => z.im >= -1e-12).map((z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 4)} ± ${fg(z.im, 3)}j` : fs(z.re, 4))).join(', ')}` });
+    const W = L[r].W;
+    if (!L[r].ok) items.push({ s: 'bad', t: `Design ${r + 1} has no stabilizing LQR gain`, sub: 'a zero weight leaves a state the cost cannot see: give Q<sub>θ</sub> a positive weight (and Q<sub>h</sub>, when the wheel is fed back). The run uses K = 0 meanwhile.' });
+    if (D.useInt && near(W.Qe, 100, 1e-6) && near(W.Qz, 1 / 36, 1e-6) && W.Qw === 0 && near(W.R, 2500, 1e-6)) items.push({ s: near(L[r].kz, 0.003333, 2e-3) && near(L[r].ke, 0.2468, 2e-3) && near(L[r].kw, 3.142, 2e-3) ? 'ok' : 'bad', t: `Design ${r + 1}: §3 integral gains [0.0033, 0.247, 3.14]`, sub: `computed [${fg(L[r].kz, 3)}, ${fg(L[r].ke, 4)}, ${fg(L[r].kw, 4)}], poles ${L[r].e.filter((z) => z.im >= -1e-12).map((z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 4)} ± ${fg(z.im, 3)}j` : fs(z.re, 4))).join(', ')}` });
   });
   if (currentPreset === 'sec3' && done && S.shown[0]) {
     const err = Math.abs(Ys[0][1] - slew()), want = L[0].thss;
@@ -1472,7 +1520,7 @@ function checks() {
   const dqd = P.dq;
   items.push({ s: dqd.cerr < 1e-12 ? 'ok' : 'bad', t: 'The error quaternion equals C(q)C(q<sub>c</sub>)ᵀ', sub: `difference ${sci(dqd.cerr, 1)}${S.dq.a[1] === 10 && S.dq.c[1] === 30 && !S.dq.a[0] && !S.dq.c[0] && !S.dq.a[2] && !S.dq.c[2] ? `; Appendix A: δq₂ ${fs(dqd.e.d[2], 4)}, angle ${fx(dqd.e.angle * R2D, 2)}°` : ''}` });
   const K = P.g3.K, kmax = Math.max(...K.flat().map(Math.abs)), off = Math.max(...[0, 2, 3, 5, 6, 8].map((j) => Math.abs(K[1][j]))) / kmax;
-  items.push({ s: off < 1e-6 ? 'ok' : 'bad', t: 'Three-axis K: the pitch row acts only on pitch states', sub: `largest off-pitch entry ${sci(off, 1)} of the largest gain; Riccati residual ${sci(P.g3.res, 1)}` });
+  if (P.g3.ok) items.push({ s: off < 1e-6 ? 'ok' : 'bad', t: 'Three-axis K: the pitch row acts only on pitch states', sub: `largest off-pitch entry ${sci(off, 1)} of the largest gain; Riccati residual ${sci(P.g3.res, 1)}` });
   el('checks').innerHTML = items.map((it) => `<li data-s="${it.s}"><span class="mk">${it.s === 'ok' ? '✓' : it.s === 'bad' ? '✕' : it.s === 'warn' ? '!' : '·'}</span><span>${it.t}<span class="sub">${it.sub}</span></span></li>`).join('');
 }
 
@@ -1517,10 +1565,19 @@ function syncInputs() {
   setBox('thmax', fmt(D.thmax)); setBox('wmax', D.wmax > 0 ? fmt(D.wmax) : ''); setBox('umaxR', fmt(D.umaxR));
   setBox('Ti', fmt(D.Ti)); setBox('gate', D.gate > 0 ? fmt(D.gate) : ''); setBox('ramp', fmt(D.ramp));
   el('useInt').checked = D.useInt; el('useH').checked = D.useH; el('useLim').checked = D.useLim;
+  const raw = D.mode === 'raw';
+  el('brysonBox').hidden = raw; el('rawBox').hidden = !raw; el('hmRow').hidden = raw;
+  el('Ti').disabled = raw; el('Ti').title = raw ? 'By hand, the integrator weight is Q_z below' : '';
+  ['qz', 'qe', 'qw', 'qh', 'rr'].forEach((k) => setBox(k, fmt(D[k])));
+  el('qz').disabled = !D.useInt; el('qh').disabled = !(D.useH && !D.useInt);
+  el('rawUnits').textContent = D.unit === 'deg' ? 'deg units' : 'rad units';
+  $$('#modeSeg [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === D.mode)));
+  $$('#unitSeg [data-unit]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.unit === D.unit)));
   for (let i = 0; i < 3; i++) { setBox('qa' + i, fmt(S.dq.a[i])); setBox('qc' + i, fmt(S.dq.c[i])); }
   el('chkFlip').checked = S.dq.flip; el('chkSol').checked = S.showSol; el('chkCmd').checked = S.show.cmd; el('chkLabels').checked = S.show.labels;
   const L = P.L[S.edit];
-  el('runNote').innerHTML = `K = [${L.names.map((n, i) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.K[i], 3)}`).join(', ')}]${L.hDropped ? `. ${ST('warn', 'h not fed back')} with integral action the wheel state cannot be stabilized (see the Three-axis K pane).` : ''}`;
+  const Wn = L.names.map((n) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.W[n === 'z' ? 'Qz' : n === 'e' ? 'Qe' : n === 'w' ? 'Qw' : 'Qh'], 3)}`).join(', ');
+  el('runNote').innerHTML = `${raw ? 'In radians: ' : 'Bryson gives '}Q = diag(${Wn}), R = ${fg(L.W.R, 3)}. ` + (!L.ok ? `${ST('bad', 'no stabilizing gain')} a zero weight leaves a state the cost cannot see; the run uses K = 0.` : `K = [${L.names.map((n, i) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.K[i], 3)}`).join(', ')}]${L.hDropped ? `. ${ST('warn', 'h not fed back')} with integral action the wheel state cannot be stabilized (see the Three-axis K pane).` : ''}`);
   el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
   $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
   $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
@@ -1529,7 +1586,7 @@ function syncInputs() {
   el('paneTitle').textContent = S.pane === 'req' ? 'Scores' : S.pane === 'k3' ? 'Gain' : 'δq';
   el('paneCap').innerHTML = S.pane === 'req'
     ? 'Each bar is a design\'s value against its requirement: the dashed line is the limit, the right end twice the limit. Pale bars are still changing.'
-    : S.pane === 'k3' ? 'The 3 × 9 gain for the full satellite from the edited design\'s Bryson limits: teal positive, magenta negative, darker for larger. Its pitch row is the one-axis design above.'
+    : S.pane === 'k3' ? 'The 3 × 9 gain for the full satellite from the edited design\'s weights: teal positive, magenta negative, darker for larger. Its pitch row is the one-axis design above.'
       : 'The rotation from where the satellite is to where it should be, from the attitudes in the rail. Compare it with the naive difference q − q<sub>c</sub>.';
   syncSpeed();
 }
@@ -1545,6 +1602,11 @@ const numBox = (id, apply) => el(id).addEventListener('change', (e) => { const v
 numBox('tOn', (v) => { if (v >= 0) S.tOn = v; });
 numBox('tOff', (v) => { S.tOff = v >= 0 ? v : 1e9; });
 numBox('tEnd', (v) => { if (v >= 10) S.T = v; });
+['qz', 'qe', 'qw', 'qh'].forEach((k) => numBox(k, (v) => { if (v >= 0) S.runs[S.edit][k] = v; S.runs[S.edit].name = ''; }));
+numBox('rr', (v) => { if (v > 0) S.runs[S.edit].rr = v; S.runs[S.edit].name = ''; });
+/* switching to "by hand" starts from the weights Bryson's rule was giving, so nothing jumps; the units switch reads the same numbers in other units, as in Lesson 35 */
+$$('#modeSeg [data-mode]').forEach((b) => b.addEventListener('click', () => { const D = S.runs[S.edit]; if (D.mode === b.dataset.mode) return; if (b.dataset.mode === 'raw') seedRaw(D, weights(S.edit)); D.mode = b.dataset.mode; D.name = ''; edited(); rebuild(); }));
+$$('#unitSeg [data-unit]').forEach((b) => b.addEventListener('click', () => { S.runs[S.edit].unit = b.dataset.unit; S.runs[S.edit].name = ''; edited(); rebuild(); }));
 numBox('thmax', (v) => { if (v > 0) S.runs[S.edit].thmax = v; S.runs[S.edit].name = ''; });
 numBox('wmax', (v) => { S.runs[S.edit].wmax = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
 numBox('umaxR', (v) => { if (v > 0) S.runs[S.edit].umaxR = v; S.runs[S.edit].name = ''; });
