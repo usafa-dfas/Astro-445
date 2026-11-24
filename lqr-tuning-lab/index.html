@@ -139,6 +139,7 @@ input[type=number] {
 .trio .lab .u { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); display: block; }
 .trio label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); text-align: center; }
 .trio label .sym { color: var(--ink); }
+.trio label.idle { opacity: 0.55; }
 
 /* buttons */
 .btn {
@@ -384,7 +385,7 @@ table.modes td { white-space: normal; }
         <button class="btn" type="button" data-preset="shape">Too much torque<small>§5 three options</small></button>
         <button class="btn" type="button" data-preset="chal">Challenge<small>50° slew, big push</small></button>
       </div>
-      <label class="check"><input type="checkbox" id="chkSol"> Show a solution in "The lab" and the challenges (instructor)</label>
+      <label class="check"><input type="checkbox" id="chkSol"> Show a solution in "The lab" (instructor)</label>
     </section>
 
     <section class="group">
@@ -1465,7 +1466,7 @@ function card() {
     watch = 'The "Torque" history: design 1 far beyond the red limit, design 2 pinned against it.';
   } else if (sc === 'chal') {
     t = 'Challenge: a big slew, then a big push';
-    s = `Slew ${fn(S.slew)}° at t = 0, then hold against a ${fn(S.gd)} N·m disturbance from ${fn(S.tOn)} to ${fn(S.tOff)} s: ten times the lab's, and a quarter of all the torque the wheel can give. The run ends at ${fn(S.T)} s. Design 1 starts with no weights at all, so it does nothing. Set it up, by Bryson's rule or by hand, until all four requirements pass. R3 is the hard one: the error must stay inside 0.05° when the push arrives and again when it stops.${S.showSol ? ' Design 2 is one setting that passes.' : ''}`;
+    s = `Slew ${fn(S.slew)}° at t = 0, then hold against a ${fn(S.gd)} N·m disturbance from ${fn(S.tOn)} to ${fn(S.tOff)} s: ten times the lab's, and a quarter of all the torque the wheel can give. The run ends at ${fn(S.T)} s. Design 1 starts with no weights at all, so it does nothing. Set it up, by Bryson's rule or by hand, until all four requirements pass. R3 is the hard one: the error must stay inside 0.05° when the push arrives and again when it stops.`;
     watch = '"Zoom on hold" for R3. The wheel cannot avoid storing the push: 0.005 N·m for 120 s is 0.6 N·m·s. If the satellite swings back and forth at full torque and never settles, the gains are too stiff for a 0.02 N·m wheel: saturation has locked it into a limit cycle.';
   } else if (sc === 'shape') {
     t = 'When a slew asks for too much torque: three options';
@@ -1575,9 +1576,14 @@ function syncInputs() {
   el('useInt').checked = D.useInt; el('useH').checked = D.useH; el('useLim').checked = D.useLim;
   const raw = D.mode === 'raw';
   el('brysonBox').hidden = raw; el('rawBox').hidden = !raw; el('hmRow').hidden = raw;
-  el('Ti').disabled = raw; el('Ti').title = raw ? 'By hand, the integrator weight is Q_z below' : '';
+  // by hand, Ti is Bryson's link between the angle and integrator weights, Q_z = Q_θ/Ti², so it shows what Q_z and Q_θ imply
+  if (raw) setBox('Ti', fmt(D.qe > 0 && D.qz > 0 ? +Math.sqrt(D.qe / D.qz).toPrecision(4) : D.Ti));
+  el('Ti').title = raw ? 'By hand, typing Ti sets Q_z = Q_θ/Ti², as Bryson\'s rule would' : '';
   ['qz', 'qe', 'qw', 'qh', 'rr'].forEach((k) => setBox(k, fmt(D[k])));
-  el('qz').disabled = !D.useInt; el('qh').disabled = !(D.useH && !D.useInt);
+  const zOn = D.useInt, hOn = D.useH && !D.useInt;
+  el('qz').closest('label').classList.toggle('idle', !zOn); el('qh').closest('label').classList.toggle('idle', !hOn);
+  el('qz').title = zOn ? '' : 'Kept for later: used once integral action is on';
+  el('qh').title = hOn ? '' : D.useInt ? 'Kept for later: the wheel state is left out while integral action is on' : 'Kept for later: used once wheel momentum is fed back';
   el('rawUnits').textContent = D.unit === 'deg' ? 'deg units' : 'rad units';
   $$('#modeSeg [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === D.mode)));
   $$('#unitSeg [data-unit]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.unit === D.unit)));
@@ -1618,7 +1624,7 @@ $$('#unitSeg [data-unit]').forEach((b) => b.addEventListener('click', () => { S.
 numBox('thmax', (v) => { if (v > 0) S.runs[S.edit].thmax = v; S.runs[S.edit].name = ''; });
 numBox('wmax', (v) => { S.runs[S.edit].wmax = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
 numBox('umaxR', (v) => { if (v > 0) S.runs[S.edit].umaxR = v; S.runs[S.edit].name = ''; });
-numBox('Ti', (v) => { if (v > 0) S.runs[S.edit].Ti = v; S.runs[S.edit].name = ''; });
+numBox('Ti', (v) => { const D = S.runs[S.edit]; if (v > 0) { D.Ti = v; if (D.mode === 'raw' && D.qe > 0) D.qz = +(D.qe / (v * v)).toPrecision(6); } D.name = ''; });
 numBox('gate', (v) => { S.runs[S.edit].gate = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
 numBox('ramp', (v) => { S.runs[S.edit].ramp = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
 [['useInt', 'useInt'], ['useH', 'useH'], ['useLim', 'useLim']].forEach(([id, k]) => el(id).addEventListener('change', (e) => { S.runs[S.edit][k] = e.target.checked; S.runs[S.edit].name = ''; edited(); rebuild(); }));
@@ -1629,7 +1635,7 @@ for (let i = 0; i < 3; i++) {
 el('chkFlip').addEventListener('change', (e) => { S.dq.flip = e.target.checked; deriveDq(); checks(); drawPane(); });
 el('randBtn').addEventListener('click', () => { const rnd = () => +(Math.random() * 360 - 180).toFixed(1); S.dq.a = [rnd(), +(Math.random() * 160 - 80).toFixed(1), rnd()]; S.dq.c = [rnd(), +(Math.random() * 160 - 80).toFixed(1), rnd()]; deriveDq(); syncInputs(); checks(); setPane('dq'); });
 el('appBtn').addEventListener('click', () => { S.dq = { a: [0, 10, 0], c: [0, 30, 0], flip: false }; deriveDq(); syncInputs(); checks(); setPane('dq'); });
-el('chkSol').addEventListener('change', (e) => { S.showSol = e.target.checked; if (currentPreset === 'lab' || isChal()) applyPreset(currentPreset); });
+el('chkSol').addEventListener('change', (e) => { S.showSol = e.target.checked; if (currentPreset === 'lab') applyPreset('lab'); });
 el('chkCmd').addEventListener('change', (e) => { S.show.cmd = e.target.checked; });
 el('chkLabels').addEventListener('change', (e) => { S.show.labels = e.target.checked; });
 function setEdit(r) { S.edit = r; P.g3 = gain3(r); syncInputs(); drawPane(); }
@@ -1653,17 +1659,16 @@ const PRESETS = {
   sec5: { test: { slew: 45, gd: 0, tOn: 300, tOff: 1e9, T: 300 }, tab: 'u', runs: () => [{ useLim: false, name: 'no torque limit' }, { name: 'limited to 0.02 N·m' }, { useInt: true, name: 'limited, with integral' }] },
   shape: { test: { slew: 45, gd: 0, tOn: 300, tOff: 1e9, T: 300 }, tab: 'u', runs: () => [{ name: 'step command' }, { ramp: 120, name: 'ramped over 120 s' }, { thmax: 0.785, name: 'θmax sized for 45°' }] },
   /* the challenges start from a design with no weights at all (by hand, every Q zero), so it does nothing until the student sets it up */
-  chal: { test: { slew: 50, gd: 5e-3, tOn: 180, tOff: 300, T: 350 }, tab: 'err', speed: 30, one: true, runs: () => chalRuns({ thmax: 0.005, useInt: true, Ti: 6, gate: 0.5, ramp: 95, name: 'solution: θmax 0.005, Ti 6 s, gate 0.5°, ramp 95 s' }) },
+  chal: { test: { slew: 50, gd: 5e-3, tOn: 180, tOff: 300, T: 350 }, tab: 'err', speed: 30, one: true, runs: () => [BLANK, BLANK, BLANK].map((o) => Object.assign({}, o)) },
 };
 const BLANK = { mode: 'raw', qz: 0, qe: 0, qw: 0, qh: 0, rr: 1, name: 'your design' };
-const chalRuns = (sol) => [BLANK, S.showSol ? sol : BLANK, BLANK].map((o) => Object.assign({}, o));
 const isChal = () => currentPreset === 'chal';
 function applyPreset(name) {
   currentPreset = name;
   const p = PRESETS[name];
   Object.assign(S, p.test);
   S.runs = p.runs().map((o) => mkRun(o));
-  S.shown = p.one ? [true, S.showSol, false] : [true, true, true];
+  S.shown = p.one ? [true, false, false] : [true, true, true];
   S.edit = 0;
   S.speed = p.speed || +(S.T / 20).toPrecision(2);
   PL.q = p.tab; S.zoom = false;
