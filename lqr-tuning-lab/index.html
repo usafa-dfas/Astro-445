@@ -427,7 +427,7 @@ table.modes td { white-space: normal; }
         </div>
         <div class="trio" id="brysonBox">
           <div class="lab">Bryson<span class="u">limits</span></div>
-          <label>θmax, rad<input type="number" id="thmax" min="1e-4" step="any" aria-label="thmax, rad: Bryson attitude limit"></label>
+          <label>θmax, rad<input type="number" id="thmax" min="0" step="any" placeholder="Inf" aria-label="thmax, rad: Bryson attitude limit; empty means no angle weight"></label>
           <label>ωmax, rad/s<input type="number" id="wmax" min="0" step="any" placeholder="Inf" aria-label="wmax, rad/s: Bryson rate limit; empty means no rate weight"></label>
           <label>umaxR, N·m<input type="number" id="umaxR" min="1e-6" step="any" aria-label="umaxR, N·m: torque used in Bryson's R"></label>
         </div>
@@ -1398,11 +1398,12 @@ function autoName(r) {
   if (D.useInt && D.gate > 0) parts.push(`gate ${fn(D.gate)}°`);
   if (D.ramp > 0) parts.push(`ramp ${fn(D.ramp)} s`);
   if (D.mode === 'raw') parts.push(`by hand, R ${fn(D.rr)}${D.unit === 'deg' ? ' (deg)' : ''}`);
-  else if (D.thmax !== 0.1) parts.push(`θmax ${fn(D.thmax)}`);
+  else if (D.thmax !== 0.1) parts.push(`θmax ${fnInf(D.thmax)}`);
   if (D.useH) parts.push(D.mode === 'raw' ? `Qh ${fn(D.qh)}` : `hmax ${fn(D.hmax)}`);
   if (!D.useLim) parts.push('no limit');
   return parts.join(', ');
 }
+const fnInf = (v) => (Number.isFinite(v) ? fn(v) : 'Inf');
 const runName = (r) => S.runs[r].name || autoName(r);
 const runHTML = runName;
 const ST = (s, t) => `<span class="st" data-s="${s}">${t}</span>`;
@@ -1422,7 +1423,7 @@ function desTable() {
   const row = (lab, f, sep) => `<tr${sep ? ' class="sep"' : ''}><td>${lab}</td>${[0, 1, 2].map((r) => f(r)).join('')}</tr>`;
   const L = P.L;
   let h = '';
-  h += row('Weights from', (r) => { const D = S.runs[r]; return cell(r, D.mode === 'raw' ? `by hand${D.unit === 'deg' ? ', deg' : ''}` : `θ<sub>max</sub> ${fn(D.thmax)}, ω<sub>max</sub> ${D.wmax > 0 ? fn(D.wmax) : 'Inf'}, u<sub>maxR</sub> ${fn(D.umaxR)}`, 'wrap'); });
+  h += row('Weights from', (r) => { const D = S.runs[r]; return cell(r, D.mode === 'raw' ? `by hand${D.unit === 'deg' ? ', deg' : ''}` : `θ<sub>max</sub> ${fnInf(D.thmax)}, ω<sub>max</sub> ${D.wmax > 0 ? fn(D.wmax) : 'Inf'}, u<sub>maxR</sub> ${fn(D.umaxR)}`, 'wrap'); });
   h += row(`${SYM('Q')} diagonal <span class="u">per rad², (rad/s)², (rad·s)², (N·m·s)²</span>`, (r) => cell(r, L[r].names.map((n) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L[r].W[n === 'z' ? 'Qz' : n === 'e' ? 'Qe' : n === 'w' ? 'Qw' : 'Qh'], 3)}`).join('<br>'), 'wrap'));
   h += row(`${SYM('R')} <span class="u">1/(N·m)²</span>`, (r) => cell(r, fg(L[r].W.R, 3)));
   h += row('Integral, T<sub>i</sub>, gate, ramp', (r) => { const D = S.runs[r]; return cell(r, D.useInt ? `${D.mode === 'raw' ? 'Q<sub>z</sub>' : fn(D.Ti) + ' s'}, ${D.gate > 0 ? fn(D.gate) + '°' : 'Inf'}, ${fn(D.ramp)} s` : `off, ramp ${fn(D.ramp)} s`, 'wrap'); });
@@ -1507,7 +1508,7 @@ function checks() {
   vis.forEach((r) => {
     const D = S.runs[r];
     const W = L[r].W;
-    if (L[r].noWeights) items.push({ s: 'warn', t: `Design ${r + 1} has no weights yet`, sub: 'every Q is zero, so K = 0 and the wheel does nothing: type Q and R by hand, or switch to Bryson\'s rule to start from the lab\'s design' });
+    if (L[r].noWeights) items.push({ s: 'warn', t: `Design ${r + 1} has no weights yet`, sub: S.runs[r].mode === 'raw' ? 'every Q is zero, so K = 0 and the wheel does nothing: type Q and R, or switch to Bryson\'s rule' : 'θmax and ωmax are empty (Inf), so nothing is weighted, K = 0 and the wheel does nothing: set the limits' });
     else if (!L[r].ok) items.push({ s: 'bad', t: `Design ${r + 1} has no stabilizing LQR gain`, sub: 'a zero weight leaves a state the cost cannot see: give Q<sub>θ</sub> a positive weight (and Q<sub>h</sub>, when the wheel is fed back). The run uses K = 0 meanwhile.' });
     if (D.useInt && near(W.Qe, 100, 1e-6) && near(W.Qz, 1 / 36, 1e-6) && W.Qw === 0 && near(W.R, 2500, 1e-6)) items.push({ s: near(L[r].kz, 0.003333, 2e-3) && near(L[r].ke, 0.2468, 2e-3) && near(L[r].kw, 3.142, 2e-3) ? 'ok' : 'bad', t: `Design ${r + 1}: §3 integral gains [0.0033, 0.247, 3.14]`, sub: `computed [${fg(L[r].kz, 3)}, ${fg(L[r].ke, 4)}, ${fg(L[r].kw, 4)}], poles ${L[r].e.filter((z) => z.im >= -1e-12).map((z) => (Math.abs(z.im) > 1e-9 ? `${fs(z.re, 4)} ± ${fg(z.im, 3)}j` : fs(z.re, 4))).join(', ')}` });
   });
@@ -1593,7 +1594,7 @@ function syncInputs() {
   el('chkFlip').checked = S.dq.flip; el('chkSol').checked = S.showSol; el('chkCmd').checked = S.show.cmd; el('chkLabels').checked = S.show.labels;
   const L = P.L[S.edit];
   const Wn = L.names.map((n) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.W[n === 'z' ? 'Qz' : n === 'e' ? 'Qe' : n === 'w' ? 'Qw' : 'Qh'], 3)}`).join(', ');
-  el('runNote').innerHTML = `${raw ? 'In radians: ' : 'Bryson gives '}Q = diag(${Wn}), R = ${fg(L.W.R, 3)}. ` + (L.noWeights ? `${ST('warn', 'no weights yet')} K = 0, so the wheel does nothing. Type Q and R, or switch to Bryson's rule to start from the lab's design.` : !L.ok ? `${ST('bad', 'no stabilizing gain')} a zero weight leaves a state the cost cannot see; the run uses K = 0.` : `K = [${L.names.map((n, i) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.K[i], 3)}`).join(', ')}]${L.hDropped ? `. ${ST('warn', 'h not fed back')} with integral action the wheel state cannot be stabilized (see the Three-axis K pane).` : ''}`);
+  el('runNote').innerHTML = `${raw ? 'In radians: ' : 'Bryson gives '}Q = diag(${Wn}), R = ${fg(L.W.R, 3)}. ` + (L.noWeights ? `${ST('warn', 'no weights yet')} K = 0, so the wheel does nothing. ${raw ? 'Type Q and R, or switch to Bryson\'s rule.' : 'Set θmax (empty means Inf, no weight).'}` : !L.ok ? `${ST('bad', 'no stabilizing gain')} a zero weight leaves a state the cost cannot see; the run uses K = 0.` : `K = [${L.names.map((n, i) => `${n === 'e' ? 'θ' : n === 'w' ? 'θ̇' : n} ${fg(L.K[i], 3)}`).join(', ')}]${L.hDropped ? `. ${ST('warn', 'h not fed back')} with integral action the wheel state cannot be stabilized (see the Three-axis K pane).` : ''}`);
   el('runEdit').style.setProperty('--sw', `var(--run${S.edit})`);
   $$('#runSeg [data-edit]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.edit === S.edit)));
   $$('#runChips [data-run]').forEach((b) => { const r = +b.dataset.run; b.setAttribute('aria-pressed', String(S.shown[r])); b.querySelector('.nm').innerHTML = runHTML(r); });
@@ -1623,7 +1624,7 @@ numBox('rr', (v) => { if (v > 0) S.runs[S.edit].rr = v; S.runs[S.edit].name = ''
 /* switching to "by hand" starts from the weights Bryson's rule was giving, so nothing jumps; the units switch reads the same numbers in other units, as in Lesson 35 */
 $$('#modeSeg [data-mode]').forEach((b) => b.addEventListener('click', () => { const D = S.runs[S.edit]; if (D.mode === b.dataset.mode) return; if (b.dataset.mode === 'raw') seedRaw(D, weights(S.edit)); D.mode = b.dataset.mode; D.name = ''; edited(); rebuild(); }));
 $$('#unitSeg [data-unit]').forEach((b) => b.addEventListener('click', () => { S.runs[S.edit].unit = b.dataset.unit; S.runs[S.edit].name = ''; edited(); rebuild(); }));
-numBox('thmax', (v) => { if (v > 0) S.runs[S.edit].thmax = v; S.runs[S.edit].name = ''; });
+numBox('thmax', (v) => { S.runs[S.edit].thmax = v > 0 ? v : Infinity; S.runs[S.edit].name = ''; });
 numBox('wmax', (v) => { S.runs[S.edit].wmax = v > 0 ? v : 0; S.runs[S.edit].name = ''; });
 numBox('umaxR', (v) => { if (v > 0) S.runs[S.edit].umaxR = v; S.runs[S.edit].name = ''; });
 numBox('Ti', (v) => { const D = S.runs[S.edit]; if (v > 0) { D.Ti = v; if (D.mode === 'raw' && D.qe > 0) D.qz = +(D.qe / (v * v)).toPrecision(6); } D.name = ''; });
@@ -1663,7 +1664,7 @@ const PRESETS = {
   /* the challenges start from a design with no weights at all (by hand, every Q zero), so it does nothing until the student sets it up */
   chal: { test: { slew: 50, gd: 5e-3, tOn: 180, tOff: 300, T: 350 }, tab: 'err', speed: 30, one: true, runs: () => [BLANK, BLANK, BLANK].map((o) => Object.assign({}, o)) },
 };
-const BLANK = { mode: 'raw', qz: 0, qe: 0, qw: 0, qh: 0, rr: 1, name: 'your design' };
+const BLANK = { mode: 'raw', qz: 0, qe: 0, qw: 0, qh: 0, rr: 1, thmax: Infinity, wmax: 0, name: 'your design' };
 const isChal = () => currentPreset === 'chal';
 function applyPreset(name) {
   currentPreset = name;
